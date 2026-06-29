@@ -120,7 +120,8 @@ document.addEventListener("DOMContentLoaded", () => {
         // Fading & binaural elements
         hud: document.getElementById("hud"),
         binauralModeSelect: document.getElementById("binaural-mode-select"),
-        headphonesPrompt: document.getElementById("headphones-prompt")
+        headphonesPrompt: document.getElementById("headphones-prompt"),
+        splashScreen: document.getElementById("splash-screen")
     };
 
     // --- INITIALIZATION ---
@@ -769,6 +770,17 @@ document.addEventListener("DOMContentLoaded", () => {
         window.addEventListener("mousedown", resetUiFadeTimer);
         window.addEventListener("touchstart", resetUiFadeTimer, { passive: true });
         window.addEventListener("keydown", resetUiFadeTimer);
+
+        // Splash screen dismissal & audio pre-unlock gesture
+        if (elements.splashScreen) {
+            elements.splashScreen.onclick = () => {
+                elements.splashScreen.classList.add("fade-out");
+                
+                // Pre-initialize Cosmic Synth AudioContext on first user click gesture
+                // to completely satisfy browser web-audio autostart policies!
+                window.CosmicSynth.init();
+            };
+        }
 
         // Window resize
         window.addEventListener("resize", () => {
