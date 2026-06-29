@@ -14,6 +14,11 @@ document.addEventListener("DOMContentLoaded", () => {
     let isAutopilot = true;
     let lastPresetKey = null;
 
+    // Fading UI inactivity timers & headphones warning variables
+    let uiFadeTimeout = null;
+    let isMouseOverUI = false;
+    let headphonesPromptTimeout = null;
+
     // Cache DOM Elements
     const elements = {
         controlPanel: document.getElementById("control-panel"),
@@ -110,7 +115,12 @@ document.addEventListener("DOMContentLoaded", () => {
         morphingBgToggle: document.getElementById("morphing-bg-toggle"),
         spinningKaleidoToggle: document.getElementById("spinning-kaleido-toggle"),
         shockwavesToggle: document.getElementById("shockwaves-toggle"),
-        particleShapeSelect: document.getElementById("particle-shape-select")
+        particleShapeSelect: document.getElementById("particle-shape-select"),
+        
+        // Fading & binaural elements
+        hud: document.getElementById("hud"),
+        binauralModeSelect: document.getElementById("binaural-mode-select"),
+        headphonesPrompt: document.getElementById("headphones-prompt")
     };
 
     // --- INITIALIZATION ---
@@ -133,6 +143,9 @@ document.addEventListener("DOMContentLoaded", () => {
         setupInteractionEvents();
         updateSliderTextDisplays();
         renderSwatches();
+        
+        // Start inactivity fade countdown
+        resetUiFadeTimer();
         
         // Start animation loop
         requestAnimationFrame(tickLoop);
@@ -661,9 +674,15 @@ document.addEventListener("DOMContentLoaded", () => {
         };
         
         elements.synthVolumeSlider.oninput = () => {
-            const vol = parseInt(elements.synthVolumeSlider.value) / 100;
+            const currentVol = window.CosmicSynth.volume;
+            const newVol = parseInt(elements.synthVolumeSlider.value) / 100;
             elements.synthVolumeVal.textContent = `${elements.synthVolumeSlider.value}%`;
-            window.CosmicSynth.setVolume(vol);
+            window.CosmicSynth.setVolume(newVol);
+            
+            // Trigger headphones warning overlay if turning volume up from 0%
+            if (currentVol === 0 && newVol > 0 && !window.CosmicSynth.isMuted) {
+                triggerHeadphonesPrompt();
+            }
         };
 
         // Factory Reset defaults
@@ -724,6 +743,35 @@ document.addEventListener("DOMContentLoaded", () => {
                     break;
             }
         });
+
+        // Binaural Mode selection
+        elements.binauralModeSelect.onchange = () => {
+            const mode = elements.binauralModeSelect.value;
+            window.CosmicSynth.setBinauralMode(mode);
+            sim.settings.binauralMode = mode;
+            showToast(`Binaural wave shifted to: ${mode.toUpperCase()}`);
+        };
+
+        // Inactivity UI Fading listeners
+        const uiContainers = [elements.hud, elements.floatingActions, elements.sidebarHandle, elements.controlPanel];
+        uiContainers.forEach(container => {
+            if (container) {
+                container.addEventListener("mouseenter", () => {
+                    isMouseOverUI = true;
+                    resetUiFadeTimer();
+                });
+                container.addEventListener("mouseleave", () => {
+                    isMouseOverUI = false;
+                    resetUiFadeTimer();
+                });
+            }
+        });
+
+        // Global user activity listeners to trigger UI reveal
+        window.addEventListener("mousemove", resetUiFadeTimer);
+        window.addEventListener("mousedown", resetUiFadeTimer);
+        window.addEventListener("touchstart", resetUiFadeTimer, { passive: true });
+        window.addEventListener("keydown", resetUiFadeTimer);
 
         // Window resize
         window.addEventListener("resize", () => {
@@ -858,9 +906,43 @@ document.addEventListener("DOMContentLoaded", () => {
             elements.audioSettingsSliders.classList.remove("disabled-element");
             showToast("Ambient synthesizer unmuted");
             
+            // Show headphones alert prompt overlay
+            triggerHeadphonesPrompt();
+            
             // Sync frequencies immediately
             modulateSynth();
         }
+    }
+
+    function triggerHeadphonesPrompt() {
+        if (headphonesPromptTimeout) clearTimeout(headphonesPromptTimeout);
+        elements.headphonesPrompt.classList.remove("hidden");
+        headphonesPromptTimeout = setTimeout(() => {
+            elements.headphonesPrompt.classList.add("hidden");
+        }, 3500); // fade out after 3.5 seconds
+    }
+
+    function resetUiFadeTimer() {
+        if (uiFadeTimeout) clearTimeout(uiFadeTimeout);
+        
+        // Remove fade styling instantly
+        const uiElements = [elements.hud, elements.floatingActions, elements.sidebarHandle, elements.controlPanel];
+        uiElements.forEach(el => {
+            if (el) el.classList.remove("ui-faded");
+        });
+        
+        // Start countdown only if mouse is NOT hovering over UI elements
+        if (!isMouseOverUI) {
+            uiFadeTimeout = setTimeout(fadeUiElements, 5000); // 5 seconds fadeout timer
+        }
+    }
+
+    function fadeUiElements() {
+        if (isMouseOverUI) return;
+        const uiElements = [elements.hud, elements.floatingActions, elements.sidebarHandle, elements.controlPanel];
+        uiElements.forEach(el => {
+            if (el) el.classList.add("ui-faded");
+        });
     }
 
     function toggleFullscreen() {

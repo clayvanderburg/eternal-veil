@@ -25,6 +25,7 @@ class BinauralBeatEngine {
         // Frequency parameters
         this.baseFreq = 110.0;    // Deep A2 tone
         this.beatFreq = 6.0;      // 6Hz (Theta wave)
+        this.binauralMode = "theta"; // theta, delta, alpha, beta, gamma
         
         // Base note frequencies corresponding to palette hue mappings
         this.rootNotes = [82.41, 98.00, 110.00, 123.47, 146.83, 164.81]; // E2, G2, A2, B2, D3, E3
@@ -161,9 +162,18 @@ class BinauralBeatEngine {
         
         const now = this.ctx.currentTime;
         
-        // 1. Map speed to beat delta (Theta range at normal, Alpha range at high speed)
-        // range: 0.1 speed -> 3Hz (Delta), 4.0 speed -> 15Hz (Beta/High Alpha)
-        this.beatFreq = 3.0 + (speed * 3.0); 
+        // 1. Calculate target center frequency depending on selected binaural brainwave band
+        let centerFreq = 6.0;
+        switch (this.binauralMode) {
+            case "delta": centerFreq = 2.5; break; // Deep sleep / healing
+            case "theta": centerFreq = 6.0; break; // Meditation / astral
+            case "alpha": centerFreq = 10.0; break; // Relaxation / focus
+            case "beta":  centerFreq = 18.0; break; // Analytical / alertness
+            case "gamma": centerFreq = 40.0; break; // Peak cognitive binding
+        }
+
+        // Add speed-reactive drift (+/- 15% of band frequency) to make audio live-responsive to flow acceleration
+        this.beatFreq = centerFreq + (speed - 1.0) * (centerFreq * 0.15);
         
         // 2. Map palette colors to base pitch frequencies
         if (colorHues && colorHues.length > 0) {
@@ -215,6 +225,24 @@ class BinauralBeatEngine {
         if (this.initialized && !this.isMuted) {
             this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, this.ctx.currentTime);
             this.masterGain.gain.linearRampToValueAtTime(this.volume, this.ctx.currentTime + 0.1);
+        }
+    }
+
+    // Set active binaural brainwave band and trigger immediate oscillator updates
+    setBinauralMode(mode) {
+        this.binauralMode = mode;
+        if (this.initialized) {
+            const now = this.ctx.currentTime;
+            let centerFreq = 6.0;
+            switch (this.binauralMode) {
+                case "delta": centerFreq = 2.5; break;
+                case "theta": centerFreq = 6.0; break;
+                case "alpha": centerFreq = 10.0; break;
+                case "beta":  centerFreq = 18.0; break;
+                case "gamma": centerFreq = 40.0; break;
+            }
+            this.beatFreq = centerFreq;
+            this.oscRight.frequency.setValueAtTime(this.baseFreq + this.beatFreq, now);
         }
     }
 
