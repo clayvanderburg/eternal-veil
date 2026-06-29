@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Primary SEO Meta Tags -->
+    <title>Eternal Veil • Ambient Flow Cosmic Simulator</title>
+    <meta name="title" content="Eternal Veil • Ambient Flow Cosmic Simulator">
+    <meta name="description" content="An interactive, high-performance mathematical flow field and particle generator with generative ambient synth audio, custom presets, and cosmic dynamics.">
+    <meta name="keywords" content="generative art, flow field, simplex noise, curl noise, canvas physics, ambient sound, web audio api, particle simulation">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://eternalveil.netlify.app/">
+    <meta property="og:title" content="Eternal Veil • Ambient Flow Cosmic Simulator">
+    <meta property="og:description" content="An interactive flow field and particle generator with generative ambient audio and cosmic dynamics.">
+    <meta property="og:image" content="https://eternalveil.netlify.app/og-image.png">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://eternalveil.netlify.app/">
+    <meta property="twitter:title" content="Eternal Veil • Ambient Flow Cosmic Simulator">
+    <meta property="twitter:description" content="An interactive flow field and particle generator with generative ambient audio and cosmic dynamics.">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Custom Style Sheet -->
+    <link rel="stylesheet" href="styles.css?v=3">
+</head>
+<body>
+    <!-- Fullscreen Canvas for simulation -->
+    <canvas id="canvas"></canvas>
+
+    <!-- Glowing Background Ambient Gradients -->
+    <div class="ambient-glow" id="ambient-glow"></div>
+
+    <!-- HUD Overlay (Top-Left) -->
+    <header class="hud-container" id="hud">
+        <div class="logo-area">
+            <h1 class="logo-title">ETERNAL VEIL</h1>
+            <span class="logo-subtitle">COSMIC FLOW GENERATOR</span>
+        </div>
+        
+        <!-- Live Diagnostic Details -->
+        <div class="hud-diagnostics">
+            <div class="diagnostic-item">
+                <span class="diag-label">FPS</span>
+                <span class="diag-value" id="hud-fps">60</span>
+            </div>
+            <div class="diagnostic-item">
+                <span class="diag-label">PARTICLES</span>
+                <span class="diag-value" id="hud-particles">1200</span>
+            </div>
+            <div class="diagnostic-item">
+                <span class="diag-label">MODE</span>
+                <span class="diag-value" id="hud-mode">FLOW</span>
+            </div>
+        </div>
+
+        <!-- Live Audio Waveform in HUD -->
+        <div class="hud-audio-visualizer" id="hud-audio-visualizer-container">
+            <div class="visualizer-bar" style="height: 15%"></div>
+            <div class="visualizer-bar" style="height: 45%"></div>
+            <div class="visualizer-bar" style="height: 35%"></div>
+            <div class="visualizer-bar" style="height: 75%"></div>
+            <div class="visualizer-bar" style="height: 55%"></div>
+            <div class="visualizer-bar" style="height: 20%"></div>
+        </div>
+    </header>
+
+    <!-- Floating Top-Right Controls for quick access -->
+    <div class="floating-controls" id="floating-actions">
+        <!-- Shortcut Legend -->
+        <button class="icon-btn tool-tip" id="shortcut-legend-btn" data-tooltip="Keyboard Shortcuts (H)">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        </button>
+
+        <!-- Ambient Audio Toggle -->
+        <button class="icon-btn tool-tip" id="audio-toggle-btn" data-tooltip="Toggle Ambient Synth (A)">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather audio-muted-icon"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather audio-playing-icon hide"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+        </button>
+
+        <!-- Pause / Resume Animation -->
+        <button class="icon-btn tool-tip" id="pause-btn" data-tooltip="Pause/Play Simulation (Space)">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather pause-icon"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather play-icon hide"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+        </button>
+
+        <!-- Open/Close Settings Panel -->
+        <button class="icon-btn highlight tool-tip" id="menu-toggle-btn" data-tooltip="Toggle Settings Panel (M)">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather settings-icon"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        </button>
+    </div>
+
+    <!-- Hidden Drag Handle (Quick Open Menu - Sliding trigger on right edge) -->
+    <div id="sidebar-handle" class="sidebar-edge-handle" title="Drag left or click to toggle settings">
+        <div class="handle-line"></div>
+    </div>
+
+    <!-- Main Settings Panel (Sliding Drawer) -->
+    <aside class="control-panel panel-collapsed" id="control-panel">
+        <!-- Panel Header -->
+        <div class="panel-header">
+            <div class="panel-header-title">
+                <h2>COSMIC CONSOLE</h2>
+                <p>AUTONOMOUS SIMULATION CONTROL</p>
+            </div>
+            <button class="close-panel-btn" id="close-panel-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="feather"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+
+        <!-- Panel Tabs Navigation -->
+        <nav class="panel-tabs">
+            <button class="tab-btn active" data-tab="tab-presets">Presets</button>
+            <button class="tab-btn" data-tab="tab-physics">Physics</button>
+            <button class="tab-btn" data-tab="tab-dynamics">Dynamics</button>
+            <button class="tab-btn" data-tab="tab-share">Export</button>
+        </nav>
+
+        <!-- Panel Tab Contents Container -->
+        <div class="panel-content">
+
+            <!-- TAB 1: PRESETS & COLORS -->
+            <section class="tab-content active" id="tab-presets">
+                <!-- Autopilot toggle -->
+                <div class="setting-group control-switch">
+                    <div class="switch-info">
+                        <label for="autopilot-toggle" class="setting-label-header">AUTOPILOT CO-PILOT</label>
+                        <p class="setting-desc">Shifts flows and colors morphing over time</p>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="autopilot-toggle" checked>
+                        <span class="switch-slider"></span>
+                    </label>
+                </div>
+
+                <div class="setting-sub-group hidden" id="autopilot-settings">
+                    <div class="control-row">
+                        <div class="control-row-info">
+                            <span class="setting-label">Randomize Colors</span>
+                        </div>
+                        <label class="switch small">
+                            <input type="checkbox" id="autopilot-color-toggle" checked>
+                            <span class="switch-slider"></span>
+                        </label>
+                    </div>
+                    <div class="control-item">
+                        <div class="slider-header">
+                            <span class="setting-label">Pattern Shifts Interval</span>
+                            <span class="slider-value" id="auto-pattern-val">18s</span>
+                        </div>
+                        <input type="range" id="auto-pattern-slider" class="range-slider" min="5" max="60" value="18">
+                    </div>
+                    <div class="control-item">
+                        <div class="slider-header">
+                            <span class="setting-label">Color Shifts Interval</span>
+                            <span class="slider-value" id="auto-color-val">25s</span>
+                        </div>
+                        <input type="range" id="auto-color-slider" class="range-slider" min="5" max="90" value="25">
+                    </div>
+                </div>
+
+                <!-- Curated Style Presets -->
+                <div class="setting-group">
+                    <span class="setting-label-header">VISUAL STYLE PRESETS</span>
+                    <div class="presets-grid" id="presets-grid">
+                        <!-- Loaded dynamically via js -->
+                    </div>
+                </div>
+
+                <!-- Custom Color Swatches -->
+                <div class="setting-group">
+                    <div class="flex-header">
+                        <span class="setting-label-header">VEIL PALETTE</span>
+                        <button class="btn-text" id="randomize-palette-btn">Randomize</button>
+                    </div>
+                    <div class="swatches-palette" id="swatches-palette">
+                        <!-- Loaded dynamically -->
+                    </div>
+                    <div class="color-picker-tools">
+                        <div class="picker-container">
+                            <input type="color" id="particle-color-picker" value="#6366f1">
+                            <span class="picker-hex" id="picker-hex-val">#6366f1</span>
+                        </div>
+                        <button class="btn btn-secondary" id="add-color-btn">Add Color</button>
+                    </div>
+                    <p class="micro-tip">Click swatch to delete. Max 6 colors. Falls back to default.</p>
+                </div>
+
+                <!-- Custom Background Color -->
+                <div class="setting-group">
+                    <span class="setting-label-header">BACKGROUND SETTING</span>
+                    <div class="bg-picker-row">
+                        <div class="picker-container">
+                            <input type="color" id="bg-color-picker" value="#050507">
+                            <span class="picker-hex" id="bg-hex-val">#050507</span>
+                        </div>
+                        <div class="setting-switch flex-end">
+                            <span class="setting-label" style="font-size: 11px; margin-right: 8px;">Solid Layer Mode</span>
+                            <label class="switch small">
+                                <input type="checkbox" id="solid-mode-toggle">
+                                <span class="switch-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: PHYSICS CONTROLS -->
+            <section class="tab-content" id="tab-physics">
+                <!-- Simulation Speed -->
+                <div class="control-item">
+                    <div class="slider-header">
+                        <span class="setting-label">Flow Speed</span>
+                        <span class="slider-value" id="speed-val">1.00</span>
+                    </div>
+                    <input type="range" id="speed-slider" class="range-slider" min="0.1" max="4.0" step="0.05" value="1.00">
+                </div>
+
+                <!-- Turbulence -->
+                <div class="control-item">
+                    <div class="slider-header">
+                        <span class="setting-label">Turbulence Chaos</span>
+                        <span class="slider-value" id="turbulence-val">0.65</span>
+                    </div>
+                    <input type="range" id="turbulence-slider" class="range-slider" min="0.0" max="2.5" step="0.05" value="0.65">
+                </div>
+
+                <!-- Density -->
+                <div class="control-item">
+                    <div class="slider-header">
+                        <span class="setting-label">Particle Density</span>
+                        <span class="slider-value" id="density-val">1200</span>
+                    </div>
+                    <input type="range" id="density-slider" class="range-slider" min="200" max="4000" step="50" value="1200">
+                </div>
+
+                <!-- Organic Flow vs Turbulence grid -->
+                <div class="control-item">
+                    <div class="slider-header">
+                        <span class="setting-label">Flow Organic (Curl)</span>
+                        <span class="slider-value" id="curl-val">0.85</span>
+                    </div>
+                    <input type="range" id="curl-slider" class="range-slider" min="0.0" max="1.0" step="0.01" value="0.85">
+                    <p class="micro-tip">Higher values create fluid whirlpools; lower values resemble static heatwaves.</p>
+                </div>
+
+                <!-- Dissipation / Trail length -->
+                <div class="control-item">
+                    <div class="slider-header">
+                        <span class="setting-label">Dissipation (Trail Shortness)</span>
+                        <span class="slider-value" id="dissipation-val">0.012</span>
+                    </div>
+                    <input type="range" id="dissipation-slider" class="range-slider" min="0.002" max="0.06" step="0.001" value="0.012">
+                </div>
+
+                <!-- Zoom / Noise Scale -->
+                <div class="control-item">
+                    <div class="slider-header">
+                        <span class="setting-label">Flow Pattern Scale (Zoom)</span>
+                        <span class="slider-value" id="zoom-val">1.00</span>
+                    </div>
+                    <input type="range" id="zoom-slider" class="range-slider" min="0.3" max="3.5" step="0.05" value="1.00">
+                </div>
+            </section>
+
+            <!-- TAB 3: PARTICLE DYNAMICS -->
+            <section class="tab-content" id="tab-dynamics">
+                <!-- Base Size -->
+                <div class="control-item">
+                    <div class="slider-header">
+                        <span class="setting-label">Particle Size</span>
+                        <span class="slider-value" id="size-val">2.8</span>
+                    </div>
+                    <input type="range" id="size-slider" class="range-slider" min="0.5" max="7.0" step="0.1" value="2.8">
+                </div>
+
+                <!-- Size Variation -->
+                <div class="control-item">
+                    <div class="slider-header">
+                        <span class="setting-label">Size Variation</span>
+                        <span class="slider-value" id="size-var-val">1.4</span>
+                    </div>
+                    <input type="range" id="size-var-slider" class="range-slider" min="0.0" max="3.5" step="0.1" value="1.4">
+                </div>
+
+                <!-- Particle Stretch / Directionality -->
+                <div class="control-item">
+                    <div class="slider-header">
+                        <span class="setting-label">Speed Stretch</span>
+                        <span class="slider-value" id="stretch-val">1.6</span>
+                    </div>
+                    <input type="range" id="stretch-slider" class="range-slider" min="0.0" max="4.0" step="0.1" value="1.6">
+                </div>
+
+                <!-- Particle Interaction (repel forces) -->
+                <div class="control-item">
+                    <div class="slider-header">
+                        <span class="setting-label">Swarm Repulsion Force</span>
+                        <span class="slider-value" id="interaction-val">0.7</span>
+                    </div>
+                    <input type="range" id="interaction-slider" class="range-slider" min="0.0" max="2.5" step="0.1" value="0.7">
+                </div>
+
+                <!-- Mouse Influence -->
+                <div class="control-item">
+                    <div class="slider-header">
+                        <span class="setting-label">Mouse Influence</span>
+                        <span class="slider-value" id="mouse-influence-val">0.8</span>
+                    </div>
+                    <input type="range" id="mouse-influence-slider" class="range-slider" min="0.0" max="3.0" step="0.1" value="0.8">
+                    
+                    <div class="setting-select-row">
+                        <span class="setting-label" style="font-size: 11px;">Mouse Click Mode:</span>
+                        <select id="mouse-mode-select" class="dropdown-select">
+                            <option value="burst" selected>Explosion Burst</option>
+                            <option value="attract">Gravity Attractor</option>
+                            <option value="repel">Anti-gravity Shield</option>
+                            <option value="vortex">Swirling Vortex</option>
+                            <option value="paint">Paint Force Fields</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Kaleidoscope Toggle and Segments -->
+                <div class="setting-group border-top">
+                    <div class="control-row">
+                        <div class="control-row-info">
+                            <span class="setting-label-header" style="margin-bottom:0;">KALEIDOSCOPE MIRROR</span>
+                            <p class="setting-desc" style="margin-bottom:0;">Reflects particles in radial quadrants</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="kaleidoscope-toggle">
+                            <span class="switch-slider"></span>
+                        </label>
+                    </div>
+                    <div class="control-item hidden" id="kaleidoscope-settings">
+                        <div class="slider-header">
+                            <span class="setting-label">Mandala Segments</span>
+                            <span class="slider-value" id="kaleido-segments-val">6</span>
+                        </div>
+                        <input type="range" id="kaleido-segments-slider" class="range-slider" min="3" max="12" value="6">
+                    </div>
+                </div>
+
+                <!-- Global Rotation & Wobble -->
+                <div class="setting-group border-top">
+                    <span class="setting-label-header">ROTATIONAL PHYSICS</span>
+                    <div class="control-item">
+                        <div class="slider-header">
+                            <span class="setting-label">Global Field Rotation</span>
+                            <span class="slider-value" id="rotation-val">0.00</span>
+                        </div>
+                        <input type="range" id="rotation-slider" class="range-slider" min="0.00" max="1.20" step="0.02" value="0.00">
+                    </div>
+                    <div class="control-item">
+                        <div class="slider-header">
+                            <span class="setting-label">Organic Wobble bounce</span>
+                            <span class="slider-value" id="wobble-val">0.00</span>
+                        </div>
+                        <input type="range" id="wobble-slider" class="range-slider" min="0.00" max="1.50" step="0.05" value="0.00">
+                    </div>
+                </div>
+
+                <!-- Psychedelic drives tab controls -->
+                <div class="setting-group border-top">
+                    <span class="setting-label-header">PSYCHEDELIC DRIVES</span>
+                    
+                    <div class="control-row">
+                        <div class="control-row-info">
+                            <span class="setting-label">Rainbow Cycle Mode</span>
+                            <p class="setting-desc">Continuous HSL color sweeps for particles</p>
+                        </div>
+                        <label class="switch small">
+                            <input type="checkbox" id="psychedelic-toggle">
+                            <span class="switch-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="control-row">
+                        <div class="control-row-info">
+                            <span class="setting-label">Morphing Background</span>
+                            <p class="setting-desc">Slow hue breathing background cycle</p>
+                        </div>
+                        <label class="switch small">
+                            <input type="checkbox" id="morphing-bg-toggle">
+                            <span class="switch-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="control-row">
+                        <div class="control-row-info">
+                            <span class="setting-label">Spinning Mandala Axes</span>
+                            <p class="setting-desc">Symmetry reflection quadrants rotate</p>
+                        </div>
+                        <label class="switch small">
+                            <input type="checkbox" id="spinning-kaleido-toggle">
+                            <span class="switch-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="control-row">
+                        <div class="control-row-info">
+                            <span class="setting-label">Click Shockwaves</span>
+                            <p class="setting-desc">Expanding energy ripples push particles</p>
+                        </div>
+                        <label class="switch small">
+                            <input type="checkbox" id="shockwaves-toggle" checked>
+                            <span class="switch-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="setting-select-row">
+                        <span class="setting-label" style="font-size: 11px;">Particle Geometry:</span>
+                        <select id="particle-shape-select" class="dropdown-select">
+                            <option value="ellipse" selected>Cosmic Ellipses</option>
+                            <option value="drop">Liquid Drops</option>
+                            <option value="ring">Glowing Rings</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 4: EXPORT, URL SHARING & AUDIO -->
+            <section class="tab-content" id="tab-share">
+                <!-- Generative Audio Settings -->
+                <div class="setting-group">
+                    <span class="setting-label-header">GENERATIVE SYNTH CODES</span>
+                    <p class="setting-desc">Procedural ambient chimes and low-pass drones generated directly in real-time from the simulation parameters.</p>
+                    
+                    <div class="control-row" style="margin-top: 12px;">
+                        <span class="setting-label">Enable Audio</span>
+                        <label class="switch">
+                            <input type="checkbox" id="sound-enable-toggle">
+                            <span class="switch-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="control-item disabled-element" id="audio-settings-sliders">
+                        <div class="slider-header">
+                            <span class="setting-label">Volume Level</span>
+                            <span class="slider-value" id="synth-volume-val">40%</span>
+                        </div>
+                        <input type="range" id="synth-volume-slider" class="range-slider" min="0" max="100" value="40">
+                    </div>
+                </div>
+
+                <!-- Share Configuration State -->
+                <div class="setting-group border-top">
+                    <span class="setting-label-header">COSMIC SEED SHARING</span>
+                    <p class="setting-desc">Generate a custom URL containing your physics adjustments, colors, and layout settings to share with others.</p>
+                    <button class="btn btn-primary" id="share-link-btn" style="width: 100%; margin-top: 8px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="button-icon"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                        Copy Shareable Link
+                    </button>
+                </div>
+
+                <!-- Screenshot Capture and Recording -->
+                <div class="setting-group border-top">
+                    <span class="setting-label-header">MEDIA EXPORTER</span>
+                    <p class="setting-desc">Export and capture your flows in high definition directly from the canvas buffer.</p>
+                    
+                    <div class="exporter-actions">
+                        <button class="btn btn-secondary" id="capture-snapshot-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="button-icon"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                            Capture Frame
+                        </button>
+                        
+                        <button class="btn btn-secondary" id="record-flow-btn">
+                            <div class="record-dot"></div>
+                            <span id="record-btn-text">Record Flow Video</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- System Reset -->
+                <div class="setting-group border-top">
+                    <button class="btn btn-danger" id="factory-reset-btn" style="width: 100%;">
+                        Reset to Defaults
+                    </button>
+                </div>
+            </section>
+
+        </div>
+    </aside>
+
+    <!-- Keyboard Shortcuts Modal Guide (Overlay) -->
+    <div class="modal-overlay hidden" id="keyboard-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>KEYBOARD CONTROL CODES</h3>
+                <button class="modal-close-btn" id="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="shortcut-list">
+                    <div class="shortcut-row">
+                        <kbd>M</kbd>
+                        <span>Toggle Controls Panel</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <kbd>Space</kbd>
+                        <span>Pause / Play Flow Simulation</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <kbd>A</kbd>
+                        <span>Toggle Ambient Audio Synth On/Off</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <kbd>F</kbd>
+                        <span>Toggle Fullscreen Display</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <kbd>R</kbd>
+                        <span>Reset Particle Distribution</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <kbd>C</kbd>
+                        <span>Capture High-Res Image Snapshot</span>
+                    </div>
+                </div>
+                <div class="interaction-guide">
+                    <h4>Mouse Screen Interactions</h4>
+                    <p>Depending on the "Mouse Click Mode" selected in the settings:</p>
+                    <ul>
+                        <li><strong>Click + Hold:</strong> Attracts, repels, or swirls particles.</li>
+                        <li><strong>Drag:</strong> Spawns burst particles or paints custom vector flow forces.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Toast notifications -->
+    <div class="toast-notification toast-hidden" id="toast-notify">System ready. Hover edge or press M for controls.</div>
+
+    <!-- Core Javascript Scripts -->
+    <script src="js/presets.js?v=3"></script>
+    <script src="js/synth.js?v=3"></script>
+    <script src="js/exporter.js?v=3"></script>
+    <script src="js/url-sync.js?v=3"></script>
+    <script src="js/simulation.js?v=3"></script>
+    <script src="js/app.js?v=3"></script>
+</body>
+</html>
