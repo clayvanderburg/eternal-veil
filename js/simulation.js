@@ -99,6 +99,7 @@ class Particle {
         this.w = w;
         this.h = h;
         this.palette = palette;
+        this.viewportScale = 1.0;
         this.reset(true);
     }
 
@@ -120,6 +121,9 @@ class Particle {
     }
 
     update(settings, globalTime, mouse, customForces, shockwaves) {
+        // Calculate viewport scale reference (based on 1600px desktop width)
+        const scaleRef = Math.max(0.4, this.viewportScale || 1.0);
+        
         // Get natural flow forces (Curl vs Turbulence)
         const zoom = settings.zoom || 1.0;
         const speed = settings.speed || 1.0;
@@ -127,13 +131,14 @@ class Particle {
         const organic = settings.flowOrganic ?? 0.85;
         const turb = settings.turbulence ?? 0.65;
 
-        // Calculate curl
-        const curl = getCurlNoise(this.x, this.y, globalTime * 0.35, flowFreq);
+        // Calculate curl at scaled virtual coordinates to make swirls size-invariant
+        const curl = getCurlNoise(this.x / scaleRef, this.y / scaleRef, globalTime * 0.35, flowFreq);
         // Calculate standard noise turbulence
-        const tVal = simplexNoise(this.x * 0.015, this.y * 0.015 + globalTime * 0.1);
+        const tVal = simplexNoise((this.x / scaleRef) * 0.015, (this.y / scaleRef) * 0.015 + globalTime * 0.1);
         
-        let targetVx = (curl.vx * organic + tVal * (1 - organic) * turb) * speed * 0.26;
-        let targetVy = (curl.vy * organic + tVal * (1 - organic) * turb) * speed * 0.26;
+        // Scale vector forces by scaleRef to prevent speed feeling too fast on mobile and slow on 4K
+        let targetVx = (curl.vx * organic + tVal * (1 - organic) * turb) * speed * 0.26 * scaleRef;
+        let targetVy = (curl.vy * organic + tVal * (1 - organic) * turb) * speed * 0.26 * scaleRef;
 
         // Apply drag/friction
         const drag = settings.drag !== undefined ? settings.drag : 0.90;
@@ -146,11 +151,11 @@ class Particle {
             const dx = this.x - mouse.x;
             const dy = this.y - mouse.y;
             const distSq = dx * dx + dy * dy;
-            const radius = 200;
+            const radius = 200 * scaleRef; // Proportional interaction radius
 
             if (distSq < radius * radius && distSq > 4) {
                 const dist = Math.sqrt(distSq);
-                const strength = (radius - dist) / radius * settings.mouseInfluence;
+                const strength = (radius - dist) / radius * settings.mouseInfluence * scaleRef;
 
                 switch (settings.mouseMode) {
                     case "attract":
@@ -172,20 +177,20 @@ class Particle {
 
         // Apply custom painted force vector fields (decaying force line nodes)
         if (customForces && customForces.length > 0) {
+            const range = 64 * scaleRef; // Proportional brush radius
             for (let i = 0; i < customForces.length; i++) {
                 const force = customForces[i];
                 const dx = this.x - force.x;
                 const dy = this.y - force.y;
                 const distSq = dx * dx + dy * dy;
-                const range = 64; // distance threshold
 
                 if (distSq < range * range && distSq > 1) {
                     const dist = Math.sqrt(distSq);
                     const forceFactor = (range - dist) / range * (force.life / force.maxLife);
                     
                     // Add painted velocity vectors onto particle direction
-                    this.vx += force.vx * forceFactor * 0.8;
-                    this.vy += force.vy * forceFactor * 0.8;
+                    this.vx += force.vx * forceFactor * 0.8 * scaleRef;
+                    this.vy += force.vy * forceFactor * 0.8 * scaleRef;
                 }
             }
         }
@@ -194,6 +199,7 @@ class Particle {
         if (settings.interaction > 0.05) {
             // Check repulsion against 3 random active particles (approximate local repulsion grid)
             const checkCount = 3;
+            const minDist = (20 + settings.interaction * 6) * scaleRef;
             for (let k = 0; k < checkCount; k++) {
                 if (window.particleArray && window.particleArray.length > 1) {
                     const other = window.particleArray[Math.floor(Math.random() * window.particleArray.length)];
@@ -201,11 +207,10 @@ class Particle {
                         const dx = this.x - other.x;
                         const dy = this.y - other.y;
                         const distSq = dx * dx + dy * dy;
-                        const minDist = 20 + settings.interaction * 6;
                         
                         if (distSq < minDist * minDist && distSq > 0.1) {
                             const dist = Math.sqrt(distSq);
-                            const force = (minDist - dist) / minDist * settings.interaction * 0.6;
+                            const force = (minDist - dist) / minDist * settings.interaction * 0.6 * scaleRef;
                             this.vx += (dx / dist) * force;
                             this.vy += (dy / dist) * force;
                         }
@@ -224,11 +229,11 @@ class Particle {
                 if (distSq > 16) {
                     const dist = Math.sqrt(distSq);
                     // Force is active only near the shockwave expanding wavefront ring
-                    const ringWidth = 35;
+                    const ringWidth = 35 * scaleRef;
                     if (Math.abs(dist - sw.radius) < ringWidth) {
                         const distFromWave = 1.0 - Math.abs(dist - sw.radius) / ringWidth;
                         const lifeFactor = 1.0 - sw.radius / sw.maxRadius;
-                        const strength = distFromWave * lifeFactor * sw.force;
+                        const strength = distFromWave * lifeFactor * sw.force * scaleRef;
                         
                         this.vx += (dx / dist) * strength * 0.65;
                         this.vy += (dy / dist) * strength * 0.65;
@@ -264,13 +269,16 @@ class Particle {
     draw(ctx, settings) {
         const lifeRatio = Math.max(0.1, this.life / this.maxLife);
         
+        // Calculate viewport scale reference
+        const scaleRef = Math.max(0.4, this.viewportScale || 1.0);
+        
         // Dynamic transparency fades based on age and particle preset styles
         const alpha = lifeRatio * 0.78;
         const stretch = settings.stretch || 1.6;
         const shape = settings.particleShape || "ellipse";
         
-        // Base sizes
-        const size = Math.max(0.4, (settings.baseSize + (Math.random() - 0.5) * settings.sizeVariation) * (0.6 + lifeRatio * 0.5));
+        // Base sizes scaled proportionally to screen width to keep particles beautiful
+        const size = Math.max(0.4, (settings.baseSize + (Math.random() - 0.5) * settings.sizeVariation) * (0.6 + lifeRatio * 0.5)) * scaleRef;
         
         ctx.save();
         ctx.globalAlpha = alpha;
@@ -343,6 +351,9 @@ class FlowSimulation {
         this.height = window.innerHeight;
         this.dpr = window.devicePixelRatio || 1;
         
+        // Viewport scale factor (derived relative to standard 1600px desktop width)
+        this.viewportScale = Math.min(2.0, Math.max(0.42, this.width / 1600));
+        
         this.particles = [];
         this.customForces = []; // Drawn vectors field paint
         
@@ -400,29 +411,38 @@ class FlowSimulation {
     resize(newWidth, newHeight) {
         this.width = newWidth;
         this.height = newHeight;
+        this.viewportScale = Math.min(2.0, Math.max(0.42, this.width / 1600));
         this.initCanvas();
         
-        // Update dimensions in particles
+        // Update dimensions and viewport scale in particles
         this.particles.forEach(p => {
             p.w = this.width;
             p.h = this.height;
+            p.viewportScale = this.viewportScale;
         });
     }
 
     spawnParticles() {
         this.particles = [];
-        const count = this.settings.density;
+        // Scale particle count slightly based on screen width so mobile isn't overloaded
+        const scaleRef = Math.max(0.42, this.viewportScale || 1.0);
+        const count = Math.round(this.settings.density * (0.35 + scaleRef * 0.65));
         for (let i = 0; i < count; i++) {
-            this.particles.push(new Particle(this.width, this.height, this.palette));
+            const p = new Particle(this.width, this.height, this.palette);
+            p.viewportScale = this.viewportScale;
+            this.particles.push(p);
         }
         // Expose particles array globally for swarming loops
         window.particleArray = this.particles;
     }
 
     updateDensity() {
-        const target = this.settings.density;
+        const scaleRef = Math.max(0.42, this.viewportScale || 1.0);
+        const target = Math.round(this.settings.density * (0.35 + scaleRef * 0.65));
         while (this.particles.length < target) {
-            this.particles.push(new Particle(this.width, this.height, this.palette));
+            const p = new Particle(this.width, this.height, this.palette);
+            p.viewportScale = this.viewportScale;
+            this.particles.push(p);
         }
         while (this.particles.length > target) {
             this.particles.pop();
@@ -444,6 +464,7 @@ class FlowSimulation {
         
         for (let i = 0; i < count; i++) {
             const p = new Particle(this.width, this.height, this.palette);
+            p.viewportScale = this.viewportScale;
             p.x = x + (Math.random() - 0.5) * 8;
             p.y = y + (Math.random() - 0.5) * 8;
             
