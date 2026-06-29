@@ -381,7 +381,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 sim.updatePalette(palette);
                 renderSwatches();
                 modulateSynth();
-                showToast("Cosmic color shift occurring");
             }, colorInterval);
         }
     }
@@ -445,8 +444,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Clear active presets selected cards
         document.querySelectorAll(".preset-card").forEach(c => c.classList.remove("active"));
-        
-        showToast("Autopilot morphed all sliders randomly!");
     }
 
     // Modulate audio params based on physics
