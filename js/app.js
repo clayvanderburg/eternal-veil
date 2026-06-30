@@ -35,6 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // Quick Buttons
         audioToggleBtn: document.getElementById("audio-toggle-btn"),
+        fullscreenToggleBtn: document.getElementById("fullscreen-toggle-btn"),
         pauseBtn: document.getElementById("pause-btn"),
         
         // HUD Texts
@@ -109,6 +110,7 @@ document.addEventListener("DOMContentLoaded", () => {
         captureSnapshotBtn: document.getElementById("capture-snapshot-btn"),
         recordFlowBtn: document.getElementById("record-flow-btn"),
         factoryResetBtn: document.getElementById("factory-reset-btn"),
+        resetAllFlowBtn: document.getElementById("reset-all-flow-btn"),
         
         // Psychedelic elements
         psychedelicToggle: document.getElementById("psychedelic-toggle"),
@@ -119,6 +121,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // Fading & binaural elements
         hud: document.getElementById("hud"),
+        autopilotHelpTooltip: document.getElementById("autopilot-help-tooltip"),
         binauralModeSelect: document.getElementById("binaural-mode-select"),
         headphonesPrompt: document.getElementById("headphones-prompt"),
         splashScreen: document.getElementById("splash-screen"),
@@ -137,6 +140,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- INITIALIZATION ---
     function initialize() {
         setupTabs();
+        setupFlowToggles();
         buildPresetCards();
         
         // Initialize master volume to 40% (comfortable default, starts muted)
@@ -326,6 +330,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     showToast("Palette must retain at least 1 color.");
                     return;
                 }
+                setOptionToManual("colors");
                 sim.palette.splice(idx, 1);
                 sim.updatePalette([...sim.palette]);
                 renderSwatches();
@@ -374,6 +379,123 @@ document.addEventListener("DOMContentLoaded", () => {
         };
     }
 
+    // --- AUTOPILOT MANUAL VS FLOW LOGIC ---
+    const optionModes = {};
+
+    function isFlowEnabled(key) {
+        if (!isAutopilot) return false;
+        return optionModes[key] !== "manual";
+    }
+
+    function setOptionToManual(key) {
+        optionModes[key] = "manual";
+        const pillGroup = document.querySelector(`.flow-toggle-group[data-key="${key}"]`);
+        if (pillGroup) {
+            const options = pillGroup.querySelectorAll(".flow-toggle-option");
+            options.forEach(span => {
+                if (span.getAttribute("data-val") === "manual") {
+                    span.classList.add("active");
+                } else {
+                    span.classList.remove("active");
+                }
+            });
+        }
+    }
+
+    function setupFlowToggles() {
+        const flowableOptions = [
+            { key: "speed", selector: "#speed-slider", type: "slider" },
+            { key: "turbulence", selector: "#turbulence-slider", type: "slider" },
+            { key: "density", selector: "#density-slider", type: "slider" },
+            { key: "flowOrganic", selector: "#curl-slider", type: "slider" },
+            { key: "dissipation", selector: "#dissipation-slider", type: "slider" },
+            { key: "zoom", selector: "#zoom-slider", type: "slider" },
+            { key: "baseSize", selector: "#size-slider", type: "slider" },
+            { key: "sizeVariation", selector: "#size-var-slider", type: "slider" },
+            { key: "stretch", selector: "#stretch-slider", type: "slider" },
+            { key: "interaction", selector: "#interaction-slider", type: "slider" },
+            { key: "mouseInfluence", selector: "#mouse-influence-slider", type: "slider" },
+            { key: "rotationSpeed", selector: "#rotation-slider", type: "slider" },
+            { key: "wobble", selector: "#wobble-slider", type: "slider" },
+            { key: "kaleidoscopeSegments", selector: "#kaleido-segments-slider", type: "slider" },
+            { key: "kaleidoscopeEnabled", selector: "#kaleidoscope-toggle", type: "switch" },
+            { key: "psychedelicMode", selector: "#psychedelic-toggle", type: "switch" },
+            { key: "morphingBg", selector: "#morphing-bg-toggle", type: "switch" },
+            { key: "spinningKaleido", selector: "#spinning-kaleido-toggle", type: "switch" },
+            { key: "particleShape", selector: "#particle-shape-select", type: "select" },
+            { key: "colors", selector: "#swatches-palette", type: "palette" }
+        ];
+
+        flowableOptions.forEach(opt => {
+            optionModes[opt.key] = "flow"; // default state
+
+            const target = document.querySelector(opt.selector);
+            if (!target) return;
+
+            // Create pill group
+            const pillGroup = document.createElement("div");
+            pillGroup.className = "flow-toggle-group";
+            pillGroup.setAttribute("data-key", opt.key);
+            pillGroup.innerHTML = `
+                <span class="flow-toggle-option" data-val="manual">Man</span>
+                <span class="flow-toggle-option active" data-val="flow">Flow</span>
+            `;
+
+            // Click listener
+            const options = pillGroup.querySelectorAll(".flow-toggle-option");
+            options.forEach(span => {
+                span.onclick = (e) => {
+                    e.stopPropagation();
+                    options.forEach(s => s.classList.remove("active"));
+                    span.classList.add("active");
+                    const value = span.getAttribute("data-val");
+                    optionModes[opt.key] = value;
+                };
+            });
+
+            // Insert into DOM
+            if (opt.type === "slider") {
+                const header = target.parentElement.querySelector(".slider-header");
+                if (header) {
+                    const valSpan = header.querySelector(".slider-value");
+                    if (valSpan) {
+                        header.insertBefore(pillGroup, valSpan);
+                    } else {
+                        header.appendChild(pillGroup);
+                    }
+                }
+            } else if (opt.type === "switch") {
+                const row = target.closest(".control-row");
+                if (row) {
+                    const labelSwitch = row.querySelector(".switch");
+                    if (labelSwitch) {
+                        row.insertBefore(pillGroup, labelSwitch);
+                    } else {
+                        row.appendChild(pillGroup);
+                    }
+                }
+            } else if (opt.type === "select") {
+                const row = target.closest(".setting-select-row");
+                if (row) {
+                    row.insertBefore(pillGroup, target);
+                }
+            } else if (opt.type === "palette") {
+                const group = target.closest(".setting-group");
+                if (group) {
+                    const header = group.querySelector(".flex-header");
+                    if (header) {
+                        const randBtn = header.querySelector("#randomize-palette-btn");
+                        if (randBtn) {
+                            header.insertBefore(pillGroup, randBtn);
+                        } else {
+                            header.appendChild(pillGroup);
+                        }
+                    }
+                }
+            }
+        });
+    }
+
     // --- AUTOPILOT MORPH ROTATOR ---
     function toggleAutopilot(state) {
         isAutopilot = state;
@@ -401,13 +523,15 @@ document.addEventListener("DOMContentLoaded", () => {
             randomizeAllParameters();
         }, patternInterval);
 
-        // 2. Morph colors (if checked)
+        // 2. Morph colors (if checked and set to FLOW)
         if (elements.autopilotColorToggle.checked) {
             autopilotColorTimer = setInterval(() => {
-                const palette = generateHarmoniousPalette();
-                sim.updatePalette(palette);
-                renderSwatches();
-                modulateSynth();
+                if (isFlowEnabled("colors")) {
+                    const palette = generateHarmoniousPalette();
+                    sim.updatePalette(palette);
+                    renderSwatches();
+                    modulateSynth();
+                }
             }, colorInterval);
         }
     }
@@ -422,27 +546,36 @@ document.addEventListener("DOMContentLoaded", () => {
         const rndInt = (min, max) => Math.floor(rnd(min, max + 1));
         
         // Randomize all available sliders over their absolute full ranges (matching HTML inputs)
-        startMorph("speed", rnd(0.1, 4.0));
-        startMorph("turbulence", rnd(0.0, 2.5));
-        startMorph("density", rndInt(200, 4000));
-        startMorph("flowOrganic", rnd(0.0, 1.0));
-        startMorph("dissipation", rnd(0.002, 0.06));
-        startMorph("zoom", rnd(0.3, 3.5));
-        startMorph("baseSize", rnd(0.5, 7.0));
-        startMorph("sizeVariation", rnd(0.0, 3.5));
-        startMorph("stretch", rnd(0.0, 4.0));
-        startMorph("interaction", rnd(0.0, 2.5));
-        startMorph("mouseInfluence", rnd(0.0, 3.0));
-        startMorph("rotationSpeed", rnd(0.0, 1.2));
-        startMorph("wobble", rnd(0.0, 1.5));
+        if (isFlowEnabled("speed")) startMorph("speed", rnd(0.1, 4.0));
+        if (isFlowEnabled("turbulence")) startMorph("turbulence", rnd(0.0, 2.5));
+        if (isFlowEnabled("density")) startMorph("density", rndInt(200, 4000));
+        if (isFlowEnabled("flowOrganic")) startMorph("flowOrganic", rnd(0.0, 1.0));
+        if (isFlowEnabled("dissipation")) startMorph("dissipation", rnd(0.002, 0.06));
+        if (isFlowEnabled("zoom")) startMorph("zoom", rnd(0.3, 3.5));
+        if (isFlowEnabled("baseSize")) startMorph("baseSize", rnd(0.5, 7.0));
+        if (isFlowEnabled("sizeVariation")) startMorph("sizeVariation", rnd(0.0, 3.5));
+        if (isFlowEnabled("stretch")) startMorph("stretch", rnd(0.0, 4.0));
+        if (isFlowEnabled("interaction")) startMorph("interaction", rnd(0.0, 2.5));
+        if (isFlowEnabled("mouseInfluence")) startMorph("mouseInfluence", rnd(0.0, 3.0));
+        if (isFlowEnabled("rotationSpeed")) startMorph("rotationSpeed", rnd(0.0, 1.2));
+        if (isFlowEnabled("wobble")) startMorph("wobble", rnd(0.0, 1.5));
         
         // Kaleidoscope Segments & Toggle
-        const kaleidoOn = Math.random() > 0.5;
-        elements.kaleidoscopeToggle.checked = kaleidoOn;
-        sim.settings.kaleidoscopeEnabled = kaleidoOn;
-        if (kaleidoOn) {
+        const nextKaleidoEnabledFlow = isFlowEnabled("kaleidoscopeEnabled");
+        const nextKaleidoSegmentsFlow = isFlowEnabled("kaleidoscopeSegments");
+        
+        let currentKaleidoEnabled = sim.settings.kaleidoscopeEnabled;
+        if (nextKaleidoEnabledFlow) {
+            currentKaleidoEnabled = Math.random() > 0.5;
+            elements.kaleidoscopeToggle.checked = currentKaleidoEnabled;
+            sim.settings.kaleidoscopeEnabled = currentKaleidoEnabled;
+        }
+        
+        if (currentKaleidoEnabled) {
             elements.kaleidoscopeSettings.classList.remove("hidden");
-            startMorph("kaleidoscopeSegments", rndInt(3, 12));
+            if (nextKaleidoSegmentsFlow) {
+                startMorph("kaleidoscopeSegments", rndInt(3, 12));
+            }
         } else {
             elements.kaleidoscopeSettings.classList.add("hidden");
         }
@@ -451,23 +584,31 @@ document.addEventListener("DOMContentLoaded", () => {
         startMorph("drag", rnd(0.85, 0.95));
 
         // Randomize Psychedelic drives in Autopilot
-        const psychOn = Math.random() > 0.75;
-        sim.settings.psychedelicMode = psychOn;
-        elements.psychedelicToggle.checked = psychOn;
+        if (isFlowEnabled("psychedelicMode")) {
+            const psychOn = Math.random() > 0.75;
+            sim.settings.psychedelicMode = psychOn;
+            elements.psychedelicToggle.checked = psychOn;
+        }
 
-        const morphBgOn = Math.random() > 0.75;
-        sim.settings.morphingBg = morphBgOn;
-        elements.morphingBgToggle.checked = morphBgOn;
+        if (isFlowEnabled("morphingBg")) {
+            const morphBgOn = Math.random() > 0.75;
+            sim.settings.morphingBg = morphBgOn;
+            elements.morphingBgToggle.checked = morphBgOn;
+        }
 
-        const spinKaleidoOn = Math.random() > 0.65;
-        sim.settings.spinningKaleido = spinKaleidoOn;
-        elements.spinningKaleidoToggle.checked = spinKaleidoOn;
+        if (isFlowEnabled("spinningKaleido")) {
+            const spinKaleidoOn = Math.random() > 0.65;
+            sim.settings.spinningKaleido = spinKaleidoOn;
+            elements.spinningKaleidoToggle.checked = spinKaleidoOn;
+        }
 
-        const shapes = ["ellipse", "drop", "ring"];
-        const randVal = Math.random();
-        const shapeChosen = randVal < 0.75 ? "ellipse" : (randVal < 0.90 ? "drop" : "ring");
-        sim.settings.particleShape = shapeChosen;
-        elements.particleShapeSelect.value = shapeChosen;
+        if (isFlowEnabled("particleShape")) {
+            const shapes = ["ellipse", "drop", "ring"];
+            const randVal = Math.random();
+            const shapeChosen = randVal < 0.75 ? "ellipse" : (randVal < 0.90 ? "drop" : "ring");
+            sim.settings.particleShape = shapeChosen;
+            elements.particleShapeSelect.value = shapeChosen;
+        }
 
         // Clear active presets selected cards
         document.querySelectorAll(".preset-card").forEach(c => c.classList.remove("active"));
@@ -495,10 +636,25 @@ document.addEventListener("DOMContentLoaded", () => {
             elements.controlPanel.classList.remove("panel-collapsed");
             elements.floatingActions.classList.add("panel-open");
             elements.menuToggleBtn.classList.add("highlight");
+            
+            // Show help tooltip explaining Manual vs Flow on first open
+            if (localStorage.getItem("autopilotHelpShown") !== "true") {
+                setTimeout(() => {
+                    if (elements.autopilotHelpTooltip) {
+                        elements.autopilotHelpTooltip.classList.remove("hidden");
+                    }
+                    localStorage.setItem("autopilotHelpShown", "true");
+                }, 400); // delay slightly for sliding transition to finish!
+            }
         } else {
             elements.controlPanel.classList.add("panel-collapsed");
             elements.floatingActions.classList.remove("panel-open");
             elements.menuToggleBtn.classList.remove("highlight");
+            
+            // Auto hide tooltip if drawer is closed
+            if (elements.autopilotHelpTooltip) {
+                elements.autopilotHelpTooltip.classList.add("hidden");
+            }
         }
     }
 
@@ -540,6 +696,9 @@ document.addEventListener("DOMContentLoaded", () => {
         // Audio Toggle Click
         elements.audioToggleBtn.onclick = () => toggleAudio();
         
+        // Fullscreen Toggle Click
+        elements.fullscreenToggleBtn.onclick = () => toggleFullscreen();
+        
         // Pause Click
         elements.pauseBtn.onclick = () => togglePause();
         
@@ -563,9 +722,26 @@ document.addEventListener("DOMContentLoaded", () => {
             elements.autoColorVal.textContent = `${elements.autoColorSlider.value}s`;
             if (isAutopilot) startAutopilotIntervals();
         };
+        elements.resetAllFlowBtn.onclick = () => {
+            const flowToggles = document.querySelectorAll(".flow-toggle-group");
+            flowToggles.forEach(group => {
+                const key = group.getAttribute("data-key");
+                optionModes[key] = "flow";
+                const options = group.querySelectorAll(".flow-toggle-option");
+                options.forEach(span => {
+                    if (span.getAttribute("data-val") === "flow") {
+                        span.classList.add("active");
+                    } else {
+                        span.classList.remove("active");
+                    }
+                });
+            });
+            showToast("All settings reset to Flow co-pilot 🌊");
+        };
 
         // Color additions
         elements.randomizePaletteBtn.onclick = () => {
+            setOptionToManual("colors");
             const palette = generateHarmoniousPalette();
             sim.updatePalette(palette);
             renderSwatches();
@@ -576,6 +752,7 @@ document.addEventListener("DOMContentLoaded", () => {
             elements.pickerHexVal.textContent = elements.particleColorPicker.value.toUpperCase();
         };
         elements.addColorBtn.onclick = () => {
+            setOptionToManual("colors");
             if (sim.palette.length >= 6) {
                 sim.palette.shift(); // remove oldest
             }
@@ -872,6 +1049,54 @@ document.addEventListener("DOMContentLoaded", () => {
         window.addEventListener("resize", () => {
             sim.resize(window.innerWidth, window.innerHeight);
         });
+
+        // Autopilot smart override: Automatically switch toggle to Manual when user interacts with sliders, selects, or toggles
+        elements.controlPanel.addEventListener("input", (e) => {
+            const id = e.target.id;
+            const inputToKeyMap = {
+                "speed-slider": "speed",
+                "turbulence-slider": "turbulence",
+                "density-slider": "density",
+                "curl-slider": "flowOrganic",
+                "dissipation-slider": "dissipation",
+                "zoom-slider": "zoom",
+                "size-slider": "baseSize",
+                "size-var-slider": "sizeVariation",
+                "stretch-slider": "stretch",
+                "interaction-slider": "interaction",
+                "mouse-influence-slider": "mouseInfluence",
+                "rotation-slider": "rotationSpeed",
+                "wobble-slider": "wobble",
+                "kaleido-segments-slider": "kaleidoscopeSegments",
+                "kaleidoscope-toggle": "kaleidoscopeEnabled",
+                "psychedelic-toggle": "psychedelicMode",
+                "morphing-bg-toggle": "morphingBg",
+                "spinning-kaleido-toggle": "spinningKaleido",
+                "particle-shape-select": "particleShape"
+            };
+            const key = inputToKeyMap[id];
+            if (key) setOptionToManual(key);
+        });
+
+        elements.controlPanel.addEventListener("change", (e) => {
+            const id = e.target.id;
+            const inputToKeyMap = {
+                "kaleidoscope-toggle": "kaleidoscopeEnabled",
+                "psychedelic-toggle": "psychedelicMode",
+                "morphing-bg-toggle": "morphingBg",
+                "spinning-kaleido-toggle": "spinningKaleido",
+                "particle-shape-select": "particleShape"
+            };
+            const key = inputToKeyMap[id];
+            if (key) setOptionToManual(key);
+        });
+
+        // Dismiss autopilot help tooltip when clicked anywhere on the screen
+        window.addEventListener("click", () => {
+            if (elements.autopilotHelpTooltip && !elements.autopilotHelpTooltip.classList.contains("hidden")) {
+                elements.autopilotHelpTooltip.classList.add("hidden");
+            }
+        }, true);
     }
 
     // --- MOUSE & DRAW PAINT COORDS INTERACTS ---
