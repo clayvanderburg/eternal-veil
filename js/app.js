@@ -1559,27 +1559,43 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // 1. Bass Reactions (Particle Size, Trail Dissipation, Beat shockwaves)
         if (elements.pulseBassToggle.checked) {
-            // Pulsing particle size (expands up to 3.8x on peak drops)
-            const sizeMod = 1.0 + (bassIntensity * 2.8);
+            // Pulsing particle size (expands up to 6.0x on peak drops!)
+            const sizeMod = 1.0 + (bassIntensity * 5.0);
             sim.settings.baseSize = baseSettings.baseSize * sizeMod;
             
             // Reduce dissipation temporarily on bass hits so trails grow longer & brighter
-            const dissMod = Math.max(0.005, baseSettings.dissipation - (bassIntensity * 0.05));
+            const dissMod = Math.max(0.003, baseSettings.dissipation - (bassIntensity * 0.08));
             sim.settings.dissipation = dissMod;
             
-            // Trigger visual explosions & shockwaves on peak bass kicks (threshold check)
-            if (normalizedBass > 0.85 && analysis.bass > 0.22 && now - lastShockwaveTime > 600) {
+            // Trigger visual explosions & physical blasts on peak bass kicks (very low gate for maximum sensitivity!)
+            if (normalizedBass > 0.78 && analysis.bass > 0.05 && now - lastShockwaveTime > 400) {
                 const cx = window.innerWidth / 2;
                 const cy = window.innerHeight / 2;
                 
-                // Spawn a large particle explosion and trigger a powerful, silent physical outward blast wave
-                sim.triggerBurst(cx, cy, 12); // Spawns plenty of particles to spread outward!
-                sim.triggerShockwave(cx, cy, 36.0, 9.5); // High force, high speed physical wave
+                // Blast ALL active particles physically outward from the center instantly!
+                sim.particles.forEach(p => {
+                    const dx = p.x - cx;
+                    const dy = p.y - cy;
+                    const distSq = dx * dx + dy * dy;
+                    if (distSq > 9) {
+                        const dist = Math.sqrt(distSq);
+                        // Add outward velocity push
+                        p.vx += (dx / dist) * 16.0;
+                        p.vy += (dy / dist) * 16.0;
+                    }
+                });
+                
+                // Spawn a massive burst of 50 new particles at the center!
+                sim.triggerBurst(cx, cy, 50);
+                
+                // Trigger a fast, high-power physical shockwave ripple force
+                sim.triggerShockwave(cx, cy, 65.0, 11.5);
+                
                 lastShockwaveTime = now;
             }
             
             // Cycle color palette dynamically on major drops!
-            if (isFlowEnabled("colors") && normalizedBass > 0.92 && analysis.bass > 0.3 && now - lastColorShiftTime > 2500) {
+            if (isFlowEnabled("colors") && normalizedBass > 0.90 && analysis.bass > 0.08 && now - lastColorShiftTime > 2200) {
                 const palette = generateHarmoniousPalette();
                 sim.updatePalette(palette);
                 renderSwatches();
@@ -1593,16 +1609,16 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // 2. Treble/Mid Reactions (Flow Speed, Turbulence, Wobble vibration & stretch)
         if (elements.pulseTrebleToggle.checked) {
-            // Speed scales up to 3.5x on melodic peaks
-            const speedMod = 1.0 + (trebleIntensity * 2.5);
-            const turbMod = 1.0 + (trebleIntensity * 2.2);
+            // Speed scales up to 5.0x and turbulence up to 4.5x on melodic peaks
+            const speedMod = 1.0 + (trebleIntensity * 4.0);
+            const turbMod = 1.0 + (trebleIntensity * 3.5);
             sim.settings.speed = baseSettings.speed * speedMod;
             sim.settings.turbulence = baseSettings.turbulence * turbMod;
             
-            // Particles stretch and wobble/vibrate with melody frequencies
-            sim.settings.wobble = baseSettings.wobble + (trebleIntensity * 2.5);
-            sim.settings.stretch = baseSettings.stretch + (trebleIntensity * 3.0);
-            sim.settings.rotationSpeed = baseSettings.rotationSpeed + (trebleIntensity * 0.12);
+            // Particles stretch (up to +8.0) and wobble/vibrate (up to +6.0) with melody frequencies
+            sim.settings.wobble = baseSettings.wobble + (trebleIntensity * 6.0);
+            sim.settings.stretch = baseSettings.stretch + (trebleIntensity * 8.0);
+            sim.settings.rotationSpeed = baseSettings.rotationSpeed + (trebleIntensity * 0.16);
         } else {
             sim.settings.speed = baseSettings.speed;
             sim.settings.turbulence = baseSettings.turbulence;
