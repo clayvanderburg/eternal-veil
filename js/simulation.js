@@ -120,7 +120,7 @@ class Particle {
         return this.palette[Math.floor(Math.random() * this.palette.length)];
     }
 
-    update(settings, globalTime, mouse, customForces, shockwaves) {
+    update(settings, globalTime, mouse, customForces, shockwaves, vortices) {
         // Calculate viewport scale reference (based on 1600px desktop width)
         const scaleRef = Math.max(0.4, this.viewportScale || 1.0);
         
@@ -219,6 +219,30 @@ class Particle {
             }
         }
 
+        // Apply beat-reactive vortices (swirling force pulls to center and spins)
+        if (vortices && vortices.length > 0) {
+            for (let i = 0; i < vortices.length; i++) {
+                const v = vortices[i];
+                const dx = this.x - v.x;
+                const dy = this.y - v.y;
+                const distSq = dx * dx + dy * dy;
+                const radius = v.radius * scaleRef;
+                if (distSq < radius * radius && distSq > 4) {
+                    const dist = Math.sqrt(distSq);
+                    const lifeRatio = v.life / v.maxLife;
+                    const strength = (radius - dist) / radius * v.strength * lifeRatio * scaleRef;
+                    
+                    // Pull to center
+                    this.vx -= (dx / dist) * strength * 0.45;
+                    this.vy -= (dy / dist) * strength * 0.45;
+                    
+                    // Tangent spin vector
+                    this.vx += (-dy / dist) * strength * 1.5;
+                    this.vy += (dx / dist) * strength * 1.5;
+                }
+            }
+        }
+
         // Apply expanding shockwaves pushing particles outwards
         if (shockwaves && shockwaves.length > 0) {
             for (let i = 0; i < shockwaves.length; i++) {
@@ -239,6 +263,20 @@ class Particle {
                         this.vy += (dy / dist) * strength * 0.65;
                     }
                 }
+            }
+        }
+
+        // Spawn sparks on treble transient attack
+        if (settings.trebleIntensity > 0.05 && Math.random() < settings.trebleIntensity * 0.22) {
+            if (window.simInstance && window.simInstance.sparkles.length < 350) {
+                // Spawn sparkle moving slightly backward relative to particle velocity
+                window.simInstance.sparkles.push(new Sparkle(
+                    this.x, 
+                    this.y, 
+                    this.vx * -0.2, 
+                    this.vy * -0.2, 
+                    this.color
+                ));
             }
         }
 
@@ -341,6 +379,37 @@ class Particle {
 }
 
 
+// --- SPARKLE CLASS FOR HIGH FREQUENCY SNAPS ---
+class Sparkle {
+    constructor(x, y, vx, vy, color) {
+        this.x = x;
+        this.y = y;
+        this.vx = vx + (Math.random() - 0.5) * 1.5;
+        this.vy = vy + (Math.random() - 0.5) * 1.5;
+        this.life = Math.random() * 18 + 8;
+        this.maxLife = this.life;
+        this.color = color;
+        this.size = Math.random() * 1.3 + 0.6;
+    }
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vx *= 0.93;
+        this.vy *= 0.93;
+        this.life--;
+    }
+    draw(ctx) {
+        const alpha = Math.max(0, this.life / this.maxLife);
+        ctx.save();
+        ctx.fillStyle = this.color;
+        ctx.globalAlpha = alpha * 0.75;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
 // --- MAIN SIMULATION WRAPPER ---
 class FlowSimulation {
     constructor(canvasId) {
@@ -356,6 +425,10 @@ class FlowSimulation {
         
         this.particles = [];
         this.customForces = []; // Drawn vectors field paint
+        
+        this.sparkles = [];
+        this.vortices = [];
+        window.simInstance = this;
         
         this.globalTime = 0;
         this.globalRotation = 0;
@@ -495,6 +568,17 @@ class FlowSimulation {
         });
     }
 
+    triggerVortex(x, y, radius = 300, strength = 15.0, life = 45) {
+        this.vortices.push({
+            x: x,
+            y: y,
+            radius: radius,
+            strength: strength,
+            life: life,
+            maxLife: life
+        });
+    }
+
     addCustomForce(x, y, vx, vy) {
         // Add painted vector trace
         this.customForces.push({
@@ -535,6 +619,15 @@ class FlowSimulation {
             sw.radius += sw.speed;
             if (sw.radius >= sw.maxRadius) {
                 this.shockwaves.splice(i, 1);
+            }
+        }
+
+        // Update beat-reactive vortices
+        for (let i = this.vortices.length - 1; i >= 0; i--) {
+            const v = this.vortices[i];
+            v.life--;
+            if (v.life <= 0) {
+                this.vortices.splice(i, 1);
             }
         }
 
@@ -587,8 +680,18 @@ class FlowSimulation {
             // Draw Core particles
             for (let i = 0; i < this.particles.length; i++) {
                 const p = this.particles[i];
-                p.update(this.settings, this.globalTime, this.mouse, this.customForces, this.shockwaves);
+                p.update(this.settings, this.globalTime, this.mouse, this.customForces, this.shockwaves, this.vortices);
                 p.draw(this.ctx, this.settings);
+            }
+
+            // Update & Draw sparkles
+            for (let i = this.sparkles.length - 1; i >= 0; i--) {
+                const s = this.sparkles[i];
+                s.update();
+                s.draw(this.ctx);
+                if (s.life <= 0) {
+                    this.sparkles.splice(i, 1);
+                }
             }
 
             // Clean up temporary burst particles that have completed their lifespan

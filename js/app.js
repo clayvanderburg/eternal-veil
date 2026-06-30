@@ -1556,6 +1556,17 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
                 baseSettings = null;
                 moodH = moodS = moodL = 0;
+                
+                // Restore scale and glow defaults
+                const canvasEl = document.getElementById("canvas");
+                if (canvasEl) canvasEl.style.transform = "";
+                
+                const ambientGlowEl = document.getElementById("ambient-glow");
+                if (ambientGlowEl) {
+                    ambientGlowEl.style.background = `radial-gradient(circle, ${sim.backgroundColor}88 0%, transparent 70%)`;
+                    ambientGlowEl.style.opacity = 1.0;
+                }
+                sim.settings.trebleIntensity = 0;
             }
             return;
         }
@@ -1676,6 +1687,25 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // 6. Apply Modulations to simulation settings
         
+        // Dynamic Canvas scale screen bounce (subtle punch up to 1.035x)
+        const scaleAmount = 1.0 + Math.min(0.035, sizePulse * 0.03);
+        const canvasEl = document.getElementById("canvas");
+        if (canvasEl) {
+            canvasEl.style.transform = `scale(${scaleAmount})`;
+        }
+        
+        // Dynamic Ambient Glow pulse
+        const glowSize = 70 + Math.min(25, sizePulse * 22);
+        const glowOpacity = 0.5 + Math.min(0.5, sizePulse * 0.4);
+        const ambientGlowEl = document.getElementById("ambient-glow");
+        if (ambientGlowEl) {
+            ambientGlowEl.style.background = `radial-gradient(circle, ${sim.backgroundColor}dd 0%, transparent ${glowSize}%)`;
+            ambientGlowEl.style.opacity = glowOpacity;
+        }
+        
+        // Feed Treble pulse to settings to drive particle sparkles
+        sim.settings.trebleIntensity = speedPulse;
+        
         // Bass Modulations (Particle Size & Dissipation)
         if (elements.pulseBassToggle.checked) {
             // Pulse particle base size (cap size swelling at a clean 3.5x max for visible punch)
@@ -1707,6 +1737,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 
                 // Spawn a quick, neat cluster of 35 particles
                 sim.triggerBurst(cx, cy, 35);
+                
+                // Trigger a beat vortex swirl at center (pulls inward and spins)
+                sim.triggerVortex(cx, cy, 280, 16.0, 45);
                 
                 // Silent force wave to push outer vectors
                 sim.triggerShockwave(cx, cy, 55.0, 10.5);
