@@ -991,7 +991,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                 }
             } catch (err) {
-                showToast("Device audio sharing denied or cancelled");
+                // Show the specific error (e.g. prompting to check the audio share checkbox)
+                showToast(err.message || "Device audio sharing cancelled");
             } finally {
                 elements.systemReactBtn.textContent = "💻 Device Audio";
             }
@@ -1506,6 +1507,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- MUSIC REACTIVITY CONTROLLER ---
     let baseSettings = null;
+    let maxBassSeen = 0.4;
+    let maxTrebleSeen = 0.4;
+    let lastShockwaveTime = 0;
+    let lastColorShiftTime = 0;
 
     function processMusicReactivity() {
         if (!window.CosmicSynth) return;
@@ -1527,29 +1532,85 @@ document.addEventListener("DOMContentLoaded", () => {
             baseSettings = {
                 baseSize: sim.settings.baseSize,
                 turbulence: sim.settings.turbulence,
-                speed: sim.settings.speed
+                speed: sim.settings.speed,
+                dissipation: sim.settings.dissipation,
+                wobble: sim.settings.wobble,
+                stretch: sim.settings.stretch,
+                rotationSpeed: sim.settings.rotationSpeed
             };
         }
         
-        // 1. Modulate Particle Base Size on Bass Kick
+        const now = Date.now();
+        
+        // Dynamic Gain Control (Rolling Peak auto-calibration)
+        if (analysis.bass > maxBassSeen) maxBassSeen = analysis.bass;
+        else maxBassSeen = Math.max(0.1, maxBassSeen * 0.9995); // slowly decay to remain sensitive
+
+        if (analysis.treble > maxTrebleSeen) maxTrebleSeen = analysis.treble;
+        else maxTrebleSeen = Math.max(0.1, maxTrebleSeen * 0.9995);
+        
+        // Normalize signals between 0.0 and 1.0 relative to peak history
+        const normalizedBass = Math.min(1.0, analysis.bass / maxBassSeen);
+        const normalizedTreble = Math.min(1.0, analysis.treble / maxTrebleSeen);
+        
+        // Apply non-linear exponential curves to favor peaks and drops
+        const bassIntensity = Math.pow(normalizedBass, 2.5);
+        const trebleIntensity = Math.pow(normalizedTreble, 1.8);
+        
+        // 1. Bass Reactions (Particle Size, Trail Dissipation, Beat shockwaves)
         if (elements.pulseBassToggle.checked) {
-            // Bass scale mod (peak size increases up to 2.5x base settings)
-            const sizeMod = 1.0 + (analysis.bass * 1.5);
+            // Pulsing particle size (expands up to 3.8x on peak drops)
+            const sizeMod = 1.0 + (bassIntensity * 2.8);
             sim.settings.baseSize = baseSettings.baseSize * sizeMod;
+            
+            // Reduce dissipation temporarily on bass hits so trails grow longer & brighter
+            const dissMod = Math.max(0.005, baseSettings.dissipation - (bassIntensity * 0.05));
+            sim.settings.dissipation = dissMod;
+            
+            // Trigger visual explosions & shockwaves on peak bass kicks (threshold check)
+            if (normalizedBass > 0.85 && analysis.bass > 0.22 && now - lastShockwaveTime > 600) {
+                const cx = window.innerWidth / 2;
+                const cy = window.innerHeight / 2;
+                
+                // Spawn a particle explosion and a physical ripple
+                sim.triggerBurst(cx, cy, 3);
+                if (sim.settings.shockwavesEnabled) {
+                    sim.triggerShockwave(cx, cy);
+                }
+                lastShockwaveTime = now;
+            }
+            
+            // Cycle color palette dynamically on major drops!
+            if (isFlowEnabled("colors") && normalizedBass > 0.92 && analysis.bass > 0.3 && now - lastColorShiftTime > 2500) {
+                const palette = generateHarmoniousPalette();
+                sim.updatePalette(palette);
+                renderSwatches();
+                modulateSynth();
+                lastColorShiftTime = now;
+            }
         } else {
             sim.settings.baseSize = baseSettings.baseSize;
+            sim.settings.dissipation = baseSettings.dissipation;
         }
         
-        // 2. Modulate Turbulence & Speed on Treble/Mids
+        // 2. Treble/Mid Reactions (Flow Speed, Turbulence, Wobble vibration & stretch)
         if (elements.pulseTrebleToggle.checked) {
-            // Treble scale mod (flares speed up to 2.6x and turbulence up to 2.4x)
-            const speedMod = 1.0 + (analysis.treble * 1.6);
-            const turbMod = 1.0 + (analysis.treble * 1.4);
+            // Speed scales up to 3.5x on melodic peaks
+            const speedMod = 1.0 + (trebleIntensity * 2.5);
+            const turbMod = 1.0 + (trebleIntensity * 2.2);
             sim.settings.speed = baseSettings.speed * speedMod;
             sim.settings.turbulence = baseSettings.turbulence * turbMod;
+            
+            // Particles stretch and wobble/vibrate with melody frequencies
+            sim.settings.wobble = baseSettings.wobble + (trebleIntensity * 2.5);
+            sim.settings.stretch = baseSettings.stretch + (trebleIntensity * 3.0);
+            sim.settings.rotationSpeed = baseSettings.rotationSpeed + (trebleIntensity * 0.12);
         } else {
             sim.settings.speed = baseSettings.speed;
             sim.settings.turbulence = baseSettings.turbulence;
+            sim.settings.wobble = baseSettings.wobble;
+            sim.settings.stretch = baseSettings.stretch;
+            sim.settings.rotationSpeed = baseSettings.rotationSpeed;
         }
     }
 

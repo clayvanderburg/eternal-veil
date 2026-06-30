@@ -630,7 +630,9 @@ class BinauralBeatEngine {
                 throw new Error("No system audio track captured. Ensure 'Share system audio' is checked!");
             }
             
-            this.systemSource = this.ctx.createMediaStreamSource(this.systemStream);
+            // Create a clean audio-only MediaStream for the AudioContext source
+            const cleanStream = new MediaStream([audioTracks[0]]);
+            this.systemSource = this.ctx.createMediaStreamSource(cleanStream);
             // Route ONLY to analyser silently (user is already hearing Spotify directly!)
             this.systemSource.connect(this.musicAnalyser);
             this.visualizerMode = "system";
