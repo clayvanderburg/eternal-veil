@@ -484,14 +484,14 @@ class FlowSimulation {
         }
     }
 
-    triggerShockwave(x, y) {
+    triggerShockwave(x, y, force = 18.0, speed = 5.5) {
         this.shockwaves.push({
             x: x,
             y: y,
             radius: 5,
-            maxRadius: Math.max(this.width, this.height) * 0.45,
-            speed: 5.5,
-            force: 18.0
+            maxRadius: Math.max(this.width, this.height) * 0.55,
+            speed: speed,
+            force: force
         });
     }
 
@@ -602,22 +602,7 @@ class FlowSimulation {
                 }
             }
 
-            // Draw expanding click shockwaves in base coordinate space
-            if (this.settings.shockwavesEnabled && this.shockwaves.length > 0) {
-                this.ctx.save();
-                for (let i = 0; i < this.shockwaves.length; i++) {
-                    const sw = this.shockwaves[i];
-                    const lifeRatio = 1.0 - sw.radius / sw.maxRadius;
-                    this.ctx.strokeStyle = `rgba(255, 255, 255, ${lifeRatio * 0.35})`;
-                    this.ctx.shadowBlur = 10;
-                    this.ctx.shadowColor = "rgba(255, 255, 255, 0.4)";
-                    this.ctx.lineWidth = 2.0 * lifeRatio;
-                    this.ctx.beginPath();
-                    this.ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
-                    this.ctx.stroke();
-                }
-                this.ctx.restore();
-            }
+            // Expanding shockwaves are physical forces only (no white lines drawn)
 
             // Apply Kaleidoscope mirror reflection quadrant symmetry
             if (this.settings.kaleidoscopeEnabled) {
@@ -642,20 +627,7 @@ class FlowSimulation {
                         this.particles[i].draw(this.ctx, this.settings);
                     }
 
-                    // Render shockwaves in mirrored section
-                    if (this.settings.shockwavesEnabled && this.shockwaves.length > 0) {
-                        for (let i = 0; i < this.shockwaves.length; i++) {
-                            const sw = this.shockwaves[i];
-                            const lifeRatio = 1.0 - sw.radius / sw.maxRadius;
-                            this.ctx.strokeStyle = `rgba(255, 255, 255, ${lifeRatio * 0.35})`;
-                            this.ctx.shadowBlur = 10;
-                            this.ctx.shadowColor = "rgba(255, 255, 255, 0.4)";
-                            this.ctx.lineWidth = 2.0 * lifeRatio;
-                            this.ctx.beginPath();
-                            this.ctx.arc(sw.x - cx, sw.y - cy, sw.radius, 0, Math.PI * 2);
-                            this.ctx.stroke();
-                        }
-                    }
+                    // Mirrored shockwaves are physical forces only
 
                     this.ctx.restore();
                 }

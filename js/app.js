@@ -1572,11 +1572,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 const cx = window.innerWidth / 2;
                 const cy = window.innerHeight / 2;
                 
-                // Spawn a particle explosion and a physical ripple
-                sim.triggerBurst(cx, cy, 3);
-                if (sim.settings.shockwavesEnabled) {
-                    sim.triggerShockwave(cx, cy);
-                }
+                // Spawn a large particle explosion and trigger a powerful, silent physical outward blast wave
+                sim.triggerBurst(cx, cy, 12); // Spawns plenty of particles to spread outward!
+                sim.triggerShockwave(cx, cy, 36.0, 9.5); // High force, high speed physical wave
                 lastShockwaveTime = now;
             }
             
