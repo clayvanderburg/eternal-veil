@@ -388,6 +388,17 @@ document.addEventListener("DOMContentLoaded", () => {
         };
     }
 
+    function hslToHex(h, s, l) {
+        l /= 100;
+        const a = s * Math.min(l, 1 - l) / 100;
+        const f = n => {
+            const k = (n + h / 30) % 12;
+            const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+            return Math.round(255 * color).toString(16).padStart(2, '0');
+        };
+        return `#${f(0)}${f(8)}${f(4)}`;
+    }
+
     // --- AUTOPILOT MANUAL VS FLOW LOGIC ---
     const optionModes = {};
 
@@ -1507,6 +1518,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- MUSIC REACTIVITY CONTROLLER ---
     let baseSettings = null;
+    let basePalette = null;
     let maxBassSeen = 0.4;
     let maxTrebleSeen = 0.4;
     let lastShockwaveTime = 0;
@@ -1521,6 +1533,11 @@ document.addEventListener("DOMContentLoaded", () => {
     let wobblePulse = 0;
     let stretchPulse = 0;
 
+    // Mood tracking smoothing offsets (for color palettes)
+    let moodH = 0;
+    let moodS = 0;
+    let moodL = 0;
+
     function processMusicReactivity() {
         if (!window.CosmicSynth) return;
         
@@ -1531,12 +1548,19 @@ document.addEventListener("DOMContentLoaded", () => {
                 for (const key in baseSettings) {
                     sim.settings[key] = baseSettings[key];
                 }
+                if (basePalette) {
+                    sim.updatePalette(basePalette);
+                    renderSwatches();
+                    modulateSynth();
+                    basePalette = null;
+                }
                 baseSettings = null;
+                moodH = moodS = moodL = 0;
             }
             return;
         }
         
-        // Backup settings before we modulate them
+        // Backup settings and palette before we modulate them
         if (!baseSettings) {
             baseSettings = {
                 baseSize: sim.settings.baseSize,
@@ -1547,6 +1571,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 stretch: sim.settings.stretch,
                 rotationSpeed: sim.settings.rotationSpeed
             };
+            basePalette = [...sim.palette];
         }
         
         const now = Date.now();
@@ -1591,12 +1616,70 @@ document.addEventListener("DOMContentLoaded", () => {
         wobblePulse *= 0.84;
         stretchPulse *= 0.84;
         
-        // 5. Apply Modulations to simulation settings
+        // 5. Sound Mood Detection & Real-time Color Palette Morphing
+        if (isFlowEnabled("colors")) {
+            // Bass-to-Treble Ratio (high = warm/mellow bass, low = bright/happy treble)
+            const bassTrebleRatio = normalizedBass / (normalizedTreble + 0.08);
+            
+            // Acoustic Brightness (Spectral Centroid)
+            let weightedSum = 0;
+            let amplitudeSum = 0;
+            const visualData = window.CosmicSynth.getVisualizerData();
+            if (visualData) {
+                for (let i = 0; i < visualData.length; i++) {
+                    weightedSum += i * visualData[i];
+                    amplitudeSum += visualData[i];
+                }
+            }
+            const centroid = amplitudeSum > 0 ? (weightedSum / amplitudeSum) / visualData.length : 0.35;
+            
+            let targetHueShift = 0;
+            let targetSatShift = 0;
+            let targetLightShift = 0;
+            
+            if (centroid > 0.42 || bassTrebleRatio < 0.72) {
+                // Bright/Happy song -> Shift toward warm golden/magenta hues (+35°), increase saturation (+18%), boost lightness (+4%)
+                targetHueShift = 35;
+                targetSatShift = 18;
+                targetLightShift = 4;
+            } else if (centroid < 0.28 || bassTrebleRatio > 1.35) {
+                // Mellow/Sad/Deep song -> Shift toward cool blue/indigo hues (-40°), lower saturation (-22%), dim lightness (-8%)
+                targetHueShift = -40;
+                targetSatShift = -22;
+                targetLightShift = -8;
+            }
+            
+            // Smoothly drift offsets (low-pass filter) to avoid flashing or jitter
+            moodH += (targetHueShift - moodH) * 0.015;
+            moodS += (targetSatShift - moodS) * 0.015;
+            moodL += (targetLightShift - moodL) * 0.015;
+            
+            // Apply calculated offsets to original basePalette
+            if (Math.abs(moodH) > 0.5 || Math.abs(moodS) > 0.5 || Math.abs(moodL) > 0.5) {
+                const moodPalette = basePalette.map(color => {
+                    const hsl = hexToHsl(parseColorToHex(color));
+                    if (hsl) {
+                        let h = (hsl.h + moodH) % 360;
+                        if (h < 0) h += 360;
+                        const s = Math.max(10, Math.min(100, hsl.s + moodS));
+                        const l = Math.max(8, Math.min(95, hsl.l + moodL));
+                        return hslToHex(h, s, l);
+                    }
+                    return color;
+                });
+                
+                sim.updatePalette(moodPalette);
+                renderSwatches();
+                modulateSynth();
+            }
+        }
+        
+        // 6. Apply Modulations to simulation settings
         
         // Bass Modulations (Particle Size & Dissipation)
         if (elements.pulseBassToggle.checked) {
-            // Pulse particle base size (cap size swelling at a clean 2.2x max for subtle punch)
-            const sizeMod = 1.0 + Math.min(1.2, sizePulse);
+            // Pulse particle base size (cap size swelling at a clean 3.5x max for visible punch)
+            const sizeMod = 1.0 + Math.min(2.5, sizePulse);
             sim.settings.baseSize = baseSettings.baseSize * sizeMod;
             
             // Temporarily decrease dissipation to make flow trails glow on attacks
@@ -1631,9 +1714,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 lastShockwaveTime = now;
             }
             
-            // Cycle color palette on major attack drops
-            if (isFlowEnabled("colors") && bassAttack > 0.18 && now - lastColorShiftTime > 2000) {
+            // Trigger a quick new palette generation on major beats if not mood shifting
+            if (isFlowEnabled("colors") && bassAttack > 0.22 && now - lastColorShiftTime > 3000) {
                 const palette = generateHarmoniousPalette();
+                basePalette = [...palette]; // update base palette references
                 sim.updatePalette(palette);
                 renderSwatches();
                 modulateSynth();
