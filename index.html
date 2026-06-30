@@ -570,6 +570,39 @@
                     </div>
                 </div>
 
+                <!-- Music Reactivity Visualizer -->
+                <div class="setting-group border-top">
+                    <span class="setting-label-header">MUSIC VISUALIZER (BETA)</span>
+                    <p class="setting-desc">Synchronize ETERNAL VEIL with music! You can capture ambient room sound, upload a track, or hook directly into your device's audio output (like Spotify, YouTube, or system sounds).</p>
+                    
+                    <div class="visualizer-modes-row" style="display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap;">
+                        <button class="btn btn-secondary flex-1" id="mic-react-btn" style="font-size: 10px; padding: 6px; flex: 1 1 30%;">🎙️ Mic</button>
+                        <button class="btn btn-secondary flex-1" id="system-react-btn" style="font-size: 10px; padding: 6px; flex: 1 1 30%;">💻 Device Audio</button>
+                        <button class="btn btn-secondary flex-1" id="upload-react-btn" style="font-size: 10px; padding: 6px; flex: 1 1 30%;">🎵 Upload</button>
+                    </div>
+                    
+                    <input type="file" id="music-file-input" accept="audio/*" style="display: none;">
+                    
+                    <div id="visualizer-status" class="setting-desc" style="margin-top: 8px; font-weight: 600; color: var(--text-accent); display: none; text-align: center;">
+                        Status: Reactive mode active
+                    </div>
+                    
+                    <div class="control-row" style="margin-top: 10px;">
+                        <span class="setting-label">Pulse Size on Bass</span>
+                        <label class="switch small">
+                            <input type="checkbox" id="pulse-bass-toggle" checked autocomplete="off">
+                            <span class="switch-slider"></span>
+                        </label>
+                    </div>
+                    <div class="control-row" style="margin-top: 6px;">
+                        <span class="setting-label">Pulse Turbulence on Treble</span>
+                        <label class="switch small">
+                            <input type="checkbox" id="pulse-treble-toggle" checked autocomplete="off">
+                            <span class="switch-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
                 <!-- Share Configuration State -->
                 <div class="setting-group border-top">
                     <span class="setting-label-header">COSMIC SEED SHARING</span>

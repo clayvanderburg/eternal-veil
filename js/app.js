@@ -134,7 +134,16 @@ document.addEventListener("DOMContentLoaded", () => {
         bilateralVolumeSlider: document.getElementById("bilateral-volume-slider"),
         bilateralVolumeVal: document.getElementById("bilateral-volume-val"),
         asmrVolumeSlider: document.getElementById("asmr-volume-slider"),
-        asmrVolumeVal: document.getElementById("asmr-volume-val")
+        asmrVolumeVal: document.getElementById("asmr-volume-val"),
+        
+        // Music Reactivity elements
+        micReactBtn: document.getElementById("mic-react-btn"),
+        systemReactBtn: document.getElementById("system-react-btn"),
+        uploadReactBtn: document.getElementById("upload-react-btn"),
+        musicFileInput: document.getElementById("music-file-input"),
+        visualizerStatus: document.getElementById("visualizer-status"),
+        pulseBassToggle: document.getElementById("pulse-bass-toggle"),
+        pulseTrebleToggle: document.getElementById("pulse-treble-toggle")
     };
 
     // --- INITIALIZATION ---
@@ -920,6 +929,108 @@ document.addEventListener("DOMContentLoaded", () => {
             showToast(state ? "8D ASMR tingling enabled ✨" : "8D ASMR tingling disabled");
         };
 
+        // Helper to clear highlights from visualizer buttons
+        const clearVisualizerHighlights = () => {
+            elements.micReactBtn.classList.remove("highlight");
+            elements.systemReactBtn.classList.remove("highlight");
+            elements.uploadReactBtn.classList.remove("highlight");
+        };
+
+        // Music Visualizer Interaction Event Listeners
+        elements.micReactBtn.onclick = async () => {
+            const synth = window.CosmicSynth;
+            const currentMode = synth.visualizerMode;
+            
+            try {
+                if (currentMode === "mic") {
+                    synth.stopMusicReactivity();
+                    clearVisualizerHighlights();
+                    elements.visualizerStatus.style.display = "none";
+                    showToast("Microphone visualizer disabled");
+                } else {
+                    elements.micReactBtn.textContent = "🎙️ Connecting...";
+                    const success = await synth.toggleMicReactivity();
+                    if (success) {
+                        clearVisualizerHighlights();
+                        elements.micReactBtn.classList.add("highlight");
+                        elements.visualizerStatus.textContent = "Status: Ambient Mic Active 🎙️";
+                        elements.visualizerStatus.style.display = "block";
+                        showToast("Microphone visualizer active!");
+                        
+                        if (synth.isMuted) toggleAudio(true);
+                    }
+                }
+            } catch (err) {
+                showToast("Microphone permission denied");
+            } finally {
+                elements.micReactBtn.textContent = "🎙️ Mic";
+            }
+        };
+
+        elements.systemReactBtn.onclick = async () => {
+            const synth = window.CosmicSynth;
+            const currentMode = synth.visualizerMode;
+            
+            try {
+                if (currentMode === "system") {
+                    synth.stopMusicReactivity();
+                    clearVisualizerHighlights();
+                    elements.visualizerStatus.style.display = "none";
+                    showToast("Device audio visualizer disabled");
+                } else {
+                    elements.systemReactBtn.textContent = "💻 Capturing...";
+                    const success = await synth.toggleSystemAudioReactivity();
+                    if (success) {
+                        clearVisualizerHighlights();
+                        elements.systemReactBtn.classList.add("highlight");
+                        elements.visualizerStatus.textContent = "Status: Device Audio Active 💻";
+                        elements.visualizerStatus.style.display = "block";
+                        showToast("Device audio capture active! Play Spotify/sounds now.");
+                        
+                        if (synth.isMuted) toggleAudio(true);
+                    }
+                }
+            } catch (err) {
+                showToast("Device audio sharing denied or cancelled");
+            } finally {
+                elements.systemReactBtn.textContent = "💻 Device Audio";
+            }
+        };
+
+        elements.uploadReactBtn.onclick = () => {
+            const synth = window.CosmicSynth;
+            const currentMode = synth.visualizerMode;
+            
+            if (currentMode === "upload") {
+                synth.stopMusicReactivity();
+                clearVisualizerHighlights();
+                elements.visualizerStatus.style.display = "none";
+                showToast("Music visualizer disabled");
+            } else {
+                elements.musicFileInput.click();
+            }
+        };
+
+        elements.musicFileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const synth = window.CosmicSynth;
+            synth.playUploadedFile(file);
+            
+            clearVisualizerHighlights();
+            elements.uploadReactBtn.classList.add("highlight");
+            
+            // Truncate long file names nicely
+            const displayName = file.name.length > 22 ? file.name.substring(0, 20) + "..." : file.name;
+            elements.visualizerStatus.textContent = `Status: Playing "${displayName}" 🎵`;
+            elements.visualizerStatus.style.display = "block";
+            showToast("Visualizer track playing!");
+            
+            if (synth.isMuted) toggleAudio(true);
+            elements.musicFileInput.value = "";
+        };
+
         // Factory Reset defaults
         elements.factoryResetBtn.onclick = () => {
             window.location.hash = "";
@@ -964,6 +1075,15 @@ document.addEventListener("DOMContentLoaded", () => {
             elements.asmrVolumeSlider.value = 50;
             elements.asmrVolumeVal.textContent = "50%";
             window.CosmicSynth.setAsmrVolume(0.50);
+            
+            // Reset Music Visualizer Mode
+            window.CosmicSynth.stopMusicReactivity();
+            elements.micReactBtn.classList.remove("highlight");
+            elements.systemReactBtn.classList.remove("highlight");
+            elements.uploadReactBtn.classList.remove("highlight");
+            elements.visualizerStatus.style.display = "none";
+            elements.pulseBassToggle.checked = true;
+            elements.pulseTrebleToggle.checked = true;
             
             showToast("Restored system settings default");
         };
@@ -1384,11 +1504,63 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 2200);
     }
 
+    // --- MUSIC REACTIVITY CONTROLLER ---
+    let baseSettings = null;
+
+    function processMusicReactivity() {
+        if (!window.CosmicSynth) return;
+        
+        const analysis = window.CosmicSynth.getMusicAnalysis();
+        if (!analysis) {
+            // Restore settings if visualizer mode was deactivated
+            if (baseSettings) {
+                for (const key in baseSettings) {
+                    sim.settings[key] = baseSettings[key];
+                }
+                baseSettings = null;
+            }
+            return;
+        }
+        
+        // Backup settings before we modulate them
+        if (!baseSettings) {
+            baseSettings = {
+                baseSize: sim.settings.baseSize,
+                turbulence: sim.settings.turbulence,
+                speed: sim.settings.speed
+            };
+        }
+        
+        // 1. Modulate Particle Base Size on Bass Kick
+        if (elements.pulseBassToggle.checked) {
+            // Bass scale mod (peak size increases up to 2.5x base settings)
+            const sizeMod = 1.0 + (analysis.bass * 1.5);
+            sim.settings.baseSize = baseSettings.baseSize * sizeMod;
+        } else {
+            sim.settings.baseSize = baseSettings.baseSize;
+        }
+        
+        // 2. Modulate Turbulence & Speed on Treble/Mids
+        if (elements.pulseTrebleToggle.checked) {
+            // Treble scale mod (flares speed up to 2.6x and turbulence up to 2.4x)
+            const speedMod = 1.0 + (analysis.treble * 1.6);
+            const turbMod = 1.0 + (analysis.treble * 1.4);
+            sim.settings.speed = baseSettings.speed * speedMod;
+            sim.settings.turbulence = baseSettings.turbulence * turbMod;
+        } else {
+            sim.settings.speed = baseSettings.speed;
+            sim.settings.turbulence = baseSettings.turbulence;
+        }
+    }
+
     // --- MAIN RENDER LOOP TRIGGER ---
     let lastFpsTime = Date.now();
     let frameCount = 0;
     
     function tickLoop() {
+        // Run real-time music reactivity modulation
+        processMusicReactivity();
+        
         // Run physics morph morph transitions
         processMorphs();
         

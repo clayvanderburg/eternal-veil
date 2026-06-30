@@ -53,6 +53,17 @@ class BinauralBeatEngine {
         
         // ASMR timers
         this.asmrTimer = null;
+
+        // Music Visualizer additions
+        this.visualizerMode = "none"; // "none", "mic", "system", "upload"
+        this.musicAnalyser = null;
+        this.micStream = null;
+        this.micSource = null;
+        this.systemStream = null;
+        this.systemSource = null;
+        this.uploadedAudio = null;
+        this.uploadedSource = null;
+        this.uploadedGain = null;
     }
 
     // Initialize AudioContext upon user action
@@ -516,19 +527,183 @@ class BinauralBeatEngine {
         this.asmrEnabled = state;
     }
 
-    // Retrieve visualizer data for HUD Equalizer bounces
+    // Retrieve visualizer data for HUD Equalizer bounces (falls back to music visualizer if active)
     getVisualizerData() {
         if (!this.initialized || this.isMuted) return null;
         
-        const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-        this.analyser.getByteFrequencyData(dataArray);
+        const activeAnalyser = (this.visualizerMode !== "none" && this.musicAnalyser) ? this.musicAnalyser : this.analyser;
+        const dataArray = new Uint8Array(activeAnalyser.frequencyBinCount);
+        activeAnalyser.getByteFrequencyData(dataArray);
         return dataArray;
+    }
+
+    // Initialize the music visualizer analysis node
+    setupMusicAnalyser() {
+        // Double check AudioContext state
+        if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+        if (!this.musicAnalyser) {
+            this.musicAnalyser = this.ctx.createAnalyser();
+            this.musicAnalyser.fftSize = 256; // 128 frequency bands
+        }
+    }
+
+    // Query bass and treble normalized levels
+    getMusicAnalysis() {
+        if (!this.musicAnalyser || this.visualizerMode === "none" || this.isMuted) return null;
+        const dataArray = new Uint8Array(this.musicAnalyser.frequencyBinCount);
+        this.musicAnalyser.getByteFrequencyData(dataArray);
+        
+        // Analyze bass (bins 0 to 4)
+        let bassSum = 0;
+        const bassBins = 4;
+        for (let i = 0; i < bassBins; i++) {
+            bassSum += dataArray[i];
+        }
+        const bassVal = bassSum / bassBins / 255; // 0.0 to 1.0
+        
+        // Analyze treble/mids (bins 10 to 30)
+        let trebleSum = 0;
+        const trebleBins = 20;
+        const startTreble = 10;
+        for (let i = startTreble; i < startTreble + trebleBins; i++) {
+            trebleSum += dataArray[i];
+        }
+        const trebleVal = trebleSum / trebleBins / 255; // 0.0 to 1.0
+        
+        return { bass: bassVal, treble: trebleVal };
+    }
+
+    // Toggle capture of ambient mic audio
+    async toggleMicReactivity() {
+        if (this.visualizerMode === "mic") {
+            this.stopMusicReactivity();
+            return false;
+        }
+        
+        this.stopMusicReactivity();
+        this.setupMusicAnalyser();
+        
+        try {
+            this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            this.micSource = this.ctx.createMediaStreamSource(this.micStream);
+            // Route ONLY to analyser to avoid creating a nasty feedback screech loop!
+            this.micSource.connect(this.musicAnalyser);
+            this.visualizerMode = "mic";
+            console.log("[BinauralSynth] Microphone reactivity active.");
+            return true;
+        } catch (e) {
+            console.error("[BinauralSynth] Mic access denied:", e);
+            throw e;
+        }
+    }
+
+    // Hook into system/device audio output stream (uses displayMedia capture)
+    async toggleSystemAudioReactivity() {
+        if (this.visualizerMode === "system") {
+            this.stopMusicReactivity();
+            return false;
+        }
+        
+        this.stopMusicReactivity();
+        this.setupMusicAnalyser();
+        
+        try {
+            // Request display media capture with audio track
+            this.systemStream = await navigator.mediaDevices.getDisplayMedia({
+                video: {
+                    width: 1,
+                    height: 1,
+                    frameRate: 1
+                },
+                audio: true
+            });
+            
+            // Discard the video track instantly to release resources
+            this.systemStream.getVideoTracks().forEach(track => track.stop());
+            
+            const audioTracks = this.systemStream.getAudioTracks();
+            if (audioTracks.length === 0) {
+                this.systemStream.getTracks().forEach(t => t.stop());
+                this.systemStream = null;
+                throw new Error("No system audio track captured. Ensure 'Share system audio' is checked!");
+            }
+            
+            this.systemSource = this.ctx.createMediaStreamSource(this.systemStream);
+            // Route ONLY to analyser silently (user is already hearing Spotify directly!)
+            this.systemSource.connect(this.musicAnalyser);
+            this.visualizerMode = "system";
+            console.log("[BinauralSynth] System audio reactivity active.");
+            return true;
+        } catch (e) {
+            console.error("[BinauralSynth] System audio capture failed/denied:", e);
+            throw e;
+        }
+    }
+
+    // Route and play uploaded audio files
+    playUploadedFile(file) {
+        this.stopMusicReactivity();
+        this.setupMusicAnalyser();
+        
+        const fileUrl = URL.createObjectURL(file);
+        this.uploadedAudio = new Audio(fileUrl);
+        this.uploadedAudio.loop = true;
+        
+        this.uploadedSource = this.ctx.createMediaElementSource(this.uploadedAudio);
+        this.uploadedGain = this.ctx.createGain();
+        this.uploadedGain.gain.value = 0.75; // default comfortable visualizer volume
+        
+        // Source -> Analyser -> Volume Gain -> Speakers
+        this.uploadedSource.connect(this.musicAnalyser);
+        this.musicAnalyser.connect(this.uploadedGain);
+        this.uploadedGain.connect(this.ctx.destination);
+        
+        this.uploadedAudio.play();
+        this.visualizerMode = "upload";
+        console.log("[BinauralSynth] Playing uploaded track.");
+    }
+
+    // Stop all active music visualizer tasks and restore defaults
+    stopMusicReactivity() {
+        this.visualizerMode = "none";
+        
+        if (this.micStream) {
+            this.micStream.getTracks().forEach(track => track.stop());
+            this.micStream = null;
+        }
+        if (this.micSource) {
+            this.micSource.disconnect();
+            this.micSource = null;
+        }
+        if (this.systemStream) {
+            this.systemStream.getTracks().forEach(track => track.stop());
+            this.systemStream = null;
+        }
+        if (this.systemSource) {
+            this.systemSource.disconnect();
+            this.systemSource = null;
+        }
+        if (this.uploadedAudio) {
+            this.uploadedAudio.pause();
+            this.uploadedAudio = null;
+        }
+        if (this.uploadedSource) {
+            this.uploadedSource.disconnect();
+            this.uploadedSource = null;
+        }
+        if (this.uploadedGain) {
+            this.uploadedGain.disconnect();
+            this.uploadedGain = null;
+        }
     }
 
     // Cleanup resources
     dispose() {
         clearTimeout(this.windModTimer);
         clearTimeout(this.asmrTimer);
+        this.stopMusicReactivity();
         
         if (this.initialized) {
             try {
