@@ -176,7 +176,7 @@ class BinauralBeatEngine {
     startBilateralLoop() {
         const scheduleNext = () => {
             if (this.initialized) {
-                if (this.bilateralEnabled && !this.isMuted) {
+                if (this.bilateralEnabled && !this.isMuted && this.visualizerMode === "none") {
                     this.triggerBilateralDong();
                 }
             }
@@ -331,12 +331,14 @@ class BinauralBeatEngine {
             this.masterGain.gain.linearRampToValueAtTime(0.0001, now + 0.3);
         } else {
             this.masterGain.gain.setValueAtTime(0.0001, now);
-            this.masterGain.gain.linearRampToValueAtTime(this.volume, now + 0.3);
+            // If music visualizer is active, keep ambient synth volume at 0.0001 (muted)
+            const targetVol = (this.visualizerMode !== "none") ? 0.0001 : this.volume;
+            this.masterGain.gain.linearRampToValueAtTime(targetVol, now + 0.3);
             
-            // Trigger welcoming singing bowl chime immediately if bilateral rhythm is enabled
-            if (this.bilateralEnabled) {
+            // Trigger welcoming singing bowl chime immediately if bilateral rhythm is enabled & visualizer inactive
+            if (this.bilateralEnabled && this.visualizerMode === "none") {
                 setTimeout(() => {
-                    if (this.initialized && !this.isMuted && this.bilateralEnabled) {
+                    if (this.initialized && !this.isMuted && this.bilateralEnabled && this.visualizerMode === "none") {
                         this.triggerBilateralDong();
                     }
                 }, 180);
@@ -348,8 +350,10 @@ class BinauralBeatEngine {
     setVolume(value) {
         this.volume = value;
         if (this.initialized && !this.isMuted) {
+            // Keep master gain muted if visualizer mode is running
+            const targetVol = (this.visualizerMode !== "none") ? 0.0001 : this.volume;
             this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, this.ctx.currentTime);
-            this.masterGain.gain.linearRampToValueAtTime(this.volume, this.ctx.currentTime + 0.1);
+            this.masterGain.gain.linearRampToValueAtTime(targetVol, this.ctx.currentTime + 0.1);
         }
     }
 
@@ -399,7 +403,7 @@ class BinauralBeatEngine {
     startAsmrLoop() {
         const scheduleNext = () => {
             if (this.initialized) {
-                if (this.asmrEnabled && !this.isMuted) {
+                if (this.asmrEnabled && !this.isMuted && this.visualizerMode === "none") {
                     this.triggerAsmrTingle();
                 }
             }
@@ -575,6 +579,15 @@ class BinauralBeatEngine {
         return { bass: bassVal, treble: trebleVal };
     }
 
+    // Helper to glide master ambient sound gain smoothly
+    glideMasterGain(targetVal) {
+        if (this.initialized) {
+            const now = this.ctx.currentTime;
+            this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, now);
+            this.masterGain.gain.linearRampToValueAtTime(targetVal, now + 0.35);
+        }
+    }
+
     // Toggle capture of ambient mic audio
     async toggleMicReactivity() {
         if (this.visualizerMode === "mic") {
@@ -591,6 +604,10 @@ class BinauralBeatEngine {
             // Route ONLY to analyser to avoid creating a nasty feedback screech loop!
             this.micSource.connect(this.musicAnalyser);
             this.visualizerMode = "mic";
+            
+            // Auto mute binaural carrier/ASMR/bilateral tones
+            this.glideMasterGain(0.0001);
+            
             console.log("[BinauralSynth] Microphone reactivity active.");
             return true;
         } catch (e) {
@@ -636,6 +653,10 @@ class BinauralBeatEngine {
             // Route ONLY to analyser silently (user is already hearing Spotify directly!)
             this.systemSource.connect(this.musicAnalyser);
             this.visualizerMode = "system";
+            
+            // Auto mute binaural carrier/ASMR/bilateral tones
+            this.glideMasterGain(0.0001);
+            
             console.log("[BinauralSynth] System audio reactivity active.");
             return true;
         } catch (e) {
@@ -664,12 +685,21 @@ class BinauralBeatEngine {
         
         this.uploadedAudio.play();
         this.visualizerMode = "upload";
+        
+        // Auto mute binaural carrier/ASMR/bilateral tones
+        this.glideMasterGain(0.0001);
+        
         console.log("[BinauralSynth] Playing uploaded track.");
     }
 
     // Stop all active music visualizer tasks and restore defaults
     stopMusicReactivity() {
         this.visualizerMode = "none";
+        
+        // Restore binaural carrier/ASMR/bilateral tones if not master muted
+        if (this.initialized && !this.isMuted) {
+            this.glideMasterGain(this.volume);
+        }
         
         if (this.micStream) {
             this.micStream.getTracks().forEach(track => track.stop());

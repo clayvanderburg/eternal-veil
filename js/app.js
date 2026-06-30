@@ -1511,6 +1511,15 @@ document.addEventListener("DOMContentLoaded", () => {
     let maxTrebleSeen = 0.4;
     let lastShockwaveTime = 0;
     let lastColorShiftTime = 0;
+    
+    // Transient history buffers & envelope states
+    let prevBass = 0;
+    let prevTreble = 0;
+    let sizePulse = 0;
+    let speedPulse = 0;
+    let turbPulse = 0;
+    let wobblePulse = 0;
+    let stretchPulse = 0;
 
     function processMusicReactivity() {
         if (!window.CosmicSynth) return;
@@ -1542,60 +1551,88 @@ document.addEventListener("DOMContentLoaded", () => {
         
         const now = Date.now();
         
-        // Dynamic Gain Control (Rolling Peak auto-calibration)
+        // 1. Dynamic Gain Control (Rolling Peak auto-calibration)
         if (analysis.bass > maxBassSeen) maxBassSeen = analysis.bass;
-        else maxBassSeen = Math.max(0.1, maxBassSeen * 0.9995); // slowly decay to remain sensitive
+        else maxBassSeen = Math.max(0.1, maxBassSeen * 0.9995); // decay slowly to retain high sensitivity
 
         if (analysis.treble > maxTrebleSeen) maxTrebleSeen = analysis.treble;
         else maxTrebleSeen = Math.max(0.1, maxTrebleSeen * 0.9995);
         
-        // Normalize signals between 0.0 and 1.0 relative to peak history
+        // Normalize raw levels relative to rolling peaks (0.0 to 1.0)
         const normalizedBass = Math.min(1.0, analysis.bass / maxBassSeen);
         const normalizedTreble = Math.min(1.0, analysis.treble / maxTrebleSeen);
         
-        // Apply non-linear exponential curves to favor peaks and drops
-        const bassIntensity = Math.pow(normalizedBass, 2.5);
-        const trebleIntensity = Math.pow(normalizedTreble, 1.8);
+        // 2. Spectral Flux (Transients / Rate of change detection)
+        // Tracks changes from previous frame to isolate beat attacks (onset) rather than raw volume level
+        const bassAttack = Math.max(0, normalizedBass - prevBass);
+        const trebleAttack = Math.max(0, normalizedTreble - prevTreble);
         
-        // 1. Bass Reactions (Particle Size, Trail Dissipation, Beat shockwaves)
+        prevBass = normalizedBass;
+        prevTreble = normalizedTreble;
+        
+        // 3. ADSR Envelope Injection (Instant Attack)
+        // Feed the transient attack strength directly into the visual envelopes
+        if (bassAttack > 0.015) {
+            sizePulse = Math.max(sizePulse, bassAttack * 3.8);
+        }
+        
+        if (trebleAttack > 0.015) {
+            speedPulse = Math.max(speedPulse, trebleAttack * 4.2);
+            turbPulse = Math.max(turbPulse, trebleAttack * 3.5);
+            wobblePulse = Math.max(wobblePulse, trebleAttack * 5.0);
+            stretchPulse = Math.max(stretchPulse, trebleAttack * 6.0);
+        }
+        
+        // 4. Snappy Exponential Decay (Release)
+        // Decays the envelopes very fast per frame to keep visual pulses short and punchy
+        sizePulse *= 0.82;         // ~150ms decay window
+        speedPulse *= 0.86;
+        turbPulse *= 0.86;
+        wobblePulse *= 0.84;
+        stretchPulse *= 0.84;
+        
+        // 5. Apply Modulations to simulation settings
+        
+        // Bass Modulations (Particle Size & Dissipation)
         if (elements.pulseBassToggle.checked) {
-            // Pulsing particle size (expands up to 6.0x on peak drops!)
-            const sizeMod = 1.0 + (bassIntensity * 5.0);
+            // Pulse particle base size (cap size swelling at a clean 2.2x max for subtle punch)
+            const sizeMod = 1.0 + Math.min(1.2, sizePulse);
             sim.settings.baseSize = baseSettings.baseSize * sizeMod;
             
-            // Reduce dissipation temporarily on bass hits so trails grow longer & brighter
-            const dissMod = Math.max(0.003, baseSettings.dissipation - (bassIntensity * 0.08));
+            // Temporarily decrease dissipation to make flow trails glow on attacks
+            const dissMod = Math.max(0.004, baseSettings.dissipation - Math.min(0.04, sizePulse * 0.05));
             sim.settings.dissipation = dissMod;
             
-            // Trigger visual explosions & physical blasts on peak bass kicks (very low gate for maximum sensitivity!)
-            if (normalizedBass > 0.78 && analysis.bass > 0.05 && now - lastShockwaveTime > 400) {
+            // Trigger physical starbursts & explosions ONLY on hard transient attacks (not sustained drones)
+            if (bassAttack > 0.12 && now - lastShockwaveTime > 380) {
                 const cx = window.innerWidth / 2;
                 const cy = window.innerHeight / 2;
                 
-                // Blast ALL active particles physically outward from the center instantly!
+                // Direct physical outward velocity boost to all particles
                 sim.particles.forEach(p => {
                     const dx = p.x - cx;
                     const dy = p.y - cy;
                     const distSq = dx * dx + dy * dy;
                     if (distSq > 9) {
                         const dist = Math.sqrt(distSq);
-                        // Add outward velocity push
-                        p.vx += (dx / dist) * 16.0;
-                        p.vy += (dy / dist) * 16.0;
+                        // Blast force scales with the attack intensity
+                        const pushForce = 8.0 + (bassAttack * 18.0);
+                        p.vx += (dx / dist) * pushForce;
+                        p.vy += (dy / dist) * pushForce;
                     }
                 });
                 
-                // Spawn a massive burst of 50 new particles at the center!
-                sim.triggerBurst(cx, cy, 50);
+                // Spawn a quick, neat cluster of 35 particles
+                sim.triggerBurst(cx, cy, 35);
                 
-                // Trigger a fast, high-power physical shockwave ripple force
-                sim.triggerShockwave(cx, cy, 65.0, 11.5);
+                // Silent force wave to push outer vectors
+                sim.triggerShockwave(cx, cy, 55.0, 10.5);
                 
                 lastShockwaveTime = now;
             }
             
-            // Cycle color palette dynamically on major drops!
-            if (isFlowEnabled("colors") && normalizedBass > 0.90 && analysis.bass > 0.08 && now - lastColorShiftTime > 2200) {
+            // Cycle color palette on major attack drops
+            if (isFlowEnabled("colors") && bassAttack > 0.18 && now - lastColorShiftTime > 2000) {
                 const palette = generateHarmoniousPalette();
                 sim.updatePalette(palette);
                 renderSwatches();
@@ -1607,18 +1644,16 @@ document.addEventListener("DOMContentLoaded", () => {
             sim.settings.dissipation = baseSettings.dissipation;
         }
         
-        // 2. Treble/Mid Reactions (Flow Speed, Turbulence, Wobble vibration & stretch)
+        // Treble Modulations (Flow Speed, Turbulence, Wobble & Stretch)
         if (elements.pulseTrebleToggle.checked) {
-            // Speed scales up to 5.0x and turbulence up to 4.5x on melodic peaks
-            const speedMod = 1.0 + (trebleIntensity * 4.0);
-            const turbMod = 1.0 + (trebleIntensity * 3.5);
-            sim.settings.speed = baseSettings.speed * speedMod;
-            sim.settings.turbulence = baseSettings.turbulence * turbMod;
+            // Speed and turbulence pulse to melody attacks (capped at a clean, smooth swell)
+            sim.settings.speed = baseSettings.speed * (1.0 + Math.min(2.5, speedPulse));
+            sim.settings.turbulence = baseSettings.turbulence * (1.0 + Math.min(2.0, turbPulse));
             
-            // Particles stretch (up to +8.0) and wobble/vibrate (up to +6.0) with melody frequencies
-            sim.settings.wobble = baseSettings.wobble + (trebleIntensity * 6.0);
-            sim.settings.stretch = baseSettings.stretch + (trebleIntensity * 8.0);
-            sim.settings.rotationSpeed = baseSettings.rotationSpeed + (trebleIntensity * 0.16);
+            // Quick wobble and stretch pulses
+            sim.settings.wobble = baseSettings.wobble + Math.min(6.0, wobblePulse);
+            sim.settings.stretch = baseSettings.stretch + Math.min(7.0, stretchPulse);
+            sim.settings.rotationSpeed = baseSettings.rotationSpeed + (speedPulse * 0.08);
         } else {
             sim.settings.speed = baseSettings.speed;
             sim.settings.turbulence = baseSettings.turbulence;
