@@ -162,7 +162,11 @@ const StylePresets = {
         spinningKaleido: true,
         particleShape: "ring",
         kaleidoscopeEnabled: true,
-        kaleidoscopeSegments: 8
+        kaleidoscopeSegments: 8,
+        
+        // Custom audio extensions
+        bilateralEnabled: true,
+        asmrEnabled: true
     }
 };
 

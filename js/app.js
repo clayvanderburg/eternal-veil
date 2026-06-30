@@ -121,13 +121,28 @@ document.addEventListener("DOMContentLoaded", () => {
         hud: document.getElementById("hud"),
         binauralModeSelect: document.getElementById("binaural-mode-select"),
         headphonesPrompt: document.getElementById("headphones-prompt"),
-        splashScreen: document.getElementById("splash-screen")
+        splashScreen: document.getElementById("splash-screen"),
+        bilateralToggle: document.getElementById("bilateral-toggle"),
+        asmrToggle: document.getElementById("asmr-toggle"),
+        
+        // Channel Mixer elements
+        droneVolumeSlider: document.getElementById("drone-volume-slider"),
+        droneVolumeVal: document.getElementById("drone-volume-val"),
+        bilateralVolumeSlider: document.getElementById("bilateral-volume-slider"),
+        bilateralVolumeVal: document.getElementById("bilateral-volume-val"),
+        asmrVolumeSlider: document.getElementById("asmr-volume-slider"),
+        asmrVolumeVal: document.getElementById("asmr-volume-val")
     };
 
     // --- INITIALIZATION ---
     function initialize() {
         setupTabs();
         buildPresetCards();
+        
+        // Initialize master volume to 40% (comfortable default, starts muted)
+        elements.synthVolumeSlider.value = 40;
+        elements.synthVolumeVal.textContent = "40%";
+        window.CosmicSynth.setVolume(0.4);
         
         // Check for URL State Share link
         const urlState = UrlStateSync.parseUrlState();
@@ -280,6 +295,17 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
             elements.kaleidoscopeSettings.classList.add("hidden");
         }
+        
+        // Apply optional preset-specific audio overrides (e.g. for Hypnotic preset)
+        const bilateralOn = p.bilateralEnabled === true;
+        sim.settings.bilateralEnabled = bilateralOn;
+        elements.bilateralToggle.checked = bilateralOn;
+        window.CosmicSynth.setBilateralEnabled(bilateralOn);
+
+        const asmrOn = p.asmrEnabled === true;
+        sim.settings.asmrEnabled = asmrOn;
+        elements.asmrToggle.checked = asmrOn;
+        window.CosmicSynth.setAsmrEnabled(asmrOn);
         
         // Modulate synthesizer frequencies matching the active preset scale
         modulateSynth();
@@ -683,6 +709,40 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         };
 
+        // Channel Mixer volume adjustments
+        elements.droneVolumeSlider.oninput = () => {
+            const val = parseInt(elements.droneVolumeSlider.value) / 100;
+            elements.droneVolumeVal.textContent = `${elements.droneVolumeSlider.value}%`;
+            window.CosmicSynth.setDroneVolume(val);
+        };
+
+        elements.bilateralVolumeSlider.oninput = () => {
+            const val = parseInt(elements.bilateralVolumeSlider.value) / 100;
+            elements.bilateralVolumeVal.textContent = `${elements.bilateralVolumeSlider.value}%`;
+            window.CosmicSynth.setBilateralVolume(val);
+        };
+
+        elements.asmrVolumeSlider.oninput = () => {
+            const val = parseInt(elements.asmrVolumeSlider.value) / 100;
+            elements.asmrVolumeVal.textContent = `${elements.asmrVolumeSlider.value}%`;
+            window.CosmicSynth.setAsmrVolume(val);
+        };
+
+        // Bilateral and ASMR adjustments
+        elements.bilateralToggle.onchange = () => {
+            const state = elements.bilateralToggle.checked;
+            sim.settings.bilateralEnabled = state;
+            window.CosmicSynth.setBilateralEnabled(state);
+            showToast(state ? "Bilateral rhythm enabled 🧘" : "Bilateral rhythm disabled");
+        };
+
+        elements.asmrToggle.onchange = () => {
+            const state = elements.asmrToggle.checked;
+            sim.settings.asmrEnabled = state;
+            window.CosmicSynth.setAsmrEnabled(state);
+            showToast(state ? "8D ASMR tingling enabled ✨" : "8D ASMR tingling disabled");
+        };
+
         // Factory Reset defaults
         elements.factoryResetBtn.onclick = () => {
             window.location.hash = "";
@@ -701,6 +761,32 @@ document.addEventListener("DOMContentLoaded", () => {
             sim.settings.particleShape = "ellipse";
             elements.particleShapeSelect.value = "ellipse";
             sim.shockwaves = [];
+            
+            // Reset bilateral and ASMR audio configurations
+            sim.settings.bilateralEnabled = false;
+            elements.bilateralToggle.checked = false;
+            window.CosmicSynth.setBilateralEnabled(false);
+
+            sim.settings.asmrEnabled = false;
+            elements.asmrToggle.checked = false;
+            window.CosmicSynth.setAsmrEnabled(false);
+            
+            // Reset mixer sliders to defaults
+            elements.synthVolumeSlider.value = 40;
+            elements.synthVolumeVal.textContent = "40%";
+            window.CosmicSynth.setVolume(0.4);
+            
+            elements.droneVolumeSlider.value = 36;
+            elements.droneVolumeVal.textContent = "36%";
+            window.CosmicSynth.setDroneVolume(0.36);
+            
+            elements.bilateralVolumeSlider.value = 75;
+            elements.bilateralVolumeVal.textContent = "75%";
+            window.CosmicSynth.setBilateralVolume(0.75);
+            
+            elements.asmrVolumeSlider.value = 50;
+            elements.asmrVolumeVal.textContent = "50%";
+            window.CosmicSynth.setAsmrVolume(0.50);
             
             showToast("Restored system settings default");
         };
@@ -777,7 +863,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 elements.splashScreen.classList.add("fade-out");
                 
                 // Pre-initialize Cosmic Synth AudioContext on first user click gesture
-                // to completely satisfy browser web-audio autostart policies!
+                // but keep it muted until the user clicks Enable Audio!
                 window.CosmicSynth.init();
             };
         }
@@ -1000,6 +1086,32 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.spinningKaleidoToggle.checked = sim.settings.spinningKaleido;
         elements.shockwavesToggle.checked = sim.settings.shockwavesEnabled;
         elements.particleShapeSelect.value = sim.settings.particleShape || "ellipse";
+        
+        // Sync Audio settings UIs
+        const loadedBinauralMode = sim.settings.binauralMode || "theta";
+        elements.binauralModeSelect.value = loadedBinauralMode;
+        window.CosmicSynth.setBinauralMode(loadedBinauralMode);
+
+        const loadedBilateral = sim.settings.bilateralEnabled === true;
+        elements.bilateralToggle.checked = loadedBilateral;
+        window.CosmicSynth.setBilateralEnabled(loadedBilateral);
+
+        const loadedAsmr = sim.settings.asmrEnabled === true;
+        elements.asmrToggle.checked = loadedAsmr;
+        window.CosmicSynth.setAsmrEnabled(loadedAsmr);
+        
+        // Sync default channel mixer values
+        elements.droneVolumeSlider.value = 36;
+        elements.droneVolumeVal.textContent = "36%";
+        window.CosmicSynth.setDroneVolume(0.36);
+        
+        elements.bilateralVolumeSlider.value = 75;
+        elements.bilateralVolumeVal.textContent = "75%";
+        window.CosmicSynth.setBilateralVolume(0.75);
+        
+        elements.asmrVolumeSlider.value = 50;
+        elements.asmrVolumeVal.textContent = "50%";
+        window.CosmicSynth.setAsmrVolume(0.50);
         
         // Colors & Background
         sim.palette = [...data.palette];

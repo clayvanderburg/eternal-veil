@@ -35,6 +35,24 @@ class BinauralBeatEngine {
         
         // Scheduling timers
         this.windModTimer = null;
+        
+        // Upgraded features: Bilateral Synth and ASMR
+        this.bilateralEnabled = false;
+        this.asmrEnabled = false;
+        
+        // Channel Mixer Volumes (0 to 1)
+        this.droneVolume = 0.36;       // start 36% (20% louder than 30%)
+        this.bilateralVolume = 0.75;   // start 75%
+        this.asmrVolume = 0.50;        // start 50%
+        
+        // Bilateral Nodes & Timers
+        this.bilateralTimer = null;
+        this.lastBilateralPan = -0.8;
+        this.bilateralGain = null;
+        this.bilateralPan = null;
+        
+        // ASMR timers
+        this.asmrTimer = null;
     }
 
     // Initialize AudioContext upon user action
@@ -59,10 +77,12 @@ class BinauralBeatEngine {
             // Start generators
             this.setupBinauralOscillators();
             this.setupCosmicWind();
+            this.startBilateralLoop();
             this.startWindModulator();
+            this.startAsmrLoop();
             
             this.initialized = true;
-            console.log("[BinauralSynth] Binaural Beat & Wind Engine initialized.");
+            console.log("[BinauralSynth] Binaural Beat, Bilateral, & ASMR Engine initialized.");
         } catch (e) {
             console.error("[BinauralSynth] Context initialization failed:", e);
         }
@@ -82,6 +102,10 @@ class BinauralBeatEngine {
         this.oscLeft.frequency.value = this.baseFreq; // e.g. 110Hz left ear
         this.oscRight.frequency.value = this.baseFreq + this.beatFreq; // e.g. 116Hz right ear
         
+        // Attenuate continuous carrier hum to a comfortable background level
+        this.droneGain = this.ctx.createGain();
+        this.droneGain.gain.value = this.droneVolume * 0.2; 
+        
         if (this.panLeft && this.panRight) {
             this.panLeft.pan.value = -1.0; // Left ear
             this.panRight.pan.value = 1.0; // Right ear
@@ -89,13 +113,14 @@ class BinauralBeatEngine {
             this.oscLeft.connect(this.panLeft);
             this.oscRight.connect(this.panRight);
             
-            this.panLeft.connect(this.masterGain);
-            this.panRight.connect(this.masterGain);
+            this.panLeft.connect(this.droneGain);
+            this.panRight.connect(this.droneGain);
         } else {
-            // Fallback for browsers lacking StereoPanner node
-            this.oscLeft.connect(this.masterGain);
-            this.oscRight.connect(this.masterGain);
+            this.oscLeft.connect(this.droneGain);
+            this.oscRight.connect(this.droneGain);
         }
+        
+        this.droneGain.connect(this.masterGain);
         
         this.oscLeft.start(0);
         this.oscRight.start(0);
@@ -136,20 +161,97 @@ class BinauralBeatEngine {
         this.noiseSource.start(0);
     }
 
+    // Steady, deliberate loop that triggers a deep resonant "dong" chime
+    startBilateralLoop() {
+        const scheduleNext = () => {
+            if (this.initialized) {
+                if (this.bilateralEnabled && !this.isMuted) {
+                    this.triggerBilateralDong();
+                }
+            }
+            // Trigger a single pleasant dong chime every 3 seconds
+            this.bilateralTimer = setTimeout(scheduleNext, 3000);
+        };
+        scheduleNext();
+    }
+
+    // Trigger a single pleasant meditative bell chime that shifts stereo panning over its resonance
+    triggerBilateralDong() {
+        const t = this.ctx.currentTime;
+        const duration = 8.5; // long breathing decay
+
+        // Alternate starting pan side to move back and forth
+        this.lastBilateralPan = -this.lastBilateralPan;
+        const startPan = this.lastBilateralPan;
+        const endPan = -startPan;
+
+        const panNode = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
+        const gainNode = this.ctx.createGain();
+
+        // Volume Envelope: soft attack, long pleasant decay
+        gainNode.gain.setValueAtTime(0.0001, t);
+        const maxDongVolume = this.bilateralVolume * 0.35; // scalable and louder!
+        gainNode.gain.linearRampToValueAtTime(maxDongVolume, t + 0.15);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+
+        if (panNode) {
+            panNode.pan.setValueAtTime(startPan, t);
+            // Slowly sweep the pan to the opposite ear over the chime's tail
+            panNode.pan.linearRampToValueAtTime(endPan, t + 6.5);
+            
+            gainNode.connect(panNode);
+            panNode.connect(this.masterGain);
+        } else {
+            gainNode.connect(this.masterGain);
+        }
+
+        // Multi-frequency additive synthesis to construct a deep singing bowl "dong"
+        // Root pitch (deep sine), Perfect Fifth harmonic (triangle), Double Octave harmonic (sine)
+        const rootFreq = this.baseFreq;
+        const harmonics = [
+            { type: 'sine', freq: rootFreq, gain: 1.0 },
+            { type: 'triangle', freq: rootFreq * 1.5, gain: 0.35 },
+            { type: 'sine', freq: rootFreq * 2.0, gain: 0.12 }
+        ];
+
+        harmonics.forEach(h => {
+            const osc = this.ctx.createOscillator();
+            osc.type = h.type;
+            osc.frequency.value = h.freq;
+
+            const oscGain = this.ctx.createGain();
+            oscGain.gain.value = h.gain;
+
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 550.0; // keep it warm and warm
+
+            osc.connect(filter);
+            filter.connect(oscGain);
+            oscGain.connect(gainNode);
+
+            osc.start(t);
+            osc.stop(t + duration);
+        });
+    }
+
     // Slowly swept lowpass frequency cutoff for ocean-like waves wind simulation
     startWindModulator() {
         const mod = () => {
-            if (this.initialized && !this.isMuted) {
+            if (this.initialized) {
                 const now = this.ctx.currentTime;
-                // Modulation sweep between 75Hz and 180Hz
-                const angle = now * 0.05; // very slow wave rate
-                const freq = 120.0 + Math.sin(angle) * 45.0;
                 
-                this.noiseFilter.frequency.setValueAtTime(freq, now);
-                
-                // Modulate wind gain slightly too for dynamic volume shifts
-                const windVol = 0.04 + Math.cos(angle * 1.5) * 0.025;
-                this.noiseGain.gain.setValueAtTime(windVol, now);
+                // Only sweep wind if not muted
+                if (!this.isMuted) {
+                    // Modulation sweep between 75Hz and 180Hz
+                    const angle = now * 0.05; // very slow wave rate
+                    const freq = 120.0 + Math.sin(angle) * 45.0;
+                    this.noiseFilter.frequency.setValueAtTime(freq, now);
+                    
+                    // Modulate wind gain slightly too for dynamic volume shifts
+                    const windVol = 0.04 + Math.cos(angle * 1.5) * 0.025;
+                    this.noiseGain.gain.setValueAtTime(windVol, now);
+                }
             }
             this.windModTimer = setTimeout(mod, 100);
         };
@@ -202,8 +304,11 @@ class BinauralBeatEngine {
         this.isMuted = state;
         
         if (!this.initialized) {
-            if (!state) this.init(); // lazy init
-            return;
+            if (!state) {
+                this.init();
+            } else {
+                return;
+            }
         }
         
         if (this.ctx && this.ctx.state === 'suspended') {
@@ -212,10 +317,19 @@ class BinauralBeatEngine {
         
         const now = this.ctx.currentTime;
         if (state) {
-            this.masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+            this.masterGain.gain.linearRampToValueAtTime(0.0001, now + 0.3);
         } else {
             this.masterGain.gain.setValueAtTime(0.0001, now);
-            this.masterGain.gain.exponentialRampToValueAtTime(this.volume, now + 0.3);
+            this.masterGain.gain.linearRampToValueAtTime(this.volume, now + 0.3);
+            
+            // Trigger welcoming singing bowl chime immediately if bilateral rhythm is enabled
+            if (this.bilateralEnabled) {
+                setTimeout(() => {
+                    if (this.initialized && !this.isMuted && this.bilateralEnabled) {
+                        this.triggerBilateralDong();
+                    }
+                }, 180);
+            }
         }
     }
 
@@ -225,6 +339,30 @@ class BinauralBeatEngine {
         if (this.initialized && !this.isMuted) {
             this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, this.ctx.currentTime);
             this.masterGain.gain.linearRampToValueAtTime(this.volume, this.ctx.currentTime + 0.1);
+        }
+    }
+
+    setDroneVolume(value) {
+        this.droneVolume = value;
+        if (this.initialized && this.droneGain) {
+            const now = this.ctx.currentTime;
+            this.droneGain.gain.setTargetAtTime(this.droneVolume * 0.2, now, 0.1);
+        }
+    }
+
+    setBilateralVolume(value) {
+        this.bilateralVolume = value;
+        if (this.initialized && !this.isMuted && this.bilateralEnabled) {
+            // Trigger instant dong preview when adjusting the slider so the user hears the new volume immediately
+            this.triggerBilateralDong();
+        }
+    }
+
+    setAsmrVolume(value) {
+        this.asmrVolume = value;
+        if (this.initialized && !this.isMuted && this.asmrEnabled) {
+            // Trigger instant ASMR preview when adjusting the slider so the user hears the new volume immediately
+            this.triggerAsmrTingle();
         }
     }
 
@@ -246,6 +384,138 @@ class BinauralBeatEngine {
         }
     }
 
+    // Rhythmic ASMR triggering loop with randomized organic intervals
+    startAsmrLoop() {
+        const scheduleNext = () => {
+            if (this.initialized) {
+                if (this.asmrEnabled && !this.isMuted) {
+                    this.triggerAsmrTingle();
+                }
+            }
+            // Trigger pings/sparks at organic intervals (300ms to 1200ms)
+            const nextDelay = 300 + Math.random() * 900;
+            this.asmrTimer = setTimeout(scheduleNext, nextDelay);
+        };
+        scheduleNext();
+    }
+
+    // Generate highly realistic, spatialized 8D ASMR microphone taps and scratching brushes
+    triggerAsmrTingle() {
+        const t = this.ctx.currentTime;
+        const type = Math.random() > 0.5 ? "tap" : "scratch";
+        
+        // Setup start and end panning for sweeping 8D audio directionality
+        const startPan = Math.random() * 1.8 - 0.9;
+        const endPan = startPan + (Math.random() > 0.5 ? 0.3 : -0.3);
+        const clampedEndPan = Math.max(-1.0, Math.min(1.0, endPan));
+        
+        const panNode = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
+        const gainNode = this.ctx.createGain();
+        gainNode.gain.setValueAtTime(0.0001, t);
+        
+        if (panNode) {
+            panNode.pan.setValueAtTime(startPan, t);
+            panNode.pan.linearRampToValueAtTime(clampedEndPan, t + 0.35);
+            
+            gainNode.connect(panNode);
+            panNode.connect(this.masterGain);
+        } else {
+            gainNode.connect(this.masterGain);
+        }
+        
+        if (type === "tap") {
+            // ASMR Microphone Tap: Low frequency thud + transient noise click
+            const osc = this.ctx.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(220, t);
+            osc.frequency.exponentialRampToValueAtTime(70, t + 0.08); // quick pitch sweep
+            
+            const lp = this.ctx.createBiquadFilter();
+            lp.type = 'lowpass';
+            lp.frequency.value = 180; // keep it warm
+            
+            osc.connect(lp);
+            lp.connect(gainNode);
+            
+            // Generate transient noise click (microphone physical contact click)
+            const clickBufSize = this.ctx.sampleRate * 0.015;
+            const clickBuffer = this.ctx.createBuffer(1, clickBufSize, this.ctx.sampleRate);
+            const clickData = clickBuffer.getChannelData(0);
+            for (let i = 0; i < clickBufSize; i++) {
+                clickData[i] = (Math.random() * 2.0 - 1.0) * 0.75;
+            }
+            const clickSource = this.ctx.createBufferSource();
+            clickSource.buffer = clickBuffer;
+            
+            const clickFilter = this.ctx.createBiquadFilter();
+            clickFilter.type = 'bandpass';
+            clickFilter.frequency.value = 1800; // mid-range wood/plastic touch
+            clickFilter.Q.value = 2.0;
+            
+            const clickGain = this.ctx.createGain();
+            clickGain.gain.value = 0.08;
+            
+            clickSource.connect(clickFilter);
+            clickFilter.connect(clickGain);
+            clickGain.connect(gainNode);
+            
+            // Envelope: instant touch, quick decay
+            const duration = 0.12;
+            gainNode.gain.setValueAtTime(0.0001, t);
+            gainNode.gain.linearRampToValueAtTime(this.asmrVolume * 0.24, t + 0.005);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+            
+            osc.start(t);
+            osc.stop(t + duration);
+            clickSource.start(t);
+        } else {
+            // ASMR Microphone Scratch: Finger brushing grill (crackle-modulated noise)
+            const bufSize = this.ctx.sampleRate * 0.22; // 220ms scrape
+            const buffer = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            
+            for (let i = 0; i < bufSize; i++) {
+                const white = Math.random() * 2.0 - 1.0;
+                // Modulation to create physical crackling/rubbing texture
+                const crackle = Math.sin(i * 0.008) > 0.35 ? 1.0 : 0.2;
+                data[i] = white * crackle * 0.45;
+            }
+            
+            const source = this.ctx.createBufferSource();
+            source.buffer = buffer;
+            
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.value = 1300; // mid-high frequency brush scrape
+            filter.Q.value = 1.6;
+            
+            source.connect(filter);
+            filter.connect(gainNode);
+            
+            // Envelope: swell in and out like a hand swipe
+            const duration = 0.22;
+            gainNode.gain.setValueAtTime(0.0001, t);
+            gainNode.gain.linearRampToValueAtTime(this.asmrVolume * 0.20, t + 0.04);
+            gainNode.gain.linearRampToValueAtTime(this.asmrVolume * 0.10, t + 0.14);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+            
+            source.start(t);
+            source.stop(t + duration);
+        }
+    }
+
+    setBilateralEnabled(state) {
+        this.bilateralEnabled = state;
+        // Triggers a preview dong immediately if turned on
+        if (state && this.initialized && !this.isMuted) {
+            this.triggerBilateralDong();
+        }
+    }
+
+    setAsmrEnabled(state) {
+        this.asmrEnabled = state;
+    }
+
     // Retrieve visualizer data for HUD Equalizer bounces
     getVisualizerData() {
         if (!this.initialized || this.isMuted) return null;
@@ -258,12 +528,14 @@ class BinauralBeatEngine {
     // Cleanup resources
     dispose() {
         clearTimeout(this.windModTimer);
+        clearTimeout(this.asmrTimer);
         
         if (this.initialized) {
             try {
                 this.oscLeft.stop();
                 this.oscRight.stop();
                 this.noiseSource.stop();
+                if (this.bilateralOsc) this.bilateralOsc.stop();
                 this.ctx.close();
             } catch(e) {}
         }

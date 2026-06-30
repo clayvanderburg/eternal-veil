@@ -387,7 +387,11 @@ class FlowSimulation {
             morphingBg: false,
             spinningKaleido: false,
             particleShape: "ellipse",
-            shockwavesEnabled: true
+            shockwavesEnabled: true,
+            
+            // Audio additions
+            bilateralEnabled: false,
+            asmrEnabled: false
         };
         
         this.palette = ["#6366f1", "#818cf8", "#a78bfa", "#c084fc"];

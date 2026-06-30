@@ -32,6 +32,10 @@ const UrlStateSync = {
                 ps: sim.settings.particleShape,
                 se: sim.settings.shockwavesEnabled ? 1 : 0,
 
+                // Audio features
+                be: sim.settings.bilateralEnabled ? 1 : 0,
+                ae: sim.settings.asmrEnabled ? 1 : 0,
+
                 p: sim.palette.map(c => parseColorToHex(c)), // array of Hex
                 bg: parseColorToHex(sim.backgroundColor),
                 sm: sim.isSolidMode ? 1 : 0,
@@ -93,7 +97,11 @@ const UrlStateSync = {
                     morphingBg: state.mb === 1,
                     spinningKaleido: state.sk === 1,
                     particleShape: state.ps ?? "ellipse",
-                    shockwavesEnabled: state.se !== 0 // default to true
+                    shockwavesEnabled: state.se !== 0, // default to true
+
+                    // Audio additions
+                    bilateralEnabled: state.be === 1,
+                    asmrEnabled: state.ae === 1
                 },
                 palette: state.p ?? ["#6366f1"],
                 backgroundColor: state.bg ?? "#050507",

@@ -465,7 +465,7 @@
                     <div class="control-row" style="margin-top: 12px;">
                         <span class="setting-label">Enable Audio</span>
                         <label class="switch">
-                            <input type="checkbox" id="sound-enable-toggle">
+                            <input type="checkbox" id="sound-enable-toggle" autocomplete="off">
                             <span class="switch-slider"></span>
                         </label>
                     </div>
@@ -475,7 +475,7 @@
                             <span class="setting-label">Volume Level</span>
                             <span class="slider-value" id="synth-volume-val">40%</span>
                         </div>
-                        <input type="range" id="synth-volume-slider" class="range-slider" min="0" max="100" value="40">
+                        <input type="range" id="synth-volume-slider" class="range-slider" min="0" max="100" value="40" autocomplete="off">
                         
                         <div class="setting-select-row" style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
                             <span class="setting-label" style="font-size: 11.5px;">Binaural Wave:</span>
@@ -486,6 +486,61 @@
                                 <option value="beta">Beta (18 Hz) - Alertness</option>
                                 <option value="gamma">Gamma (40 Hz) - Cognitive</option>
                             </select>
+                        </div>
+                                        <!-- Bilateral Sound toggle -->
+                        <div class="control-row" style="margin-top: 14px;">
+                            <div class="control-row-info">
+                                <span class="setting-label">Bilateral Rhythm</span>
+                                <p class="setting-desc">Deep singing bowl 'dong' moving back & forth</p>
+                            </div>
+                            <label class="switch small">
+                                <input type="checkbox" id="bilateral-toggle" autocomplete="off">
+                                <span class="switch-slider"></span>
+                            </label>
+                        </div>
+                        
+                        <!-- ASMR Tingles toggle -->
+                        <div class="control-row" style="margin-top: 10px;">
+                            <div class="control-row-info">
+                                <span class="setting-label">8D ASMR Tingles</span>
+                                <p class="setting-desc">Tactile microphone taps and scratching brushes</p>
+                            </div>
+                            <label class="switch small">
+                                <input type="checkbox" id="asmr-toggle" autocomplete="off">
+                                <span class="switch-slider"></span>
+                            </label>
+                        </div>
+
+                        <!-- CHANNEL MIXER -->
+                        <div class="channel-mixer-group" style="margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06);">
+                            <span class="setting-label-header" style="font-size: 10px; opacity: 0.7; letter-spacing: 0.5px;">CHANNEL MIXER</span>
+                            
+                            <!-- 1. Binaural Carrier Volume -->
+                            <div class="control-item" style="margin-top: 10px;">
+                                <div class="slider-header" style="margin-bottom: 4px;">
+                                    <span class="setting-label" style="font-size: 11px;">Binaural Carrier Volume</span>
+                                    <span class="slider-value" id="drone-volume-val" style="font-size: 11px;">36%</span>
+                                </div>
+                                <input type="range" id="drone-volume-slider" class="range-slider" min="0" max="100" value="36" autocomplete="off">
+                            </div>
+                            
+                            <!-- 2. Bilateral Dong Volume -->
+                            <div class="control-item" style="margin-top: 10px;">
+                                <div class="slider-header" style="margin-bottom: 4px;">
+                                    <span class="setting-label" style="font-size: 11px;">Singing Bowl Chime</span>
+                                    <span class="slider-value" id="bilateral-volume-val" style="font-size: 11px;">75%</span>
+                                </div>
+                                <input type="range" id="bilateral-volume-slider" class="range-slider" min="0" max="100" value="75" autocomplete="off">
+                            </div>
+                            
+                            <!-- 3. ASMR Volume -->
+                            <div class="control-item" style="margin-top: 10px;">
+                                <div class="slider-header" style="margin-bottom: 4px;">
+                                    <span class="setting-label" style="font-size: 11px;">ASMR Scratches/Taps</span>
+                                    <span class="slider-value" id="asmr-volume-val" style="font-size: 11px;">50%</span>
+                                </div>
+                                <input type="range" id="asmr-volume-slider" class="range-slider" min="0" max="100" value="50" autocomplete="off">
+                            </div>
                         </div>
                     </div>
                 </div>
