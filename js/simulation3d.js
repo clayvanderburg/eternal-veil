@@ -183,7 +183,8 @@ class FlowSimulation3D {
                     // Multiply shape transparency by trail step transparency (vAlpha)
                     float finalAlpha = shapeAlpha * vAlpha;
                     
-                    vec3 finalColor = vColor + (vec3(1.0) * trebleGlow * (0.5 - dist));
+                    // Use vColor instead of vec3(1.0) to flare the particle's own hue, preventing blowout to white
+                    vec3 finalColor = vColor + (vColor * trebleGlow * (0.5 - dist));
                     gl_FragColor = vec4(finalColor, finalAlpha * 0.95);
                 }
             `,
@@ -455,7 +456,8 @@ class FlowSimulation3D {
                 const alphaFade = Math.pow(fadeFactor, 0.7);
                 
                 sizes[idx] = sizeFade * particleBaseSize;
-                alphas[idx] = alphaFade * lifeRatio * 0.82;
+                // Significantly lower opacity multiplier (0.16 instead of 0.82) to support 3,000 dense overlapping trails without blowing out to solid white
+                alphas[idx] = alphaFade * lifeRatio * 0.16;
             }
             
             p.life--;
