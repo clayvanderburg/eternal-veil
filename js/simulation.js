@@ -370,9 +370,10 @@ class Particle {
             } else {
                 shape = "drop";
                 drawSize = size * 0.38; // make foreground stars tiny
-                // Star twinkling flicker frequency modulation
+                // Star twinkling flicker frequency modulation (using Date.now() to avoid undefined globalTime references)
                 this.twinkleOffset = this.twinkleOffset || Math.random() * 100;
-                const flicker = 0.30 + Math.sin(globalTime * 0.12 + this.twinkleOffset) * 0.70;
+                const timeSec = Date.now() * 0.0015;
+                const flicker = 0.30 + Math.sin(timeSec * 6.5 + this.twinkleOffset) * 0.70;
                 drawAlpha = alpha * flicker * 0.95;
             }
         }
