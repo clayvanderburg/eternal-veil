@@ -478,6 +478,9 @@ class Particle {
             ctx.strokeStyle = this.color;
             ctx.lineCap = "round";
             
+            // Multiply drawSize by 4.2 to make the oil brush strokes 5x larger and thicker overall (preventing tiny zipper dashes)
+            const brushSize = drawSize * 4.2;
+            
             // Draw 4 distinct parallel line segments connecting last position to current position, using cached orientation to avoid zipper gaps
             const bristleOffsets = [-0.60, -0.20, 0.20, 0.60];
             const px = this.perpX || 0;
@@ -487,8 +490,8 @@ class Particle {
             
             for (let i = 0; i < bristleOffsets.length; i++) {
                 // Scale spread and thickness up significantly to match the slider size expectations
-                const lastOffsetPerp = bristleOffsets[i] * drawSize * 1.4;
-                const offsetPerp = bristleOffsets[i] * drawSize * 1.4;
+                const lastOffsetPerp = bristleOffsets[i] * brushSize * 1.35;
+                const offsetPerp = bristleOffsets[i] * brushSize * 1.35;
                 
                 // Continuous connection math: start of frame t connects precisely to end of frame t-1
                 const lastBx = this.lastX + lpx * lastOffsetPerp;
@@ -497,7 +500,7 @@ class Particle {
                 const by = this.y + py * offsetPerp;
                 
                 // Set thicker, richer lines that overlap slightly to create brush texturing
-                ctx.lineWidth = drawSize * 0.62 * (0.90 - Math.abs(bristleOffsets[i]) * 0.45);
+                ctx.lineWidth = brushSize * 0.58 * (0.90 - Math.abs(bristleOffsets[i]) * 0.45);
                 ctx.globalAlpha = drawAlpha * 0.88 * (1.0 - Math.abs(bristleOffsets[i]) * 0.30);
                 
                 ctx.beginPath();
