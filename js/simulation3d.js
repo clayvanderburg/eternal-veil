@@ -164,7 +164,8 @@ class FlowSimulation3D {
                     vAlpha = alpha;
                     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
                     // size attenuation makes nearby streaking trails look huge
-                    gl_PointSize = size * pointSize * (300.0 / -mvPosition.z);
+                    float computedSize = size * pointSize * (300.0 / -mvPosition.z);
+                    gl_PointSize = min(computedSize, 40.0); // Cap point size at 40px to prevent viewport coverage
                     gl_Position = projectionMatrix * mvPosition;
                 }
             `,
@@ -456,8 +457,8 @@ class FlowSimulation3D {
                 const alphaFade = Math.pow(fadeFactor, 0.7);
                 
                 sizes[idx] = sizeFade * particleBaseSize;
-                // Extremely low opacity multiplier (0.07 instead of 0.16) to fully resolve blinding white out and expose rich colors
-                alphas[idx] = alphaFade * lifeRatio * 0.07;
+                // Calibrated alpha multiplier (0.045) to prevent additive blending blowout while keeping trails luminous
+                alphas[idx] = alphaFade * lifeRatio * 0.045;
             }
             
             p.life--;
