@@ -167,6 +167,30 @@ const StylePresets = {
         // Custom audio extensions
         bilateralEnabled: true,
         asmrEnabled: true
+    },
+    aquatic: {
+        name: "Aquatic Bubbles",
+        desc: "Thick paint-stroke currents flowing rightward while glowing bubble rings rise leftward.",
+        speed: 1.10,
+        turbulence: 0.65,
+        curl: 0.75,
+        density: 1600,
+        dissipation: 0.015,
+        zoom: 0.85,
+        size: 3.2,
+        sizeVar: 1.5,
+        stretch: 2.0,
+        interaction: 0.8,
+        rotationSpeed: 0.02,
+        wobble: 0.20,
+        colors: ["#0ea5e9", "#38bdf8", "#06b6d4", "#22d3ee", "#e0f2fe", "#0284c7"],
+        particleShape: "aquatic",
+        psychedelicMode: false,
+        morphingBg: false,
+        spinningKaleido: false,
+        kaleidoscopeEnabled: false,
+        bilateralEnabled: false,
+        asmrEnabled: true
     }
 };
 

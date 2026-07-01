@@ -115,6 +115,9 @@ class Particle {
         // Cache random offset to avoid Math.random() in hot rendering loop
         this.randomSizeOffset = Math.random() - 0.5;
         
+        // Randomly assign particle category for Aquatic Flow preset splits (60% paint strokes, 40% bubble rings)
+        this.aquaticType = Math.random() > 0.4 ? "paint" : "bubble";
+        
         this.color = this.pickColor();
     }
 
@@ -142,6 +145,20 @@ class Particle {
         // Scale vector forces by scaleRef to prevent speed feeling too fast on mobile and slow on 4K
         let targetVx = (curl.vx * organic + tVal * (1 - organic) * turb) * speed * 0.26 * scaleRef;
         let targetVy = (curl.vy * organic + tVal * (1 - organic) * turb) * speed * 0.26 * scaleRef;
+        
+        // Inject Aquatic Flow split velocity physics overrides
+        if (settings.particleShape === "aquatic") {
+            if (this.aquaticType === "paint") {
+                // Paint daubs slide horizontal-rightward with wavy vertical sway
+                targetVx += 0.8 * speed * scaleRef;
+                targetVy += Math.sin(globalTime * 0.025 + this.x * 0.004) * 0.32 * speed * scaleRef;
+            } else {
+                // Bubbles drift leftward and float upwards (buoyancy) with horizontal weaving bob
+                targetVx -= 0.45 * speed * scaleRef;
+                targetVy -= (0.8 + Math.abs(this.randomSizeOffset) * 0.5) * speed * scaleRef;
+                targetVx += Math.cos(globalTime * 0.035 + this.y * 0.006) * 0.36 * speed * scaleRef;
+            }
+        }
 
         // Apply drag/friction
         const drag = settings.drag !== undefined ? settings.drag : 0.90;
@@ -316,7 +333,10 @@ class Particle {
         // Dynamic transparency fades based on age and particle preset styles
         const alpha = lifeRatio * 0.78;
         const stretch = settings.stretch || 1.6;
-        const shape = settings.particleShape || "ellipse";
+        let shape = settings.particleShape || "ellipse";
+        if (shape === "aquatic") {
+            shape = this.aquaticType === "paint" ? "ellipse" : "ring";
+        }
         
         // Base sizes scaled proportionally to screen width (using cached randomSizeOffset to save CPU)
         const size = Math.max(0.4, (settings.baseSize + this.randomSizeOffset * settings.sizeVariation) * (0.6 + lifeRatio * 0.5)) * scaleRef;
