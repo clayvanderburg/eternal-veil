@@ -255,7 +255,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const eased = 1.0 - Math.pow(1.0 - progress, 3.0);
             const val = transition.from + (transition.to - transition.from) * eased;
             
-            sim.settings[key] = val;
+            updateActiveSetting(key, val);
             
             // Sync slider UI position
             const sliderId = `${key}-slider`;
@@ -328,8 +328,7 @@ document.addEventListener("DOMContentLoaded", () => {
         startMorph("wobble", p.wobble);
         
         // Set colors and bg immediately
-        sim.updatePalette([...p.colors]);
-        if (sim3D) sim3D.updatePalette([...p.colors]);
+        updateActivePalette([...p.colors]);
         renderSwatches();
 
         // Apply custom flags for Psychedelic Drives if defined, else reset to default states
@@ -392,8 +391,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
                 setOptionToManual("colors");
                 sim.palette.splice(idx, 1);
-                sim.updatePalette([...sim.palette]);
-                if (sim3D) sim3D.updatePalette([...sim.palette]);
+                updateActivePalette([...sim.palette]);
                 renderSwatches();
                 modulateSynth();
             };
@@ -452,7 +450,26 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // --- AUTOPILOT MANUAL VS FLOW LOGIC ---
+    let baseSettings = null;
+    let basePalette = null;
     const optionModes = {};
+
+    function updateActiveSetting(key, value) {
+        sim.settings[key] = value;
+        // If music reactivity is active and caching, sync manual overrides
+        if (baseSettings && baseSettings.hasOwnProperty(key)) {
+            baseSettings[key] = value;
+        }
+    }
+
+    function updateActivePalette(newPalette) {
+        sim.updatePalette(newPalette);
+        if (sim3D) sim3D.updatePalette(newPalette);
+        // If music reactivity is active and caching, sync manual overrides
+        if (basePalette) {
+            basePalette = [...newPalette];
+        }
+    }
 
     function isFlowEnabled(key) {
         if (!isAutopilot) return false;
@@ -600,8 +617,7 @@ document.addEventListener("DOMContentLoaded", () => {
             autopilotColorTimer = setInterval(() => {
                 if (isFlowEnabled("colors")) {
                     const palette = generateHarmoniousPalette();
-                    sim.updatePalette(palette);
-                    if (sim3D) sim3D.updatePalette(palette);
+                    updateActivePalette(palette);
                     renderSwatches();
                     modulateSynth();
                 }
@@ -976,8 +992,7 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.randomizePaletteBtn.onclick = () => {
             setOptionToManual("colors");
             const palette = generateHarmoniousPalette();
-            sim.updatePalette(palette);
-            if (sim3D) sim3D.updatePalette(palette);
+            updateActivePalette(palette);
             renderSwatches();
             modulateSynth();
             showToast("Harmonious palette generated.");
@@ -991,8 +1006,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 sim.palette.shift(); // remove oldest
             }
             sim.palette.push(elements.particleColorPicker.value);
-            sim.updatePalette([...sim.palette]);
-            if (sim3D) sim3D.updatePalette([...sim.palette]);
+            updateActivePalette([...sim.palette]);
             renderSwatches();
             modulateSynth();
             showToast("Color added to palette.");
@@ -1016,7 +1030,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const bindSlider = (slider, valText, settingKey, isDensity = false) => {
             slider.oninput = () => {
                 const v = parseFloat(slider.value);
-                sim.settings[settingKey] = v;
+                updateActiveSetting(settingKey, v);
                 
                 // Format floating displays nicely
                 if (valText) {
@@ -1741,7 +1755,7 @@ document.addEventListener("DOMContentLoaded", () => {
         window.CosmicSynth.setAsmrVolume(0.50);
         
         // Colors & Background
-        sim.palette = [...data.palette];
+        updateActivePalette([...data.palette]);
         sim.backgroundColor = data.backgroundColor;
         elements.bgColorPicker.value = data.backgroundColor;
         elements.bgHexVal.textContent = data.backgroundColor.toUpperCase();
@@ -1787,8 +1801,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // --- MUSIC REACTIVITY CONTROLLER ---
-    let baseSettings = null;
-    let basePalette = null;
+    // (baseSettings and basePalette are declared in higher scope)
     let maxBassSeen = 0.4;
     let maxTrebleSeen = 0.4;
     let lastShockwaveTime = 0;
@@ -2034,9 +2047,7 @@ document.addEventListener("DOMContentLoaded", () => {
             // Trigger a quick new palette generation on major beats if not mood shifting
             if (isFlowEnabled("colors") && bassAttack > 0.22 && now - lastColorShiftTime > 3000) {
                 const palette = generateHarmoniousPalette();
-                basePalette = [...palette]; // update base palette references
-                sim.updatePalette(palette);
-                if (sim3D) sim3D.updatePalette(palette);
+                updateActivePalette(palette);
                 renderSwatches();
                 modulateSynth();
                 lastColorShiftTime = now;
