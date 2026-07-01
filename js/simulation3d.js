@@ -100,17 +100,17 @@ class FlowSimulation3D {
                 uniform float opacity;
                 
                 void main() {
-                    // 1. Shift UV horizontally by 0.5 so the center of the 2D canvas starts directly in front of the user's face (Z-axis)
-                    // 2. Tile the texture 2 times horizontally (vUv.x * 2.0) to make the patterns smaller and sharper on the walls
-                    vec2 shiftedUv = vec2(fract(vUv.x * 2.0 + 0.5), vUv.y);
+                    // Standard spherical wrap maps the canvas center straight ahead,
+                    // and places the seam (left/right borders) directly behind the player's head.
+                    vec2 uv = vUv;
                     
                     // Sample live visualizer frames
-                    vec4 texColor = texture2D(map, shiftedUv);
+                    vec4 texColor = texture2D(map, uv);
                     
-                    // 3. Seam fading math: Dissolve the wrap borders into the background black void so there are no seams
-                    float edgeFadeX = smoothstep(0.0, 0.06, fract(vUv.x * 2.0)) * smoothstep(1.0, 0.94, fract(vUv.x * 2.0));
+                    // Seam fading math: Dissolve the wrap border (behind the player's head) into the background black void
+                    float edgeFadeX = smoothstep(0.0, 0.08, uv.x) * smoothstep(1.0, 0.92, uv.x);
                     
-                    // 4. Pole fading math: Dissolve the top/bottom polar pinch points to prevent rendering distortions
+                    // Pole fading math: Dissolve the top/bottom polar pinch points to prevent rendering distortions
                     float edgeFadeY = smoothstep(0.0, 0.12, vUv.y) * smoothstep(1.0, 0.88, vUv.y);
                     
                     float edgeFade = edgeFadeX * edgeFadeY;
