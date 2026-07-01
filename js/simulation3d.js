@@ -448,10 +448,13 @@ class FlowSimulation3D {
                 positions[idx * 3 + 1] = hist.y;
                 positions[idx * 3 + 2] = hist.z;
                 
-                // Trail opacity decay factor (t/trailLength)
+                // Slower non-linear size and alpha decay to keep trail thick and visible
                 const fadeFactor = 1.0 - (t / this.trailLength);
-                sizes[idx] = fadeFactor * particleBaseSize;
-                alphas[idx] = fadeFactor * lifeRatio * 0.76;
+                const sizeFade = Math.sqrt(fadeFactor);
+                const alphaFade = Math.pow(fadeFactor, 0.7);
+                
+                sizes[idx] = sizeFade * particleBaseSize;
+                alphas[idx] = alphaFade * lifeRatio * 0.82;
             }
             
             p.life--;
@@ -466,7 +469,8 @@ class FlowSimulation3D {
         
         // Pass treble frequency spikes to GL uniforms for flare glows
         this.material.uniforms.trebleGlow.value = this.trebleIntensity * 2.2;
-        this.material.uniforms.pointSize.value = 1.05;
+        // Substantially upscale pointSize factor so points form sweeping ribbons (thick streaks) in WebGL/VR
+        this.material.uniforms.pointSize.value = baseSize * 15.0;
         
         // Adjust camera angle based on drag rotation
         this.rotationX += (this.targetRotationX - this.rotationX) * 0.05;
