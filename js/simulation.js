@@ -108,6 +108,10 @@ class Particle {
         this.y = Math.random() * this.h;
         this.lastX = this.x;
         this.lastY = this.y;
+        this.perpX = 0;
+        this.perpY = 0;
+        this.lastPerpX = 0;
+        this.lastPerpY = 0;
         this.vx = (Math.random() - 0.5) * 0.5;
         this.vy = (Math.random() - 0.5) * 0.5;
         
@@ -331,9 +335,21 @@ class Particle {
         // Move position
         this.lastX = this.x;
         this.lastY = this.y;
+        this.lastPerpX = this.perpX || 0;
+        this.lastPerpY = this.perpY || 0;
         
         this.x += this.vx;
         this.y += this.vy;
+
+        // Calculate new perpendicular unit vector based on current velocity heading
+        const headingAngle = Math.atan2(this.vy, this.vx);
+        this.perpX = -Math.sin(headingAngle);
+        this.perpY = Math.cos(headingAngle);
+        
+        if (this.lastPerpX === 0 && this.lastPerpY === 0) {
+            this.lastPerpX = this.perpX;
+            this.lastPerpY = this.perpY;
+        }
 
         // Wrap around boundaries
         let wrapped = false;
@@ -346,6 +362,8 @@ class Particle {
         if (wrapped) {
             this.lastX = this.x;
             this.lastY = this.y;
+            this.lastPerpX = this.perpX;
+            this.lastPerpY = this.perpY;
         }
 
         // Age
@@ -460,23 +478,27 @@ class Particle {
             ctx.strokeStyle = this.color;
             ctx.lineCap = "round";
             
-            // Draw 4 distinct parallel line segments connecting last position to current position, avoiding spiky overlapping ellipse stamps
-            const bristleOffsets = [-0.4, -0.15, 0.15, 0.4];
-            const perpX = -Math.sin(angle);
-            const perpY = Math.cos(angle);
+            // Draw 4 distinct parallel line segments connecting last position to current position, using cached orientation to avoid zipper gaps
+            const bristleOffsets = [-0.60, -0.20, 0.20, 0.60];
+            const px = this.perpX || 0;
+            const py = this.perpY || 0;
+            const lpx = this.lastPerpX || px;
+            const lpy = this.lastPerpY || py;
             
             for (let i = 0; i < bristleOffsets.length; i++) {
-                const offsetPerp = bristleOffsets[i] * drawSize * 0.75;
+                // Scale spread and thickness up significantly to match the slider size expectations
+                const lastOffsetPerp = bristleOffsets[i] * drawSize * 1.4;
+                const offsetPerp = bristleOffsets[i] * drawSize * 1.4;
                 
-                // Offset start/end coordinate points perpendicularly to movement heading
-                const lastBx = this.lastX + perpX * offsetPerp;
-                const lastBy = this.lastY + perpY * offsetPerp;
-                const bx = this.x + perpX * offsetPerp;
-                const by = this.y + perpY * offsetPerp;
+                // Continuous connection math: start of frame t connects precisely to end of frame t-1
+                const lastBx = this.lastX + lpx * lastOffsetPerp;
+                const lastBy = this.lastY + lpy * lastOffsetPerp;
+                const bx = this.x + px * offsetPerp;
+                const by = this.y + py * offsetPerp;
                 
-                // Outer bristles are thinner and softer to simulate frayed bristle feathering
-                ctx.lineWidth = drawSize * 0.32 * (0.85 - Math.abs(bristleOffsets[i]) * 0.5);
-                ctx.globalAlpha = drawAlpha * 0.85 * (1.0 - Math.abs(bristleOffsets[i]) * 0.35);
+                // Set thicker, richer lines that overlap slightly to create brush texturing
+                ctx.lineWidth = drawSize * 0.62 * (0.90 - Math.abs(bristleOffsets[i]) * 0.45);
+                ctx.globalAlpha = drawAlpha * 0.88 * (1.0 - Math.abs(bristleOffsets[i]) * 0.30);
                 
                 ctx.beginPath();
                 ctx.moveTo(lastBx, lastBy);
