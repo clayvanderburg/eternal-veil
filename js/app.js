@@ -47,6 +47,10 @@ document.addEventListener("DOMContentLoaded", () => {
     let autopilotColorTimer = null;
     let isAutopilot = true;
     let lastPresetKey = null;
+    
+    // 3D/VR Mode States
+    let is3DMode = false;
+    let sim3D = null;
 
     // Fading UI inactivity timers & headphones warning variables
     let uiFadeTimeout = null;
@@ -177,7 +181,13 @@ document.addEventListener("DOMContentLoaded", () => {
         musicFileInput: document.getElementById("music-file-input"),
         visualizerStatus: document.getElementById("visualizer-status"),
         pulseBassToggle: document.getElementById("pulse-bass-toggle"),
-        pulseTrebleToggle: document.getElementById("pulse-treble-toggle")
+        pulseTrebleToggle: document.getElementById("pulse-treble-toggle"),
+        
+        // WebGL 3D elements
+        webgl3DToggleBtn: document.getElementById("webgl-3d-toggle-btn"),
+        enterVrBtn: document.getElementById("enter-vr-btn"),
+        webglCanvas: document.getElementById("webgl-canvas"),
+        canvas2D: document.getElementById("canvas")
     };
 
     // --- INITIALIZATION ---
@@ -319,6 +329,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // Set colors and bg immediately
         sim.updatePalette([...p.colors]);
+        if (sim3D) sim3D.updatePalette([...p.colors]);
         renderSwatches();
 
         // Apply custom flags for Psychedelic Drives if defined, else reset to default states
@@ -382,6 +393,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 setOptionToManual("colors");
                 sim.palette.splice(idx, 1);
                 sim.updatePalette([...sim.palette]);
+                if (sim3D) sim3D.updatePalette([...sim.palette]);
                 renderSwatches();
                 modulateSynth();
             };
@@ -718,6 +730,115 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    // Toggle 3D WebGL / WebXR VR Visualizer mode
+    function toggle3DMode(forceState) {
+        const nextState = forceState !== undefined ? forceState : !is3DMode;
+        if (nextState === is3DMode) return;
+        
+        is3DMode = nextState;
+        
+        if (is3DMode) {
+            if (!sim3D) {
+                CosmicLogger.info("Initializing 3D WebGL Simulation Engine using Three.js...");
+                sim3D = new FlowSimulation3D("webgl-canvas");
+                window.addEventListener("resize", () => {
+                    if (sim3D) sim3D.resize();
+                });
+            }
+            
+            sim3D.settings = sim.settings;
+            sim3D.updatePalette([...sim.palette]);
+            
+            elements.canvas2D.classList.add("hidden");
+            elements.webglCanvas.classList.remove("hidden");
+            
+            elements.webgl3DToggleBtn.classList.add("highlight");
+            elements.hudMode.textContent = "3D FLOW";
+            
+            if (navigator.xr) {
+                navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+                    if (supported && elements.enterVrBtn) {
+                        elements.enterVrBtn.classList.remove("hide");
+                        CosmicLogger.info("WebGL 3D Mode loaded. VR Headset detected. Enter VR enabled.");
+                    }
+                });
+            }
+            
+            showToast("WebGL 3D visualizer active! 🌌");
+            CosmicLogger.info("Switched simulation engine from 2D Canvas to 3D WebGL projection.");
+            
+            // Sync current synth settings to WebGL rendering loops
+            sim3D.renderer.setAnimationLoop(() => {
+                if (is3DMode) {
+                    processMusicReactivity();
+                    processMorphs();
+                    sim3D.tick();
+                    
+                    frameCount++;
+                    const now = Date.now();
+                    if (now - lastFpsTime >= 500) {
+                        const fps = Math.round((frameCount * 1000) / (now - lastFpsTime));
+                        elements.hudFps.textContent = fps;
+                        elements.hudParticles.textContent = sim3D.particleCount;
+                        
+                        if (fps < 32) {
+                            window.lowFpsTicks = (window.lowFpsTicks || 0) + 1;
+                            if (window.lowFpsTicks === 3) {
+                                CosmicLogger.warn(`Low FPS Warning: WebGL 3D rendering at ${fps} FPS. Try lowering flow speed.`);
+                            }
+                        } else {
+                            window.lowFpsTicks = 0;
+                        }
+                        
+                        frameCount = 0;
+                        lastFpsTime = now;
+                    }
+                    
+                    updateHudWaveform();
+                }
+            });
+            
+        } else {
+            if (sim3D) {
+                sim3D.renderer.setAnimationLoop(null);
+            }
+            
+            elements.webglCanvas.classList.add("hidden");
+            elements.canvas2D.classList.remove("hidden");
+            
+            elements.webgl3DToggleBtn.classList.remove("highlight");
+            if (elements.enterVrBtn) elements.enterVrBtn.classList.add("hide");
+            elements.hudMode.textContent = "FLOW";
+            
+            showToast("2D Canvas visualizer active.");
+            CosmicLogger.info("Switched simulation engine from 3D WebGL to 2D Canvas.");
+            
+            requestAnimationFrame(tickLoop);
+        }
+    }
+
+    // Update floating HUD waveform visualizer bar scales
+    function updateHudWaveform() {
+        const visualData = window.CosmicSynth.getVisualizerData();
+        const bars = elements.hudVisualizer.querySelectorAll(".visualizer-bar");
+        if (visualData && bars.length > 0) {
+            bars.forEach((bar, i) => {
+                const val = visualData[i * 2] || 0;
+                const pct = Math.max(10, Math.round((val / 255) * 100));
+                bar.style.height = `${pct}%`;
+                bar.style.background = `var(--accent-color)`;
+                bar.style.opacity = 0.5 + (pct / 200);
+            });
+        } else {
+            bars.forEach((bar) => {
+                const currentHeight = parseFloat(bar.style.height) || 0;
+                const newHeight = Math.max(10, currentHeight - 4);
+                bar.style.height = `${newHeight}%`;
+                bar.style.opacity = 0.2;
+            });
+        }
+    }
+
     // Setup Drawer navigation tabs
     function setupTabs() {
         const tabBtns = document.querySelectorAll(".tab-btn");
@@ -770,12 +891,42 @@ document.addEventListener("DOMContentLoaded", () => {
         };
 
         // Diagnostic Console close button toggle
-        
         const closeConsoleBtn = document.getElementById("console-close-btn");
         if (closeConsoleBtn) {
             closeConsoleBtn.onclick = () => {
                 document.getElementById("diagnostic-console").classList.add("hidden");
             };
+        }
+
+        // WebGL 3D & VR Toggle triggers
+        if (elements.webgl3DToggleBtn) {
+            elements.webgl3DToggleBtn.onclick = () => {
+                toggle3DMode();
+            };
+        }
+
+        if (elements.enterVrBtn) {
+            elements.enterVrBtn.onclick = () => {
+                if (sim3D) {
+                    sim3D.startVR();
+                    elements.enterVrBtn.classList.add("highlight");
+                }
+            };
+        }
+
+        // Check WebXR Device capability on launch
+        if (navigator.xr) {
+            navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+                if (supported) {
+                    CosmicLogger.info("WebXR device support verified. VR headset is ready.");
+                } else {
+                    CosmicLogger.info("WebXR supported by browser but no VR device detected.");
+                }
+            }).catch(err => {
+                CosmicLogger.warn("WebXR device query error: " + err.message);
+            });
+        } else {
+            CosmicLogger.info("WebXR Device API not supported in this browser (HTTPS/localhost required).");
         }
 
         // Autopilot switches
@@ -813,6 +964,7 @@ document.addEventListener("DOMContentLoaded", () => {
             setOptionToManual("colors");
             const palette = generateHarmoniousPalette();
             sim.updatePalette(palette);
+            if (sim3D) sim3D.updatePalette(palette);
             renderSwatches();
             modulateSynth();
             showToast("Harmonious palette generated.");
@@ -827,6 +979,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             sim.palette.push(elements.particleColorPicker.value);
             sim.updatePalette([...sim.palette]);
+            if (sim3D) sim3D.updatePalette([...sim.palette]);
             renderSwatches();
             modulateSynth();
             showToast("Color added to palette.");
@@ -1196,6 +1349,16 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (consoleEl) {
                         consoleEl.classList.toggle("hidden");
                         CosmicLogger.info("Diagnostic Console visibility toggled.");
+                    }
+                    break;
+                case "3":
+                    e.preventDefault();
+                    toggle3DMode();
+                    break;
+                case "v":
+                    e.preventDefault();
+                    if (is3DMode && sim3D) {
+                        sim3D.startVR();
                     }
                     break;
             }
@@ -1757,6 +1920,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (canvasEl) {
             canvasEl.style.transform = `scale(${scaleAmount})`;
         }
+        const webglCanvasEl = document.getElementById("webgl-canvas");
+        if (webglCanvasEl) {
+            webglCanvasEl.style.transform = `scale(${scaleAmount})`;
+        }
         
         // Dynamic Ambient Glow pulse
         const glowSize = 70 + Math.min(25, sizePulse * 22);
@@ -1769,6 +1936,10 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // Feed Treble pulse to settings to drive particle sparkles
         sim.settings.trebleIntensity = speedPulse;
+        if (is3DMode && sim3D) {
+            sim3D.sizePulse = sizePulse;
+            sim3D.trebleIntensity = speedPulse;
+        }
         
         // Bass Modulations (Particle Size & Dissipation)
         if (elements.pulseBassToggle.checked) {
@@ -1785,28 +1956,34 @@ document.addEventListener("DOMContentLoaded", () => {
                 const cx = window.innerWidth / 2;
                 const cy = window.innerHeight / 2;
                 
-                // Direct physical outward velocity boost to all particles
-                sim.particles.forEach(p => {
-                    const dx = p.x - cx;
-                    const dy = p.y - cy;
-                    const distSq = dx * dx + dy * dy;
-                    if (distSq > 9) {
-                        const dist = Math.sqrt(distSq);
-                        // Blast force scales with the attack intensity
-                        const pushForce = 8.0 + (bassAttack * 18.0);
-                        p.vx += (dx / dist) * pushForce;
-                        p.vy += (dy / dist) * pushForce;
-                    }
-                });
-                
-                // Spawn a quick, neat cluster of 35 particles
-                sim.triggerBurst(cx, cy, 35);
-                
-                // Trigger a beat vortex swirl at center (pulls inward and spins)
-                sim.triggerVortex(cx, cy, 280, 16.0, 45);
-                
-                // Silent force wave to push outer vectors
-                sim.triggerShockwave(cx, cy, 55.0, 10.5);
+                if (is3DMode && sim3D) {
+                    sim3D.triggerBurst(0, 0, 45);
+                    sim3D.triggerVortex(0, 0, 280, 18.0, 50);
+                    sim3D.triggerShockwave(0, 0, 60.0, 11.0);
+                } else {
+                    // Direct physical outward velocity boost to all particles
+                    sim.particles.forEach(p => {
+                        const dx = p.x - cx;
+                        const dy = p.y - cy;
+                        const distSq = dx * dx + dy * dy;
+                        if (distSq > 9) {
+                            const dist = Math.sqrt(distSq);
+                            // Blast force scales with the attack intensity
+                            const pushForce = 8.0 + (bassAttack * 18.0);
+                            p.vx += (dx / dist) * pushForce;
+                            p.vy += (dy / dist) * pushForce;
+                        }
+                    });
+                    
+                    // Spawn a quick, neat cluster of 35 particles
+                    sim.triggerBurst(cx, cy, 35);
+                    
+                    // Trigger a beat vortex swirl at center (pulls inward and spins)
+                    sim.triggerVortex(cx, cy, 280, 16.0, 45);
+                    
+                    // Silent force wave to push outer vectors
+                    sim.triggerShockwave(cx, cy, 55.0, 10.5);
+                }
                 
                 lastShockwaveTime = now;
             }
@@ -1816,6 +1993,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const palette = generateHarmoniousPalette();
                 basePalette = [...palette]; // update base palette references
                 sim.updatePalette(palette);
+                if (sim3D) sim3D.updatePalette(palette);
                 renderSwatches();
                 modulateSynth();
                 lastColorShiftTime = now;
@@ -1849,6 +2027,8 @@ document.addEventListener("DOMContentLoaded", () => {
     let frameCount = 0;
     
     function tickLoop() {
+        if (is3DMode) return;
+        
         // Run real-time music reactivity modulation
         processMusicReactivity();
         
@@ -1880,28 +2060,8 @@ document.addEventListener("DOMContentLoaded", () => {
             lastFpsTime = now;
         }
 
-        // HUD Sound wave visualiser bounce mappings
-        const visualData = window.CosmicSynth.getVisualizerData();
-        const bars = elements.hudVisualizer.querySelectorAll(".visualizer-bar");
-        if (visualData && bars.length > 0) {
-            bars.forEach((bar, i) => {
-                // Pick sample points from freq array
-                const val = visualData[i * 2] || 0;
-                // convert byte to percentage height
-                const pct = Math.max(10, Math.round((val / 255) * 100));
-                bar.style.height = `${pct}%`;
-                bar.style.background = `var(--accent-color)`;
-                bar.style.opacity = 0.5 + (pct / 200);
-            });
-        } else {
-            // Flatline visualizer slowly down to tiny jitter when muted
-            bars.forEach((bar) => {
-                const currentHeight = parseFloat(bar.style.height) || 0;
-                const newHeight = Math.max(10, currentHeight - 4);
-                bar.style.height = `${newHeight}%`;
-                bar.style.opacity = 0.2;
-            });
-        }
+        // Maintain HUD visualizer waveform updates
+        updateHudWaveform();
 
         requestAnimationFrame(tickLoop);
     }

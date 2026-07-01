@@ -107,6 +107,16 @@
 
     <!-- Floating Top-Right Controls for quick access -->
     <div class="floating-controls" id="floating-actions">
+        <!-- Toggle 3D WebGL Mode -->
+        <button class="icon-btn tool-tip" id="webgl-3d-toggle-btn" data-tooltip="Toggle 3D Mode (3)">
+            <span style="font-weight: bold; font-size: 9px; letter-spacing: 0.5px;">3D</span>
+        </button>
+
+        <!-- Enter VR (Hidden by default) -->
+        <button class="icon-btn tool-tip hide" id="enter-vr-btn" data-tooltip="Enter VR Headset Mode (V)" style="border-color: #ff3333;">
+            <span style="font-weight: bold; font-size: 9px; letter-spacing: 0.5px; color: #ff3333;">VR</span>
+        </button>
+
         <!-- Shortcut Legend -->
         <button class="icon-btn tool-tip" id="shortcut-legend-btn" data-tooltip="Keyboard Shortcuts (H)">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
@@ -702,12 +712,18 @@
         </div>
     </div>
 
+    <!-- WebGL Canvas for 3D/VR simulation -->
+    <canvas id="webgl-canvas" class="hidden"></canvas>
+
     <!-- Core Javascript Scripts -->
+    <!-- Load Three.js from Cloudflare CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="js/presets.js?v=3"></script>
     <script src="js/synth.js?v=3"></script>
     <script src="js/exporter.js?v=3"></script>
     <script src="js/url-sync.js?v=3"></script>
     <script src="js/simulation.js?v=3"></script>
+    <script src="js/simulation3d.js?v=3"></script>
     <script src="js/app.js?v=3"></script>
 </body>
 </html>
