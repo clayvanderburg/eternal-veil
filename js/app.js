@@ -739,6 +739,11 @@ document.addEventListener("DOMContentLoaded", () => {
         is3DMode = nextState;
         
         if (is3DMode) {
+            // Scale the 2D canvas buffer to High-Definition QHD (2560x1440) for sharp VR projections
+            elements.canvas2D.width = 2560;
+            elements.canvas2D.height = 1440;
+            sim.resize(2560, 1440);
+
             if (!sim3D) {
                 CosmicLogger.info("Initializing 3D WebGL Simulation Engine using Three.js...");
                 sim3D = new FlowSimulation3D("webgl-canvas");
@@ -766,7 +771,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             
             showToast("WebGL 3D visualizer active! 🌌");
-            CosmicLogger.info("Switched simulation engine from 2D Canvas to 3D WebGL projection.");
+            CosmicLogger.info("Switched simulation engine from 2D Canvas to 3D WebGL projection at QHD Resolution.");
             
             // Sync current synth settings to WebGL rendering loops
             sim3D.renderer.setAnimationLoop(() => {
@@ -806,6 +811,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 sim3D.renderer.setAnimationLoop(null);
             }
             
+            // Restore 2D canvas buffer to native window viewport dimensions
+            elements.canvas2D.width = window.innerWidth;
+            elements.canvas2D.height = window.innerHeight;
+            sim.resize(window.innerWidth, window.innerHeight);
+
             elements.webglCanvas.classList.add("hidden");
             elements.canvas2D.classList.remove("hidden");
             
@@ -1433,7 +1443,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Window resize
         window.addEventListener("resize", () => {
-            sim.resize(window.innerWidth, window.innerHeight);
+            if (is3DMode) {
+                elements.canvas2D.width = 2560;
+                elements.canvas2D.height = 1440;
+                sim.resize(2560, 1440);
+            } else {
+                sim.resize(window.innerWidth, window.innerHeight);
+            }
         });
 
         // Autopilot smart override: Automatically switch toggle to Manual when user interacts with sliders, selects, or toggles

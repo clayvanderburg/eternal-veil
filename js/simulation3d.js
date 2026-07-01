@@ -220,13 +220,17 @@ class FlowSimulation3D {
         this.rotationX += (this.targetRotationX - this.rotationX) * 0.05;
         this.rotationY += (this.targetRotationY - this.rotationY) * 0.05;
         
-        // Inner dome: rotates slowly clockwise
+        // Oscillate domes back and forth safely using a slow harmonic pendulum.
+        // By limiting the oscillation amplitude to 0.45 radians (~25 degrees), the vertical wrap seams
+        // (located at 90 degrees left/right) NEVER rotate into the user's forward field of vision!
+        const pendulum1 = Math.sin(this.globalTime * 0.005) * 0.45;
+        const pendulum2 = -Math.sin(this.globalTime * 0.0045) * 0.38;
+
         this.domeMesh1.rotation.x = this.rotationX;
-        this.domeMesh1.rotation.y = this.rotationY + this.globalTime * 0.0004;
+        this.domeMesh1.rotation.y = this.rotationY + pendulum1;
         
-        // Outer dome: rotates in opposite direction (generating parallax depth slides)
         this.domeMesh2.rotation.x = -this.rotationX * 0.5;
-        this.domeMesh2.rotation.y = -this.rotationY - this.globalTime * 0.0003;
+        this.domeMesh2.rotation.y = -this.rotationY + pendulum2;
         
         this.renderer.render(this.scene, this.camera);
     }
