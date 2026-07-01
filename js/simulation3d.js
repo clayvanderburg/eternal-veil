@@ -74,9 +74,9 @@ class FlowSimulation3D {
         const d_z = (this.getNoise3D(x * scale, y * scale + t, (z + eps) * scale) - n_z) / eps;
         
         return {
-            vx: (d_y - d_z) * 5.6, // doubled curl force for high extremity
-            vy: (d_z - d_x) * 5.6,
-            vz: (d_x - d_y) * 5.6
+            vx: (d_y - d_z) * 11.2, // doubled curl force once again for extreme movement
+            vy: (d_z - d_x) * 11.2,
+            vz: (d_x - d_y) * 11.2
         };
     }
 
@@ -360,10 +360,10 @@ class FlowSimulation3D {
             let targetVy = (curl.vy * organic + tVal * (1 - organic) * turb) * speed * 0.22;
             let targetVz = (curl.vz * organic + tVal * (1 - organic) * turb) * speed * 0.22;
             
-            // Twice as responsive to noise flow velocities (0.17 instead of 0.085)
-            p.vx = p.vx * 0.975 + targetVx * 0.17;
-            p.vy = p.vy * 0.975 + targetVy * 0.17;
-            p.vz = p.vz * 0.975 + targetVz * 0.17;
+            // Twice as responsive to noise flow velocities (0.34 instead of 0.17)
+            p.vx = p.vx * 0.975 + targetVx * 0.34;
+            p.vy = p.vy * 0.975 + targetVy * 0.34;
+            p.vz = p.vz * 0.975 + targetVz * 0.34;
             
             // Apply physical vortices
             if (this.vortices.length > 0) {
@@ -456,8 +456,8 @@ class FlowSimulation3D {
                 const alphaFade = Math.pow(fadeFactor, 0.7);
                 
                 sizes[idx] = sizeFade * particleBaseSize;
-                // Significantly lower opacity multiplier (0.16 instead of 0.82) to support 3,000 dense overlapping trails without blowing out to solid white
-                alphas[idx] = alphaFade * lifeRatio * 0.16;
+                // Extremely low opacity multiplier (0.07 instead of 0.16) to fully resolve blinding white out and expose rich colors
+                alphas[idx] = alphaFade * lifeRatio * 0.07;
             }
             
             p.life--;
