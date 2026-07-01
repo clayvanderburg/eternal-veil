@@ -1400,8 +1400,32 @@ document.addEventListener("DOMContentLoaded", () => {
                 elements.splashScreen.classList.add("fade-out");
                 
                 // Pre-initialize Cosmic Synth AudioContext on first user click gesture
-                // but keep it muted until the user clicks Enable Audio!
                 window.CosmicSynth.init();
+                
+                // Display the excited New Features modal overlay
+                const featuresModal = document.getElementById("new-features-modal");
+                if (featuresModal) {
+                    featuresModal.classList.remove("hidden");
+                }
+            };
+        }
+
+        // New Features Modal dismissal actions
+        const dismissFeatures = () => {
+            const el = document.getElementById("new-features-modal");
+            if (el) el.classList.add("hidden");
+        };
+        
+        const featuresCloseBtn = document.getElementById("features-close-btn");
+        if (featuresCloseBtn) featuresCloseBtn.onclick = dismissFeatures;
+        
+        const featuresDismissBtn = document.getElementById("features-dismiss-btn");
+        if (featuresDismissBtn) featuresDismissBtn.onclick = dismissFeatures;
+        
+        const featuresModalEl = document.getElementById("new-features-modal");
+        if (featuresModalEl) {
+            featuresModalEl.onclick = (e) => {
+                if (e.target === featuresModalEl) dismissFeatures();
             };
         }
 
