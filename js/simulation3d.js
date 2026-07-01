@@ -178,10 +178,9 @@ class FlowSimulation3D {
                     float dist = distance(gl_PointCoord, vec2(0.5));
                     if (dist > 0.5) discard;
                     
-                    // Smooth gaseous radial glow point shape
-                    float shapeAlpha = smoothstep(0.5, 0.15, dist);
+                    // Tight anti-aliasing edge (0.42 to 0.5) to keep the particle core sharp and HD, rather than fuzzy/blurry
+                    float shapeAlpha = smoothstep(0.5, 0.42, dist);
                     
-                    // Multiply shape transparency by trail step transparency (vAlpha)
                     float finalAlpha = shapeAlpha * vAlpha;
                     
                     // Use vColor instead of vec3(1.0) to flare the particle's own hue, preventing blowout to white

@@ -601,6 +601,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (isFlowEnabled("colors")) {
                     const palette = generateHarmoniousPalette();
                     sim.updatePalette(palette);
+                    if (sim3D) sim3D.updatePalette(palette);
                     renderSwatches();
                     modulateSynth();
                 }
