@@ -25,7 +25,7 @@ class FlowSimulation3D {
         this.camera.position.set(0, 0, 280);
         
         this.particles = [];
-        this.particleCount = 1500;
+        this.particleCount = 3000; // doubled particle count for high density
         this.trailLength = 12; // number of trail history points per particle
         this.settings = null;
         this.palette = ["#6366f1", "#818cf8", "#a78bfa", "#c084fc"];
@@ -74,9 +74,9 @@ class FlowSimulation3D {
         const d_z = (this.getNoise3D(x * scale, y * scale + t, (z + eps) * scale) - n_z) / eps;
         
         return {
-            vx: (d_y - d_z) * 2.8,
-            vy: (d_z - d_x) * 2.8,
-            vz: (d_x - d_y) * 2.8
+            vx: (d_y - d_z) * 5.6, // doubled curl force for high extremity
+            vy: (d_z - d_x) * 5.6,
+            vz: (d_x - d_y) * 5.6
         };
     }
 
@@ -90,10 +90,10 @@ class FlowSimulation3D {
         const paletteColors = this.palette.map(c => new THREE.Color(c));
         
         for (let i = 0; i < this.particleCount; i++) {
-            // Spawn inside a loose, wide spherical region
+            // Spawn inside a tight, dense spherical bubble (half the space)
             const angle = Math.random() * Math.PI * 2;
             const phi = Math.acos(Math.random() * 2.0 - 1.0);
-            const r = Math.cbrt(Math.random()) * 220;
+            const r = Math.cbrt(Math.random()) * 110; // halved spawn radius
             
             const px = r * Math.sin(phi) * Math.cos(angle);
             const py = r * Math.sin(phi) * Math.sin(angle);
@@ -359,9 +359,10 @@ class FlowSimulation3D {
             let targetVy = (curl.vy * organic + tVal * (1 - organic) * turb) * speed * 0.22;
             let targetVz = (curl.vz * organic + tVal * (1 - organic) * turb) * speed * 0.22;
             
-            p.vx = p.vx * 0.975 + targetVx * 0.085;
-            p.vy = p.vy * 0.975 + targetVy * 0.085;
-            p.vz = p.vz * 0.975 + targetVz * 0.085;
+            // Twice as responsive to noise flow velocities (0.17 instead of 0.085)
+            p.vx = p.vx * 0.975 + targetVx * 0.17;
+            p.vy = p.vy * 0.975 + targetVy * 0.17;
+            p.vz = p.vz * 0.975 + targetVz * 0.17;
             
             // Apply physical vortices
             if (this.vortices.length > 0) {
@@ -417,9 +418,9 @@ class FlowSimulation3D {
             p.y += p.vy;
             p.z += p.vz;
             
-            // Bounding boundary wrap-around box [-280, 280] (essential for VR space streaking)
+            // Bounding boundary wrap-around box [-140, 140] (halved space for maximum density)
             // If a particle moves behind you, it wraps to the front, creating infinite stars streaking past your face
-            const limit = 280;
+            const limit = 140;
             if (p.x > limit) { p.x = -limit; p.history = []; }
             else if (p.x < -limit) { p.x = limit; p.history = []; }
             
@@ -469,8 +470,8 @@ class FlowSimulation3D {
         
         // Pass treble frequency spikes to GL uniforms for flare glows
         this.material.uniforms.trebleGlow.value = this.trebleIntensity * 2.2;
-        // Substantially upscale pointSize factor so points form sweeping ribbons (thick streaks) in WebGL/VR
-        this.material.uniforms.pointSize.value = baseSize * 15.0;
+        // Doubled pointSize factor (baseSize * 30.0) for twice-as-big neon ribbons
+        this.material.uniforms.pointSize.value = baseSize * 30.0;
         
         // Adjust camera angle based on drag rotation
         this.rotationX += (this.targetRotationX - this.rotationX) * 0.05;
