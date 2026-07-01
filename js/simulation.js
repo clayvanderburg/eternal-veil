@@ -481,7 +481,15 @@ class Particle {
             // Multiply drawSize by 4.2 to make the oil brush strokes 5x larger and thicker overall (preventing tiny zipper dashes)
             const brushSize = drawSize * 4.2;
             
-            // Draw 4 distinct parallel line segments connecting last position to current position, using cached orientation to avoid zipper gaps
+            // 1. Draw a broad, semi-transparent base paint stroke under-layer to fill the "ruts" between bristles with soft pigment
+            ctx.lineWidth = brushSize * 1.5;
+            ctx.globalAlpha = drawAlpha * 0.38;
+            ctx.beginPath();
+            ctx.moveTo(this.lastX, this.lastY);
+            ctx.lineTo(this.x, this.y);
+            ctx.stroke();
+            
+            // 2. Draw 4 distinct parallel line segments (bristles) on top, using cached orientation to avoid zipper gaps
             const bristleOffsets = [-0.60, -0.20, 0.20, 0.60];
             const px = this.perpX || 0;
             const py = this.perpY || 0;
@@ -489,9 +497,11 @@ class Particle {
             const lpy = this.lastPerpY || py;
             
             for (let i = 0; i < bristleOffsets.length; i++) {
-                // Scale spread and thickness up significantly to match the slider size expectations
-                const lastOffsetPerp = bristleOffsets[i] * brushSize * 1.35;
-                const offsetPerp = bristleOffsets[i] * brushSize * 1.35;
+                // Photoshop-style Jitter: Add subtle frame-to-frame randomized noise to spacing, width, and alpha
+                // to break up clean digital lines and simulate dry-brush drag & canvas friction
+                const jitterPos = (Math.random() - 0.5) * brushSize * 0.07;
+                const lastOffsetPerp = bristleOffsets[i] * brushSize * 1.35 + jitterPos;
+                const offsetPerp = bristleOffsets[i] * brushSize * 1.35 + jitterPos;
                 
                 // Continuous connection math: start of frame t connects precisely to end of frame t-1
                 const lastBx = this.lastX + lpx * lastOffsetPerp;
@@ -499,9 +509,13 @@ class Particle {
                 const bx = this.x + px * offsetPerp;
                 const by = this.y + py * offsetPerp;
                 
-                // Set thicker, richer lines that overlap slightly to create brush texturing
-                ctx.lineWidth = brushSize * 0.58 * (0.90 - Math.abs(bristleOffsets[i]) * 0.45);
-                ctx.globalAlpha = drawAlpha * 0.88 * (1.0 - Math.abs(bristleOffsets[i]) * 0.30);
+                // Width Jitter: Thicken/thin the bristles dynamically
+                const jitterWidth = (Math.random() - 0.5) * brushSize * 0.08;
+                ctx.lineWidth = Math.max(0.5, brushSize * 0.46 * (0.90 - Math.abs(bristleOffsets[i]) * 0.45) + jitterWidth);
+                
+                // Alpha Jitter: Create subtle gaps/fades in pigment transfer
+                const jitterAlpha = (Math.random() - 0.5) * 0.08;
+                ctx.globalAlpha = Math.max(0.18, drawAlpha * 0.88 * (1.0 - Math.abs(bristleOffsets[i]) * 0.30) + jitterAlpha);
                 
                 ctx.beginPath();
                 ctx.moveTo(lastBx, lastBy);
