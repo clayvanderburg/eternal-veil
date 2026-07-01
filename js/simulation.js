@@ -169,9 +169,12 @@ class Particle {
             targetVx += Math.sin(globalTime * 0.04 + this.y * 0.012) * 0.75 * speed * scaleRef;
         }
         
-        // Inject Cosmic Nebula physics overrides (clouds drift slower and have lower velocity impact)
+        // Inject Cosmic Nebula physics overrides (both clouds and stars drift at very slow pace)
         if (settings.particleShape === "nebula") {
             if (this.nebulaType === "cloud") {
+                targetVx *= 0.08;
+                targetVy *= 0.08;
+            } else {
                 targetVx *= 0.18;
                 targetVy *= 0.18;
             }
@@ -365,15 +368,15 @@ class Particle {
         } else if (shape === "nebula") {
             if (this.nebulaType === "cloud") {
                 shape = "ellipse";
-                drawSize = size * 3.6; // make background clouds huge
-                drawAlpha = alpha * 0.16; // make them very soft and formless
+                drawSize = size * 18.0; // make background clouds huge (5x larger than before)
+                drawAlpha = alpha * 0.07; // softer blending transparency
             } else {
                 shape = "drop";
-                drawSize = size * 0.38; // make foreground stars tiny
+                drawSize = size * 0.35; // make foreground stars tiny
                 // Star twinkling flicker frequency modulation (using Date.now() to avoid undefined globalTime references)
                 this.twinkleOffset = this.twinkleOffset || Math.random() * 100;
-                const timeSec = Date.now() * 0.0015;
-                const flicker = 0.30 + Math.sin(timeSec * 6.5 + this.twinkleOffset) * 0.70;
+                const timeSec = Date.now() * 0.001;
+                const flicker = 0.10 + Math.sin(timeSec * 16.0 + this.twinkleOffset) * 0.90; // highly twinkly/blinky
                 drawAlpha = alpha * flicker * 0.95;
             }
         }
