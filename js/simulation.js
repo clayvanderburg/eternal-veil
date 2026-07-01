@@ -169,14 +169,14 @@ class Particle {
             targetVx += Math.sin(globalTime * 0.04 + this.y * 0.012) * 0.75 * speed * scaleRef;
         }
         
-        // Inject Cosmic Nebula physics overrides (both clouds and stars drift at very slow pace)
+        // Inject Cosmic Nebula physics overrides (clouds drift at 10% speed, stars drift at 33% speed)
         if (settings.particleShape === "nebula") {
             if (this.nebulaType === "cloud") {
-                targetVx *= 0.08;
-                targetVy *= 0.08;
+                targetVx *= 0.10;
+                targetVy *= 0.10;
             } else {
-                targetVx *= 0.18;
-                targetVy *= 0.18;
+                targetVx *= 0.33;
+                targetVy *= 0.33;
             }
         }
 
@@ -368,8 +368,8 @@ class Particle {
         } else if (shape === "nebula") {
             if (this.nebulaType === "cloud") {
                 shape = "ellipse";
-                drawSize = size * 18.0; // make background clouds huge (5x larger than before)
-                drawAlpha = alpha * 0.07; // softer blending transparency
+                drawSize = size * 55.0; // make background clouds humongous (55x base size)
+                drawAlpha = alpha * 0.035; // twice as transparent (0.035 instead of 0.07) for smooth formless fog
             } else {
                 shape = "drop";
                 drawSize = size * 0.35; // make foreground stars tiny
