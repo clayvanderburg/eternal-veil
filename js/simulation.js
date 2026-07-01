@@ -112,6 +112,9 @@ class Particle {
         this.life = initial ? Math.random() * 80 + 40 : Math.random() * 60 + 80;
         this.maxLife = this.life;
         
+        // Cache random offset to avoid Math.random() in hot rendering loop
+        this.randomSizeOffset = Math.random() - 0.5;
+        
         this.color = this.pickColor();
     }
 
@@ -315,66 +318,74 @@ class Particle {
         const stretch = settings.stretch || 1.6;
         const shape = settings.particleShape || "ellipse";
         
-        // Base sizes scaled proportionally to screen width to keep particles beautiful
-        const size = Math.max(0.4, (settings.baseSize + (Math.random() - 0.5) * settings.sizeVariation) * (0.6 + lifeRatio * 0.5)) * scaleRef;
-        
-        ctx.save();
-        ctx.globalAlpha = alpha;
+        // Base sizes scaled proportionally to screen width (using cached randomSizeOffset to save CPU)
+        const size = Math.max(0.4, (settings.baseSize + this.randomSizeOffset * settings.sizeVariation) * (0.6 + lifeRatio * 0.5)) * scaleRef;
         
         // Calculate rotation angle matching velocity direction
         const angle = Math.atan2(this.vy, this.vx);
         const velocityMagnitude = Math.min(2.5, Math.sqrt(this.vx * this.vx + this.vy * this.vy));
         const dynamicStretch = 1.0 + velocityMagnitude * 0.05 * stretch;
 
-        ctx.translate(this.x, this.y);
-        ctx.rotate(angle);
-
         if (shape === "ellipse") {
             ctx.fillStyle = this.color;
-            // Render 3-layered soft-blended glowing ellipses
+            
             // 1. Soft Outer gaseous Halo
             ctx.globalAlpha = alpha * 0.35;
             ctx.beginPath();
-            ctx.ellipse(0, 0, size * (2.4 + stretch * 0.3), size * (1.1 + dynamicStretch * 0.15), 0, 0, Math.PI * 2);
+            ctx.ellipse(this.x, this.y, size * (2.4 + stretch * 0.3), size * (1.1 + dynamicStretch * 0.15), angle, 0, Math.PI * 2);
             ctx.fill();
 
             // 2. Main directional body
             ctx.globalAlpha = alpha * 0.9;
             ctx.beginPath();
-            ctx.ellipse(0, 0, size * (1.7 + stretch * 0.25), size * (0.65 + dynamicStretch * 0.18), 0, 0, Math.PI * 2);
+            ctx.ellipse(this.x, this.y, size * (1.7 + stretch * 0.25), size * (0.65 + dynamicStretch * 0.18), angle, 0, Math.PI * 2);
             ctx.fill();
 
-            // 3. Inner brighter core (highlight)
+            // 3. Inner brighter core (highlight, offset along velocity angle)
             ctx.globalAlpha = alpha * 0.75;
+            const coreOffset = size * 0.1;
+            const coreX = this.x + Math.cos(angle) * coreOffset;
+            const coreY = this.y + Math.sin(angle) * coreOffset;
             ctx.beginPath();
-            ctx.ellipse(size * 0.1, 0, size * (0.7 + stretch * 0.1), size * (0.38 + dynamicStretch * 0.08), 0, 0, Math.PI * 2);
+            ctx.ellipse(coreX, coreY, size * (0.7 + stretch * 0.1), size * (0.38 + dynamicStretch * 0.08), angle, 0, Math.PI * 2);
             ctx.fill();
         } else if (shape === "drop") {
             ctx.fillStyle = this.color;
             ctx.globalAlpha = alpha * 0.9;
             ctx.beginPath();
-            ctx.arc(0, 0, size * 1.5, 0, Math.PI * 2);
+            ctx.arc(this.x, this.y, size * 1.5, 0, Math.PI * 2);
             ctx.fill();
             
-            // Subtle inner light reflection node
+            // Subtle inner light reflection node (offset rotated relative to heading)
             ctx.fillStyle = "#ffffff";
             ctx.globalAlpha = alpha * 0.6;
-            ctx.beginPath();
-            ctx.arc(-size * 0.25, -size * 0.25, size * 0.45, 0, Math.PI * 2);
-            ctx.fill();
-        } else if (shape === "ring") {
-            ctx.strokeStyle = this.color;
-            ctx.lineWidth = size * 0.45;
-            ctx.globalAlpha = alpha * 0.85;
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = this.color;
+            
+            const localDx = -size * 0.25;
+            const localDy = -size * 0.25;
+            const rx = localDx * Math.cos(angle) - localDy * Math.sin(angle);
+            const ry = localDx * Math.sin(angle) + localDy * Math.cos(angle);
             
             ctx.beginPath();
-            ctx.arc(0, 0, size * (1.3 + dynamicStretch * 0.2), 0, Math.PI * 2);
+            ctx.arc(this.x + rx, this.y + ry, size * 0.45, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (shape === "ring") {
+            // Optimized double-stroke glowing vector rings (eliminates shadowBlur CPU rendering block)
+            ctx.strokeStyle = this.color;
+            
+            // 1. Thick diffuse glow base stroke
+            ctx.globalAlpha = alpha * 0.25;
+            ctx.lineWidth = size * 1.35;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, size * (1.3 + dynamicStretch * 0.2), 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // 2. Sharp center core ring
+            ctx.globalAlpha = alpha * 0.85;
+            ctx.lineWidth = size * 0.45;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, size * (1.3 + dynamicStretch * 0.2), 0, Math.PI * 2);
             ctx.stroke();
         }
-
-        ctx.restore();
     }
 }
 

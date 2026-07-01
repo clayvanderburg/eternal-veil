@@ -691,6 +691,17 @@
     <!-- Active Toast notifications -->
     <div class="toast-notification toast-hidden" id="toast-notify">System ready. Hover edge or press M for controls.</div>
 
+    <!-- Hidden Developer Diagnostic Console -->
+    <div id="diagnostic-console" class="diagnostic-console hidden">
+        <div class="console-header">
+            <h3>🔴 SYSTEM DIAGNOSTICS</h3>
+            <span class="console-close-btn" id="console-close-btn">&times;</span>
+        </div>
+        <div class="console-body" id="console-log-history">
+            <div class="log-entry log-info">[INFO] CosmicLogger initialized. Press 'L' or double-click logo to hide.</div>
+        </div>
+    </div>
+
     <!-- Core Javascript Scripts -->
     <script src="js/presets.js?v=3"></script>
     <script src="js/synth.js?v=3"></script>

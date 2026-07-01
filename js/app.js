@@ -3,6 +3,40 @@
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
+    // --- DIAGNOSTIC LOGGER UTILITY ---
+    class CosmicLogger {
+        static logs = [];
+        static maxLogs = 100;
+        
+        static log(message, type = "info") {
+            const time = new Date().toTimeString().split(' ')[0];
+            const entryText = `[${time}] [${type.toUpperCase()}] ${message}`;
+            
+            this.logs.push({ text: entryText, type });
+            if (this.logs.length > this.maxLogs) {
+                this.logs.shift();
+            }
+            
+            const container = document.getElementById("console-log-history");
+            if (container) {
+                const el = document.createElement("div");
+                el.className = `log-entry log-${type}`;
+                el.textContent = entryText;
+                container.appendChild(el);
+                container.scrollTop = container.scrollHeight;
+            }
+            
+            if (type === "info") console.log(entryText);
+            else if (type === "warn") console.warn(entryText);
+            else if (type === "error") console.error(entryText);
+        }
+        
+        static info(msg) { this.log(msg, "info"); }
+        static warn(msg) { this.log(msg, "warn"); }
+        static error(msg) { this.log(msg, "error"); }
+    }
+    window.CosmicLogger = CosmicLogger;
+
     // 1. Initialize core modules
     const sim = new FlowSimulation("canvas");
     const exporter = new MediaExporter(sim);
@@ -148,6 +182,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- INITIALIZATION ---
     function initialize() {
+        CosmicLogger.info("ETERNAL VEIL initializing...");
         setupTabs();
         setupFlowToggles();
         buildPresetCards();
@@ -156,16 +191,19 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.synthVolumeSlider.value = 40;
         elements.synthVolumeVal.textContent = "40%";
         window.CosmicSynth.setVolume(0.4);
+        CosmicLogger.info("Master volume initialized to 40%.");
         
         // Check for URL State Share link
         const urlState = UrlStateSync.parseUrlState();
         if (urlState) {
             applyLoadedState(urlState);
             showToast("Cosmic seed loaded successfully from URL");
+            CosmicLogger.info("URL sharing seed parameters applied.");
         } else {
             // Enable Autoplay and randomize parameters immediately on load
             toggleAutopilot(true);
             randomizeAllParameters();
+            CosmicLogger.info("Autopilot enabled and parameters randomized on launch.");
         }
         
         setupEventListeners();
@@ -178,6 +216,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // Start animation loop
         requestAnimationFrame(tickLoop);
+        CosmicLogger.info("ETERNAL VEIL initialization complete. Main animation loop running.");
     }
 
     // --- SMOOTH MORPH TRANSITIONS ---
@@ -324,6 +363,7 @@ document.addEventListener("DOMContentLoaded", () => {
         modulateSynth();
         
         showToast(`Preset shifted to: ${p.name}`);
+        CosmicLogger.info(`Preset shifted to: ${p.name.toUpperCase()}.`);
     }
 
     // --- PALETTE SWATCHES RENDERER ---
@@ -729,6 +769,15 @@ document.addEventListener("DOMContentLoaded", () => {
             if (e.target === elements.keyboardModal) elements.keyboardModal.classList.add("hidden");
         };
 
+        // Diagnostic Console close button toggle
+        
+        const closeConsoleBtn = document.getElementById("console-close-btn");
+        if (closeConsoleBtn) {
+            closeConsoleBtn.onclick = () => {
+                document.getElementById("diagnostic-console").classList.add("hidden");
+            };
+        }
+
         // Autopilot switches
         elements.autopilotToggle.onchange = () => toggleAutopilot(elements.autopilotToggle.checked);
         elements.autopilotColorToggle.onchange = () => {
@@ -958,6 +1007,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     clearVisualizerHighlights();
                     elements.visualizerStatus.style.display = "none";
                     showToast("Microphone visualizer disabled");
+                    CosmicLogger.info("Microphone reactivity visualizer disabled.");
                 } else {
                     elements.micReactBtn.textContent = "🎙️ Connecting...";
                     const success = await synth.toggleMicReactivity();
@@ -967,12 +1017,14 @@ document.addEventListener("DOMContentLoaded", () => {
                         elements.visualizerStatus.textContent = "Status: Ambient Mic Active 🎙️";
                         elements.visualizerStatus.style.display = "block";
                         showToast("Microphone visualizer active!");
+                        CosmicLogger.info("Microphone reactivity visualizer active. Internal ambient chimes auto-muted.");
                         
                         if (synth.isMuted) toggleAudio(true);
                     }
                 }
             } catch (err) {
                 showToast("Microphone permission denied");
+                CosmicLogger.error("Microphone device capture access denied by user/browser.");
             } finally {
                 elements.micReactBtn.textContent = "🎙️ Mic";
             }
@@ -988,6 +1040,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     clearVisualizerHighlights();
                     elements.visualizerStatus.style.display = "none";
                     showToast("Device audio visualizer disabled");
+                    CosmicLogger.info("Device audio reactivity visualizer disabled.");
                 } else {
                     elements.systemReactBtn.textContent = "💻 Capturing...";
                     const success = await synth.toggleSystemAudioReactivity();
@@ -997,13 +1050,14 @@ document.addEventListener("DOMContentLoaded", () => {
                         elements.visualizerStatus.textContent = "Status: Device Audio Active 💻";
                         elements.visualizerStatus.style.display = "block";
                         showToast("Device audio capture active! Play Spotify/sounds now.");
+                        CosmicLogger.info("Device audio stream capture active. Internal ambient chimes auto-muted.");
                         
                         if (synth.isMuted) toggleAudio(true);
                     }
                 }
             } catch (err) {
-                // Show the specific error (e.g. prompting to check the audio share checkbox)
                 showToast(err.message || "Device audio sharing cancelled");
+                CosmicLogger.warn("Device audio stream capture cancelled or failed: " + err.message);
             } finally {
                 elements.systemReactBtn.textContent = "💻 Device Audio";
             }
@@ -1018,6 +1072,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 clearVisualizerHighlights();
                 elements.visualizerStatus.style.display = "none";
                 showToast("Music visualizer disabled");
+                CosmicLogger.info("Uploaded music reactivity disabled.");
             } else {
                 elements.musicFileInput.click();
             }
@@ -1033,11 +1088,11 @@ document.addEventListener("DOMContentLoaded", () => {
             clearVisualizerHighlights();
             elements.uploadReactBtn.classList.add("highlight");
             
-            // Truncate long file names nicely
             const displayName = file.name.length > 22 ? file.name.substring(0, 20) + "..." : file.name;
             elements.visualizerStatus.textContent = `Status: Playing "${displayName}" 🎵`;
             elements.visualizerStatus.style.display = "block";
             showToast("Visualizer track playing!");
+            CosmicLogger.info(`Uploaded audio track playing: "${file.name}" (${(file.size / (1024 * 1024)).toFixed(2)} MB). Internal ambient chimes auto-muted.`);
             
             if (synth.isMuted) toggleAudio(true);
             elements.musicFileInput.value = "";
@@ -1125,6 +1180,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     e.preventDefault();
                     sim.spawnParticles();
                     showToast("Particles redistributed.");
+                    CosmicLogger.info("Particles redistributed manually.");
                     break;
                 case "c":
                     e.preventDefault();
@@ -1133,6 +1189,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 case "h":
                     e.preventDefault();
                     elements.keyboardModal.classList.toggle("hidden");
+                    break;
+                case "l":
+                    e.preventDefault();
+                    const consoleEl = document.getElementById("diagnostic-console");
+                    if (consoleEl) {
+                        consoleEl.classList.toggle("hidden");
+                        CosmicLogger.info("Diagnostic Console visibility toggled.");
+                    }
                     break;
             }
         });
@@ -1801,6 +1865,17 @@ document.addEventListener("DOMContentLoaded", () => {
             const fps = Math.round((frameCount * 1000) / (now - lastFpsTime));
             elements.hudFps.textContent = fps;
             elements.hudParticles.textContent = sim.particles.length;
+            
+            // Track low performance runs (FPS < 32 for 3 consecutive readings = 1.5 seconds)
+            if (fps < 32) {
+                window.lowFpsTicks = (window.lowFpsTicks || 0) + 1;
+                if (window.lowFpsTicks === 3) {
+                    CosmicLogger.warn(`Low FPS Warning: Rendering at ${fps} FPS. Try lowering density or segment limits.`);
+                }
+            } else {
+                window.lowFpsTicks = 0;
+            }
+            
             frameCount = 0;
             lastFpsTime = now;
         }

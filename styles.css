@@ -1491,3 +1491,123 @@ kbd {
         display: none;
     }
 }
+
+/* ==========================================================================
+   DEVELOPER DIAGNOSTIC OVERLAY CONSOLE
+   ========================================================================== */
+.diagnostic-console {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 420px;
+    height: 280px;
+    background: rgba(10, 10, 15, 0.88);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 50, 50, 0.25);
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.05);
+    display: flex;
+    flex-direction: column;
+    z-index: 10000;
+    transition: transform var(--transition-smooth), opacity var(--transition-smooth);
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.diagnostic-console.hidden {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+    pointer-events: none;
+}
+
+.console-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: rgba(0, 0, 0, 0.4);
+    border-bottom: 1px solid rgba(255, 50, 50, 0.15);
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+}
+
+.console-header h3 {
+    margin: 0;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #ff3333;
+    font-family: var(--font-primary);
+}
+
+.console-close-btn {
+    font-size: 18px;
+    color: rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    transition: color 0.2s;
+    line-height: 1;
+}
+
+.console-close-btn:hover {
+    color: #ff3333;
+}
+
+.console-body {
+    flex: 1;
+    padding: 12px;
+    overflow-y: auto;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 10.5px;
+    line-height: 1.45;
+    color: rgba(255, 255, 255, 0.85);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.console-body::-webkit-scrollbar {
+    width: 6px;
+}
+.console-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+.console-body::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 3px;
+}
+.console-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 50, 50, 0.3);
+}
+
+.log-entry {
+    border-left: 2px solid #555;
+    padding-left: 8px;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.log-entry.log-info {
+    border-color: #6366f1;
+    color: #a5b4fc;
+}
+
+.log-entry.log-warn {
+    border-color: #fbbf24;
+    color: #fde047;
+}
+
+.log-entry.log-error {
+    border-color: #ef4444;
+    color: #fca5a5;
+    text-shadow: 0 0 4px rgba(255, 0, 0, 0.25);
+}
+
+@media (max-width: 480px) {
+    .diagnostic-console {
+        width: calc(100% - 32px);
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+    }
+}
