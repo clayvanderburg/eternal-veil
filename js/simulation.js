@@ -368,8 +368,8 @@ class Particle {
         } else if (shape === "nebula") {
             if (this.nebulaType === "cloud") {
                 shape = "ellipse";
-                drawSize = size * 55.0; // make background clouds humongous (55x base size)
-                drawAlpha = alpha * 0.035; // twice as transparent (0.035 instead of 0.07) for smooth formless fog
+                drawSize = size * 27.5; // clouds half as big (27.5x base size)
+                drawAlpha = alpha * 0.024; // 30% more transparent (0.024 instead of 0.035)
             } else {
                 shape = "drop";
                 drawSize = size * 0.35; // make foreground stars tiny
