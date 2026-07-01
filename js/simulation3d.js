@@ -1,6 +1,7 @@
 // ==========================================================================
-// ETERNAL VEIL - 3D WEBGL & WEBXR (VR) PHYSICS SIMULATION ENGINE
-// Optimized for VR with fading particle history trails (star streaks)
+// ETERNAL VEIL - 3D WEBGL & WEBXR (VR) SIMULATION DOME
+// Projects the responsive 2D canvas visualizer onto a 3D Morphing Skybox (Sphere <-> Cube)
+// Centered around the user for complete VR immersion
 // ==========================================================================
 
 class FlowSimulation3D {
@@ -21,19 +22,13 @@ class FlowSimulation3D {
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color("#050507");
         
-        this.camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1500);
-        this.camera.position.set(0, 0, 280);
+        // Place camera at center (0,0,0) so the user stands inside the morphing dome
+        this.camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 1000);
+        this.camera.position.set(0, 0, 0);
         
-        this.particles = [];
-        this.particleCount = 3000; // doubled particle count for high density
-        this.trailLength = 12; // number of trail history points per particle
         this.settings = null;
-        this.palette = ["#6366f1", "#818cf8", "#a78bfa", "#c084fc"];
-        
         this.globalTime = 0;
         this.lastFrameTime = Date.now();
-        this.vortices = [];
-        this.shockwaves = [];
         
         // Interaction State (drag camera rotation)
         this.targetRotationX = 0;
@@ -44,157 +39,73 @@ class FlowSimulation3D {
         this.pointerX = 0;
         this.pointerY = 0;
         
-        // Sound modulators
-        this.sizePulse = 0;
-        this.trebleIntensity = 0;
+        this.morphProgress = 0.0; // 0.0 = Sphere, 1.0 = Cube
+        this.sizePulse = 0; // mapped to bass kick
         
         this.initInteraction();
-        this.initParticles();
+        this.initDome();
         
         // Register globally
         window.sim3DInstance = this;
     }
 
-    // Standard 3D noise function mapped onto our optimized 2D simplex noise
-    getNoise3D(x, y, z) {
-        return simplexNoise(x, y + z) * 0.5 + simplexNoise(x + z, y) * 0.5;
-    }
-
-    // 3D fluidic Curl Noise generator (lower frequency scale for long, elegant streams)
-    getCurlNoise3D(x, y, z, time, scale = 0.0035) {
-        const eps = 0.005;
-        const t = time * 0.22;
+    initDome() {
+        // Create Canvas Texture from our live 2D flow canvas
+        const canvas2D = document.getElementById("canvas");
+        this.texture = new THREE.CanvasTexture(canvas2D);
+        this.texture.minFilter = THREE.LinearFilter;
+        this.texture.magFilter = THREE.LinearFilter;
         
-        const n_x = this.getNoise3D(x * scale, y * scale, z * scale + t);
-        const n_y = this.getNoise3D(x * scale + t, y * scale, z * scale);
-        const n_z = this.getNoise3D(x * scale, y * scale + t, z * scale);
+        // Generate a highly subdivided Sphere Geometry as our base morphing envelope
+        // Radius is 300 units to wrap comfortably around player
+        this.geometry = new THREE.SphereGeometry(300, 64, 64);
         
-        const d_x = (this.getNoise3D((x + eps) * scale, y * scale, z * scale + t) - n_x) / eps;
-        const d_y = (this.getNoise3D(x * scale + t, (y + eps) * scale, z * scale) - n_y) / eps;
-        const d_z = (this.getNoise3D(x * scale, y * scale + t, (z + eps) * scale) - n_z) / eps;
-        
-        return {
-            vx: (d_y - d_z) * 11.2, // doubled curl force once again for extreme movement
-            vy: (d_z - d_x) * 11.2,
-            vz: (d_x - d_y) * 11.2
-        };
-    }
-
-    initParticles() {
-        const totalPoints = this.particleCount * this.trailLength;
-        const positions = new Float32Array(totalPoints * 3);
-        const colors = new Float32Array(totalPoints * 3);
-        const sizes = new Float32Array(totalPoints);
-        const alphas = new Float32Array(totalPoints);
-        
-        const paletteColors = this.palette.map(c => new THREE.Color(c));
-        
-        for (let i = 0; i < this.particleCount; i++) {
-            // Spawn inside a tight, dense spherical bubble (half the space)
-            const angle = Math.random() * Math.PI * 2;
-            const phi = Math.acos(Math.random() * 2.0 - 1.0);
-            const r = Math.cbrt(Math.random()) * 110; // halved spawn radius
-            
-            const px = r * Math.sin(phi) * Math.cos(angle);
-            const py = r * Math.sin(phi) * Math.sin(angle);
-            const pz = r * Math.cos(phi);
-            
-            const colorIndex = Math.floor(Math.random() * paletteColors.length);
-            
-            this.particles.push({
-                x: px,
-                y: py,
-                z: pz,
-                vx: (Math.random() - 0.5) * 1.0,
-                vy: (Math.random() - 0.5) * 1.0,
-                vz: (Math.random() - 0.5) * 1.0,
-                life: Math.random() * 100 + 40,
-                maxLife: 140,
-                sizeOffset: Math.random() - 0.5,
-                colorIndex: colorIndex,
-                history: [] // trail positions history
-            });
-            
-            // Seed initial history
-            for (let t = 0; t < this.trailLength; t++) {
-                this.particles[i].history.push({ x: px, y: py, z: pz });
-            }
-            
-            // Configure vertices in buffer (trail points)
-            for (let t = 0; t < this.trailLength; t++) {
-                const idx = i * this.trailLength + t;
-                positions[idx * 3] = px;
-                positions[idx * 3 + 1] = py;
-                positions[idx * 3 + 2] = pz;
-                
-                const col = paletteColors[colorIndex];
-                colors[idx * 3] = col.r;
-                colors[idx * 3 + 1] = col.g;
-                colors[idx * 3 + 2] = col.b;
-                
-                // Trail steps shrink and fade out along the tail
-                const fadeFactor = 1.0 - (t / this.trailLength);
-                sizes[idx] = fadeFactor;
-                alphas[idx] = fadeFactor * 0.8;
-            }
-        }
-        
-        this.geometry = new THREE.BufferGeometry();
-        this.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        this.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-        this.geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-        this.geometry.setAttribute('alpha', new THREE.BufferAttribute(alphas, 1));
-        
-        // ShaderMaterial supporting dynamic alphachannels and depth perspective rendering
+        // Custom Shader Material that morphs vertices between a Sphere and a Cube
         this.material = new THREE.ShaderMaterial({
             uniforms: {
-                pointSize: { value: 4.5 },
-                trebleGlow: { value: 0.0 }
+                map: { value: this.texture },
+                morphProgress: { value: 0.0 }
             },
             vertexShader: `
-                attribute float size;
-                attribute float alpha;
-                attribute vec3 color;
-                varying vec3 vColor;
-                varying float vAlpha;
-                uniform float pointSize;
+                varying vec2 vUv;
+                uniform float morphProgress;
                 
                 void main() {
-                    vColor = color;
-                    vAlpha = alpha;
-                    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                    // size attenuation makes nearby streaking trails look huge
-                    float computedSize = size * pointSize * (300.0 / -mvPosition.z);
-                    gl_PointSize = min(computedSize, 40.0); // Cap point size at 40px to prevent viewport coverage
+                    vUv = uv;
+                    
+                    // Sphere coordinate baseline
+                    vec3 spherePos = normalize(position) * 300.0;
+                    
+                    // Project sphere coordinate onto flat cube faces
+                    float maxCoord = max(max(abs(position.x), abs(position.y)), abs(position.z));
+                    vec3 cubePos = (position / (maxCoord + 0.0001)) * 300.0;
+                    
+                    // Interpolate position based on morph progress
+                    vec3 morphedPos = mix(spherePos, cubePos, morphProgress);
+                    
+                    vec4 mvPosition = modelViewMatrix * vec4(morphedPos, 1.0);
                     gl_Position = projectionMatrix * mvPosition;
                 }
             `,
             fragmentShader: `
-                varying vec3 vColor;
-                varying float vAlpha;
-                uniform float trebleGlow;
+                varying vec2 vUv;
+                uniform sampler2D map;
                 
                 void main() {
-                    float dist = distance(gl_PointCoord, vec2(0.5));
-                    if (dist > 0.5) discard;
+                    // Sample live visualizer frames
+                    vec4 texColor = texture2D(map, vUv);
                     
-                    // Tight anti-aliasing edge (0.42 to 0.5) to keep the particle core sharp and HD, rather than fuzzy/blurry
-                    float shapeAlpha = smoothstep(0.5, 0.42, dist);
-                    
-                    float finalAlpha = shapeAlpha * vAlpha;
-                    
-                    // Use vColor instead of vec3(1.0) to flare the particle's own hue, preventing blowout to white
-                    vec3 finalColor = vColor + (vColor * trebleGlow * (0.5 - dist));
-                    gl_FragColor = vec4(finalColor, finalAlpha * 0.95);
+                    // Add subtle brightness boost to enhance glow inside VR headsets
+                    gl_FragColor = texColor * 1.15;
                 }
             `,
+            side: THREE.BackSide, // Render on the inside faces so player looks out at it
             transparent: true,
-            depthWrite: false,
-            blending: THREE.AdditiveBlending
+            depthWrite: false
         });
         
-        this.points = new THREE.Points(this.geometry, this.material);
-        this.scene.add(this.points);
+        this.domeMesh = new THREE.Mesh(this.geometry, this.material);
+        this.scene.add(this.domeMesh);
     }
 
     initInteraction() {
@@ -209,8 +120,9 @@ class FlowSimulation3D {
             const dx = x - this.pointerX;
             const dy = y - this.pointerY;
             
-            this.targetRotationY += dx * 0.005;
-            this.targetRotationX += dy * 0.005;
+            // Drag rotates the dome environment around the player
+            this.targetRotationY += dx * 0.004;
+            this.targetRotationX += dy * 0.004;
             
             this.pointerX = x;
             this.pointerY = y;
@@ -233,78 +145,11 @@ class FlowSimulation3D {
         window.addEventListener('touchend', handleUp);
     }
 
-    updatePalette(newPalette) {
-        this.palette = newPalette;
-        if (!this.geometry) return;
-        
-        const colors = this.geometry.attributes.color.array;
-        const paletteColors = newPalette.map(c => new THREE.Color(c));
-        
-        for (let i = 0; i < this.particleCount; i++) {
-            const p = this.particles[i];
-            if (p) {
-                p.colorIndex = Math.floor(Math.random() * paletteColors.length);
-                const col = paletteColors[p.colorIndex];
-                
-                // Update color for all trail step vertices
-                for (let t = 0; t < this.trailLength; t++) {
-                    const idx = i * this.trailLength + t;
-                    colors[idx * 3] = col.r;
-                    colors[idx * 3 + 1] = col.g;
-                    colors[idx * 3 + 2] = col.b;
-                }
-            }
-        }
-        this.geometry.attributes.color.needsUpdate = true;
-    }
-
-    triggerBurst(x, y, count = 45) {
-        // Explode particles outward from center
-        for (let k = 0; k < count; k++) {
-            const idx = Math.floor(Math.random() * this.particleCount);
-            const p = this.particles[idx];
-            if (p) {
-                p.x = (Math.random() - 0.5) * 15;
-                p.y = (Math.random() - 0.5) * 15;
-                p.z = (Math.random() - 0.5) * 15;
-                
-                const angle = Math.random() * Math.PI * 2;
-                const phi = Math.acos(Math.random() * 2.0 - 1.0);
-                const speed = 5.0 + Math.random() * 7.0;
-                
-                p.vx = Math.sin(phi) * Math.cos(angle) * speed;
-                p.vy = Math.sin(phi) * Math.sin(angle) * speed;
-                p.vz = Math.cos(phi) * speed;
-                
-                p.life = Math.random() * 45 + 30;
-                p.history = [];
-                for (let t = 0; t < this.trailLength; t++) {
-                    p.history.push({ x: p.x, y: p.y, z: p.z });
-                }
-            }
-        }
-    }
-
-    triggerShockwave(x, y, force = 55.0, speed = 10.5) {
-        this.shockwaves.push({
-            radius: 10,
-            maxRadius: 360,
-            speed: speed * 1.1,
-            force: force * 1.2
-        });
-    }
-
-    triggerVortex(x, y, radius = 280, strength = 16.0, life = 45) {
-        this.vortices.push({
-            x: 0,
-            y: 0,
-            z: 0,
-            radius: radius * 1.1,
-            strength: strength * 1.3,
-            life: life,
-            maxLife: life
-        });
-    }
+    // Unused but kept for interface compatibility
+    updatePalette(newPalette) {}
+    triggerBurst(x, y, count) {}
+    triggerShockwave(x, y, force, speed) {}
+    triggerVortex(x, y, radius, strength, life) {}
 
     resize() {
         const w = window.innerWidth;
@@ -319,174 +164,28 @@ class FlowSimulation3D {
         const delta = Math.min((now - this.lastFrameTime) / 1000, 0.05);
         this.lastFrameTime = now;
         
-        const speed = this.settings ? this.settings.speed : 1.0;
-        const organic = this.settings ? (this.settings.flowOrganic ?? 0.85) : 0.85;
-        const turb = this.settings ? (this.settings.turbulence ?? 0.65) : 0.65;
-        const baseSize = this.settings ? this.settings.baseSize : 2.8;
-        const sizeVar = this.settings ? this.settings.sizeVariation : 1.4;
-        
         this.globalTime += delta * 60;
         
-        // Decay vortices
-        for (let i = this.vortices.length - 1; i >= 0; i--) {
-            this.vortices[i].life--;
-            if (this.vortices[i].life <= 0) {
-                this.vortices.splice(i, 1);
-            }
+        // Upload updated 2D Canvas pixels to WebGL texture
+        this.texture.needsUpdate = true;
+        
+        // Morph progress drifts slowly over time + flares to cube on bass attacks
+        let targetMorph = 0.5 + Math.sin(this.globalTime * 0.015) * 0.5;
+        if (this.sizePulse > 0.4) {
+            targetMorph = Math.min(1.0, targetMorph + this.sizePulse * 0.3);
         }
         
-        // Update shockwaves
-        for (let i = this.shockwaves.length - 1; i >= 0; i--) {
-            const sw = this.shockwaves[i];
-            sw.radius += sw.speed;
-            if (sw.radius >= sw.maxRadius) {
-                this.shockwaves.splice(i, 1);
-            }
-        }
+        this.morphProgress += (targetMorph - this.morphProgress) * 0.06;
+        this.material.uniforms.morphProgress.value = this.morphProgress;
         
-        const positions = this.geometry.attributes.position.array;
-        const sizes = this.geometry.attributes.size.array;
-        const alphas = this.geometry.attributes.alpha.array;
-        
-        for (let i = 0; i < this.particleCount; i++) {
-            const p = this.particles[i];
-            
-            // 3D Curl Noise Field (Low frequency noise scale = long, elegant cosmic streams)
-            const curl = this.getCurlNoise3D(p.x, p.y, p.z, this.globalTime * 0.22, 0.0035);
-            const tVal = this.getNoise3D(p.x * 0.008, p.y * 0.008, p.z * 0.008 + this.globalTime * 0.06);
-            
-            // Low drag (0.975 speed retention) to stretch trails out into long flowing lines
-            let targetVx = (curl.vx * organic + tVal * (1 - organic) * turb) * speed * 0.22;
-            let targetVy = (curl.vy * organic + tVal * (1 - organic) * turb) * speed * 0.22;
-            let targetVz = (curl.vz * organic + tVal * (1 - organic) * turb) * speed * 0.22;
-            
-            // Twice as responsive to noise flow velocities (0.34 instead of 0.17)
-            p.vx = p.vx * 0.975 + targetVx * 0.34;
-            p.vy = p.vy * 0.975 + targetVy * 0.34;
-            p.vz = p.vz * 0.975 + targetVz * 0.34;
-            
-            // Apply physical vortices
-            if (this.vortices.length > 0) {
-                for (let k = 0; k < this.vortices.length; k++) {
-                    const v = this.vortices[k];
-                    const dx = p.x - v.x;
-                    const dy = p.y - v.y;
-                    const dz = p.z - v.z;
-                    const distSq = dx*dx + dy*dy + dz*dz;
-                    if (distSq < v.radius * v.radius && distSq > 4) {
-                        const dist = Math.sqrt(distSq);
-                        const lifeRatio = v.life / v.maxLife;
-                        const strength = (v.radius - dist) / v.radius * v.strength * lifeRatio;
-                        
-                        // Pull inward to center
-                        p.vx -= (dx / dist) * strength * 0.25;
-                        p.vy -= (dy / dist) * strength * 0.25;
-                        p.vz -= (dz / dist) * strength * 0.25;
-                        
-                        // Rotational swirl around central Z-axis
-                        p.vx += (-dy / dist) * strength * 1.5;
-                        p.vy += (dx / dist) * strength * 1.5;
-                    }
-                }
-            }
-            
-            // Apply physical shockwaves
-            if (this.shockwaves.length > 0) {
-                for (let k = 0; k < this.shockwaves.length; k++) {
-                    const sw = this.shockwaves[k];
-                    const dx = p.x;
-                    const dy = p.y;
-                    const dz = p.z;
-                    const distSq = dx*dx + dy*dy + dz*dz;
-                    if (distSq > 9) {
-                        const dist = Math.sqrt(distSq);
-                        const ringWidth = 50;
-                        if (Math.abs(dist - sw.radius) < ringWidth) {
-                            const distFromWave = 1.0 - Math.abs(dist - sw.radius) / ringWidth;
-                            const lifeFactor = 1.0 - sw.radius / sw.maxRadius;
-                            const strength = distFromWave * lifeFactor * sw.force;
-                            
-                            p.vx += (dx / dist) * strength * 0.7;
-                            p.vy += (dy / dist) * strength * 0.7;
-                            p.vz += (dz / dist) * strength * 0.7;
-                        }
-                    }
-                }
-            }
-            
-            // Move Position
-            p.x += p.vx;
-            p.y += p.vy;
-            p.z += p.vz;
-            
-            // Bounding boundary wrap-around box [-140, 140] (halved space for maximum density)
-            // If a particle moves behind you, it wraps to the front, creating infinite stars streaking past your face
-            const limit = 140;
-            if (p.x > limit) { p.x = -limit; p.history = []; }
-            else if (p.x < -limit) { p.x = limit; p.history = []; }
-            
-            if (p.y > limit) { p.y = -limit; p.history = []; }
-            else if (p.y < -limit) { p.y = limit; p.history = []; }
-            
-            if (p.z > limit) { p.z = -limit; p.history = []; }
-            else if (p.z < -limit) { p.z = limit; p.history = []; }
-            
-            // Update history array
-            p.history.unshift({ x: p.x, y: p.y, z: p.z });
-            if (p.history.length > this.trailLength) {
-                p.history.pop();
-            }
-            
-            // Calculate size/alpha base scaling
-            const lifeRatio = Math.max(0.1, p.life / p.maxLife);
-            const particleBaseSize = (baseSize + p.sizeOffset * sizeVar) * (1.0 + this.sizePulse * 0.85);
-            
-            // Fill historical trail points into GL float arrays
-            for (let t = 0; t < this.trailLength; t++) {
-                const idx = i * this.trailLength + t;
-                const hist = p.history[t] || { x: p.x, y: p.y, z: p.z };
-                
-                positions[idx * 3] = hist.x;
-                positions[idx * 3 + 1] = hist.y;
-                positions[idx * 3 + 2] = hist.z;
-                
-                // Slower non-linear size and alpha decay to keep trail thick and visible
-                const fadeFactor = 1.0 - (t / this.trailLength);
-                const sizeFade = Math.sqrt(fadeFactor);
-                const alphaFade = Math.pow(fadeFactor, 0.7);
-                
-                sizes[idx] = sizeFade * particleBaseSize;
-                // Calibrated alpha multiplier (0.045) to prevent additive blending blowout while keeping trails luminous
-                alphas[idx] = alphaFade * lifeRatio * 0.045;
-            }
-            
-            p.life--;
-            if (p.life <= 0) {
-                p.life = Math.random() * 100 + 40;
-            }
-        }
-        
-        this.geometry.attributes.position.needsUpdate = true;
-        this.geometry.attributes.size.needsUpdate = true;
-        this.geometry.attributes.alpha.needsUpdate = true;
-        
-        // Pass treble frequency spikes to GL uniforms for flare glows
-        this.material.uniforms.trebleGlow.value = this.trebleIntensity * 2.2;
-        // Doubled pointSize factor (baseSize * 30.0) for twice-as-big neon ribbons
-        this.material.uniforms.pointSize.value = baseSize * 30.0;
-        
-        // Adjust camera angle based on drag rotation
+        // Rotate the dome matching user mouse drag
         this.rotationX += (this.targetRotationX - this.rotationX) * 0.05;
         this.rotationY += (this.targetRotationY - this.rotationY) * 0.05;
-        this.points.rotation.x = this.rotationX;
-        this.points.rotation.y = this.rotationY;
+        this.domeMesh.rotation.x = this.rotationX;
+        this.domeMesh.rotation.y = this.rotationY;
         
-        // Subtle autonomous rotation
-        this.points.rotation.y += 0.001;
-        
-        // Sync background color
-        const bgHex = document.getElementById("bg-color-picker") ? document.getElementById("bg-color-picker").value : "#050507";
-        this.scene.background.set(bgHex);
+        // Idle autonomous spin
+        this.domeMesh.rotation.y += 0.0006;
         
         this.renderer.render(this.scene, this.camera);
     }
@@ -503,7 +202,7 @@ class FlowSimulation3D {
             });
             
             this.renderer.xr.setSession(session);
-            CosmicLogger.info("Immersive WebXR VR Session started.");
+            CosmicLogger.info("Immersive WebXR VR Session started inside the Flow Dome.");
             
             session.addEventListener('end', () => {
                 CosmicLogger.info("WebXR Session ended.");

@@ -773,6 +773,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (is3DMode) {
                     processMusicReactivity();
                     processMorphs();
+                    // Tick the 2D simulation so the CanvasTexture stays updated live
+                    sim.tick();
                     sim3D.tick();
                     
                     frameCount++;
@@ -780,7 +782,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (now - lastFpsTime >= 500) {
                         const fps = Math.round((frameCount * 1000) / (now - lastFpsTime));
                         elements.hudFps.textContent = fps;
-                        elements.hudParticles.textContent = sim3D.particleCount;
+                        elements.hudParticles.textContent = sim.particles.length;
                         
                         if (fps < 32) {
                             window.lowFpsTicks = (window.lowFpsTicks || 0) + 1;
