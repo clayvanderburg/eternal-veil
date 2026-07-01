@@ -106,6 +106,8 @@ class Particle {
     reset(initial = false) {
         this.x = Math.random() * this.w;
         this.y = Math.random() * this.h;
+        this.lastX = this.x;
+        this.lastY = this.y;
         this.vx = (Math.random() - 0.5) * 0.5;
         this.vy = (Math.random() - 0.5) * 0.5;
         
@@ -327,15 +329,24 @@ class Particle {
         }
 
         // Move position
+        this.lastX = this.x;
+        this.lastY = this.y;
+        
         this.x += this.vx;
         this.y += this.vy;
 
         // Wrap around boundaries
-        if (this.x < 0) { this.x = this.w; this.vx *= 0.5; }
-        else if (this.x > this.w) { this.x = 0; this.vx *= 0.5; }
+        let wrapped = false;
+        if (this.x < 0) { this.x = this.w; this.vx *= 0.5; wrapped = true; }
+        else if (this.x > this.w) { this.x = 0; this.vx *= 0.5; wrapped = true; }
         
-        if (this.y < 0) { this.y = this.h; this.vy *= 0.5; }
-        else if (this.y > this.h) { this.y = 0; this.vy *= 0.5; }
+        if (this.y < 0) { this.y = this.h; this.vy *= 0.5; wrapped = true; }
+        else if (this.y > this.h) { this.y = 0; this.vy *= 0.5; wrapped = true; }
+        
+        if (wrapped) {
+            this.lastX = this.x;
+            this.lastY = this.y;
+        }
 
         // Age
         this.life--;
@@ -446,35 +457,31 @@ class Particle {
             ctx.arc(this.x, this.y, drawSize * (1.3 + dynamicStretch * 0.2), 0, Math.PI * 2);
             ctx.stroke();
         } else if (shape === "brush") {
-            ctx.fillStyle = this.color;
-            ctx.globalAlpha = drawAlpha * 0.85;
+            ctx.strokeStyle = this.color;
+            ctx.lineCap = "round";
             
-            // Draw 4 distinct parallel streaky bristle ellipses offset perpendicular to heading angle
-            const bristleOffsets = [-0.45, -0.15, 0.15, 0.45];
+            // Draw 4 distinct parallel line segments connecting last position to current position, avoiding spiky overlapping ellipse stamps
+            const bristleOffsets = [-0.4, -0.15, 0.15, 0.4];
             const perpX = -Math.sin(angle);
             const perpY = Math.cos(angle);
-            const dirX = Math.cos(angle);
-            const dirY = Math.sin(angle);
             
             for (let i = 0; i < bristleOffsets.length; i++) {
-                const offsetPerp = bristleOffsets[i] * drawSize * 0.8;
-                // Add a small organic stagger offset along heading direction
-                const stagger = ((i * 7 + Math.floor(Math.abs(this.randomSizeOffset) * 100)) % 5 - 2) * drawSize * 0.12;
+                const offsetPerp = bristleOffsets[i] * drawSize * 0.75;
                 
-                const bx = this.x + perpX * offsetPerp + dirX * stagger;
-                const by = this.y + perpY * offsetPerp + dirY * stagger;
+                // Offset start/end coordinate points perpendicularly to movement heading
+                const lastBx = this.lastX + perpX * offsetPerp;
+                const lastBy = this.lastY + perpY * offsetPerp;
+                const bx = this.x + perpX * offsetPerp;
+                const by = this.y + perpY * offsetPerp;
+                
+                // Outer bristles are thinner and softer to simulate frayed bristle feathering
+                ctx.lineWidth = drawSize * 0.32 * (0.85 - Math.abs(bristleOffsets[i]) * 0.5);
+                ctx.globalAlpha = drawAlpha * 0.85 * (1.0 - Math.abs(bristleOffsets[i]) * 0.35);
                 
                 ctx.beginPath();
-                ctx.ellipse(
-                    bx, 
-                    by, 
-                    drawSize * (1.8 + stretch * 0.22) * (0.85 + Math.sin(i * 1.5) * 0.12), // length
-                    drawSize * 0.14 * (0.8 + Math.cos(i * 2.0) * 0.2), // width (very narrow)
-                    angle, 
-                    0, 
-                    Math.PI * 2
-                );
-                ctx.fill();
+                ctx.moveTo(lastBx, lastBy);
+                ctx.lineTo(bx, by);
+                ctx.stroke();
             }
         }
     }
