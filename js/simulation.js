@@ -159,6 +159,12 @@ class Particle {
                 targetVx += Math.cos(globalTime * 0.035 + this.y * 0.006) * 0.36 * speed * scaleRef;
             }
         }
+        
+        // Inject Acid Rain physics overrides (steady downward gravity + wavy horizontal wind warp)
+        if (settings.particleShape === "acid") {
+            targetVy += 1.35 * speed * scaleRef;
+            targetVx += Math.sin(globalTime * 0.04 + this.y * 0.012) * 0.75 * speed * scaleRef;
+        }
 
         // Apply drag/friction
         const drag = settings.drag !== undefined ? settings.drag : 0.90;
@@ -336,6 +342,8 @@ class Particle {
         let shape = settings.particleShape || "ellipse";
         if (shape === "aquatic") {
             shape = this.aquaticType === "paint" ? "ellipse" : "ring";
+        } else if (shape === "acid") {
+            shape = "drop";
         }
         
         // Base sizes scaled proportionally to screen width (using cached randomSizeOffset to save CPU)
