@@ -118,6 +118,9 @@ class Particle {
         // Randomly assign particle category for Aquatic Flow preset splits (60% paint strokes, 40% bubble rings)
         this.aquaticType = Math.random() > 0.4 ? "paint" : "bubble";
         
+        // Randomly assign particle category for Nebula preset splits (75% twinkling stars, 25% background cloud blobs)
+        this.nebulaType = Math.random() > 0.25 ? "star" : "cloud";
+        
         this.color = this.pickColor();
     }
 
@@ -164,6 +167,14 @@ class Particle {
         if (settings.particleShape === "acid") {
             targetVy += 1.35 * speed * scaleRef;
             targetVx += Math.sin(globalTime * 0.04 + this.y * 0.012) * 0.75 * speed * scaleRef;
+        }
+        
+        // Inject Cosmic Nebula physics overrides (clouds drift slower and have lower velocity impact)
+        if (settings.particleShape === "nebula") {
+            if (this.nebulaType === "cloud") {
+                targetVx *= 0.18;
+                targetVy *= 0.18;
+            }
         }
 
         // Apply drag/friction
@@ -340,14 +351,31 @@ class Particle {
         const alpha = lifeRatio * 0.78;
         const stretch = settings.stretch || 1.6;
         let shape = settings.particleShape || "ellipse";
+        
+        // Base sizes scaled proportionally to screen width (using cached randomSizeOffset to save CPU)
+        const size = Math.max(0.4, (settings.baseSize + this.randomSizeOffset * settings.sizeVariation) * (0.6 + lifeRatio * 0.5)) * scaleRef;
+        
+        let drawSize = size;
+        let drawAlpha = alpha;
+        
         if (shape === "aquatic") {
             shape = this.aquaticType === "paint" ? "ellipse" : "ring";
         } else if (shape === "acid") {
             shape = "drop";
+        } else if (shape === "nebula") {
+            if (this.nebulaType === "cloud") {
+                shape = "ellipse";
+                drawSize = size * 3.6; // make background clouds huge
+                drawAlpha = alpha * 0.16; // make them very soft and formless
+            } else {
+                shape = "drop";
+                drawSize = size * 0.38; // make foreground stars tiny
+                // Star twinkling flicker frequency modulation
+                this.twinkleOffset = this.twinkleOffset || Math.random() * 100;
+                const flicker = 0.30 + Math.sin(globalTime * 0.12 + this.twinkleOffset) * 0.70;
+                drawAlpha = alpha * flicker * 0.95;
+            }
         }
-        
-        // Base sizes scaled proportionally to screen width (using cached randomSizeOffset to save CPU)
-        const size = Math.max(0.4, (settings.baseSize + this.randomSizeOffset * settings.sizeVariation) * (0.6 + lifeRatio * 0.5)) * scaleRef;
         
         // Calculate rotation angle matching velocity direction
         const angle = Math.atan2(this.vy, this.vx);
@@ -358,60 +386,60 @@ class Particle {
             ctx.fillStyle = this.color;
             
             // 1. Soft Outer gaseous Halo
-            ctx.globalAlpha = alpha * 0.35;
+            ctx.globalAlpha = drawAlpha * 0.35;
             ctx.beginPath();
-            ctx.ellipse(this.x, this.y, size * (2.4 + stretch * 0.3), size * (1.1 + dynamicStretch * 0.15), angle, 0, Math.PI * 2);
+            ctx.ellipse(this.x, this.y, drawSize * (2.4 + stretch * 0.3), drawSize * (1.1 + dynamicStretch * 0.15), angle, 0, Math.PI * 2);
             ctx.fill();
 
             // 2. Main directional body
-            ctx.globalAlpha = alpha * 0.9;
+            ctx.globalAlpha = drawAlpha * 0.9;
             ctx.beginPath();
-            ctx.ellipse(this.x, this.y, size * (1.7 + stretch * 0.25), size * (0.65 + dynamicStretch * 0.18), angle, 0, Math.PI * 2);
+            ctx.ellipse(this.x, this.y, drawSize * (1.7 + stretch * 0.25), drawSize * (0.65 + dynamicStretch * 0.18), angle, 0, Math.PI * 2);
             ctx.fill();
 
             // 3. Inner brighter core (highlight, offset along velocity angle)
-            ctx.globalAlpha = alpha * 0.75;
-            const coreOffset = size * 0.1;
+            ctx.globalAlpha = drawAlpha * 0.75;
+            const coreOffset = drawSize * 0.1;
             const coreX = this.x + Math.cos(angle) * coreOffset;
             const coreY = this.y + Math.sin(angle) * coreOffset;
             ctx.beginPath();
-            ctx.ellipse(coreX, coreY, size * (0.7 + stretch * 0.1), size * (0.38 + dynamicStretch * 0.08), angle, 0, Math.PI * 2);
+            ctx.ellipse(coreX, coreY, drawSize * (0.7 + stretch * 0.1), drawSize * (0.38 + dynamicStretch * 0.08), angle, 0, Math.PI * 2);
             ctx.fill();
         } else if (shape === "drop") {
             ctx.fillStyle = this.color;
-            ctx.globalAlpha = alpha * 0.9;
+            ctx.globalAlpha = drawAlpha * 0.9;
             ctx.beginPath();
-            ctx.arc(this.x, this.y, size * 1.5, 0, Math.PI * 2);
+            ctx.arc(this.x, this.y, drawSize * 1.5, 0, Math.PI * 2);
             ctx.fill();
             
             // Subtle inner light reflection node (offset rotated relative to heading)
             ctx.fillStyle = "#ffffff";
-            ctx.globalAlpha = alpha * 0.6;
+            ctx.globalAlpha = drawAlpha * 0.6;
             
-            const localDx = -size * 0.25;
-            const localDy = -size * 0.25;
+            const localDx = -drawSize * 0.25;
+            const localDy = -drawSize * 0.25;
             const rx = localDx * Math.cos(angle) - localDy * Math.sin(angle);
             const ry = localDx * Math.sin(angle) + localDy * Math.cos(angle);
             
             ctx.beginPath();
-            ctx.arc(this.x + rx, this.y + ry, size * 0.45, 0, Math.PI * 2);
+            ctx.arc(this.x + rx, this.y + ry, drawSize * 0.45, 0, Math.PI * 2);
             ctx.fill();
         } else if (shape === "ring") {
             // Optimized double-stroke glowing vector rings (eliminates shadowBlur CPU rendering block)
             ctx.strokeStyle = this.color;
             
             // 1. Thick diffuse glow base stroke
-            ctx.globalAlpha = alpha * 0.25;
-            ctx.lineWidth = size * 1.35;
+            ctx.globalAlpha = drawAlpha * 0.25;
+            ctx.lineWidth = drawSize * 1.35;
             ctx.beginPath();
-            ctx.arc(this.x, this.y, size * (1.3 + dynamicStretch * 0.2), 0, Math.PI * 2);
+            ctx.arc(this.x, this.y, drawSize * (1.3 + dynamicStretch * 0.2), 0, Math.PI * 2);
             ctx.stroke();
             
             // 2. Sharp center core ring
-            ctx.globalAlpha = alpha * 0.85;
-            ctx.lineWidth = size * 0.45;
+            ctx.globalAlpha = drawAlpha * 0.85;
+            ctx.lineWidth = drawSize * 0.45;
             ctx.beginPath();
-            ctx.arc(this.x, this.y, size * (1.3 + dynamicStretch * 0.2), 0, Math.PI * 2);
+            ctx.arc(this.x, this.y, drawSize * (1.3 + dynamicStretch * 0.2), 0, Math.PI * 2);
             ctx.stroke();
         }
     }

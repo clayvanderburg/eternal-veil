@@ -676,9 +676,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (isFlowEnabled("particleShape")) {
-            const shapes = ["ellipse", "drop", "ring", "aquatic"];
+            const shapes = ["ellipse", "drop", "ring", "aquatic", "nebula"];
             const randVal = Math.random();
-            const shapeChosen = randVal < 0.55 ? "ellipse" : (randVal < 0.70 ? "drop" : (randVal < 0.85 ? "ring" : "aquatic"));
+            const shapeChosen = randVal < 0.45 ? "ellipse" : (randVal < 0.60 ? "drop" : (randVal < 0.75 ? "ring" : (randVal < 0.88 ? "aquatic" : "nebula")));
             sim.settings.particleShape = shapeChosen;
             elements.particleShapeSelect.value = shapeChosen;
         }

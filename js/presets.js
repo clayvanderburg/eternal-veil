@@ -265,6 +265,30 @@ const StylePresets = {
         kaleidoscopeSegments: 12,
         bilateralEnabled: true,
         asmrEnabled: true
+    },
+    nebula: {
+        name: "Cosmic Nebula",
+        desc: "Twinkling foreground starlight floating over giant, slow-drifting background clouds of colored gas.",
+        speed: 0.95,
+        turbulence: 0.50,
+        curl: 0.90,
+        density: 1800,
+        dissipation: 0.009,
+        zoom: 0.80,
+        size: 3.5,
+        sizeVar: 1.5,
+        stretch: 1.2,
+        interaction: 0.8,
+        rotationSpeed: 0.01,
+        wobble: 0.15,
+        colors: ["#3b82f6", "#8b5cf6", "#ec4899", "#d8b4fe", "#bae6fd", "#ffffff"],
+        particleShape: "nebula",
+        psychedelicMode: false,
+        morphingBg: false,
+        spinningKaleido: false,
+        kaleidoscopeEnabled: false,
+        bilateralEnabled: true,
+        asmrEnabled: true
     }
 };
 
