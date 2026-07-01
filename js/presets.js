@@ -289,6 +289,30 @@ const StylePresets = {
         kaleidoscopeEnabled: false,
         bilateralEnabled: true,
         asmrEnabled: true
+    },
+    oil: {
+        name: "Impressionist Oil",
+        desc: "Streaky, textured bristle oil brush strokes layering over each other in rich ochre, sienna, and warm forest hues.",
+        speed: 0.85,
+        turbulence: 0.70,
+        curl: 0.80,
+        density: 1400,
+        dissipation: 0.015,
+        zoom: 0.90,
+        size: 8.0,
+        sizeVar: 3.5,
+        stretch: 2.2,
+        interaction: 1.4,
+        rotationSpeed: 0.02,
+        wobble: 0.35,
+        colors: ["#c2410c", "#ea580c", "#d97706", "#ca8a04", "#854d0e", "#15803d", "#f59e0b"],
+        particleShape: "brush",
+        psychedelicMode: false,
+        morphingBg: false,
+        spinningKaleido: false,
+        kaleidoscopeEnabled: false,
+        bilateralEnabled: true,
+        asmrEnabled: true
     }
 };
 

@@ -362,7 +362,7 @@ class Particle {
         let drawAlpha = alpha;
         
         if (shape === "aquatic") {
-            shape = this.aquaticType === "paint" ? "ellipse" : "ring";
+            shape = this.aquaticType === "paint" ? "brush" : "ring";
         } else if (shape === "acid") {
             shape = "drop";
         } else if (shape === "nebula") {
@@ -445,6 +445,37 @@ class Particle {
             ctx.beginPath();
             ctx.arc(this.x, this.y, drawSize * (1.3 + dynamicStretch * 0.2), 0, Math.PI * 2);
             ctx.stroke();
+        } else if (shape === "brush") {
+            ctx.fillStyle = this.color;
+            ctx.globalAlpha = drawAlpha * 0.85;
+            
+            // Draw 4 distinct parallel streaky bristle ellipses offset perpendicular to heading angle
+            const bristleOffsets = [-0.45, -0.15, 0.15, 0.45];
+            const perpX = -Math.sin(angle);
+            const perpY = Math.cos(angle);
+            const dirX = Math.cos(angle);
+            const dirY = Math.sin(angle);
+            
+            for (let i = 0; i < bristleOffsets.length; i++) {
+                const offsetPerp = bristleOffsets[i] * drawSize * 0.8;
+                // Add a small organic stagger offset along heading direction
+                const stagger = ((i * 7 + Math.floor(Math.abs(this.randomSizeOffset) * 100)) % 5 - 2) * drawSize * 0.12;
+                
+                const bx = this.x + perpX * offsetPerp + dirX * stagger;
+                const by = this.y + perpY * offsetPerp + dirY * stagger;
+                
+                ctx.beginPath();
+                ctx.ellipse(
+                    bx, 
+                    by, 
+                    drawSize * (1.8 + stretch * 0.22) * (0.85 + Math.sin(i * 1.5) * 0.12), // length
+                    drawSize * 0.14 * (0.8 + Math.cos(i * 2.0) * 0.2), // width (very narrow)
+                    angle, 
+                    0, 
+                    Math.PI * 2
+                );
+                ctx.fill();
+            }
         }
     }
 }
