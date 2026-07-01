@@ -1,5 +1,6 @@
 // ==========================================================================
 // ETERNAL VEIL - 3D WEBGL & WEBXR (VR) PHYSICS SIMULATION ENGINE
+// Optimized for VR with fading particle history trails (star streaks)
 // ==========================================================================
 
 class FlowSimulation3D {
@@ -20,11 +21,12 @@ class FlowSimulation3D {
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color("#050507");
         
-        this.camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1200);
-        this.camera.position.set(0, 0, 320);
+        this.camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1500);
+        this.camera.position.set(0, 0, 280);
         
         this.particles = [];
-        this.particleCount = 2000;
+        this.particleCount = 1500;
+        this.trailLength = 12; // number of trail history points per particle
         this.settings = null;
         this.palette = ["#6366f1", "#818cf8", "#a78bfa", "#c084fc"];
         
@@ -58,10 +60,10 @@ class FlowSimulation3D {
         return simplexNoise(x, y + z) * 0.5 + simplexNoise(x + z, y) * 0.5;
     }
 
-    // 3D fluidic Curl Noise generator
-    getCurlNoise3D(x, y, z, time, scale = 0.008) {
-        const eps = 0.002;
-        const t = time * 0.28;
+    // 3D fluidic Curl Noise generator (lower frequency scale for long, elegant streams)
+    getCurlNoise3D(x, y, z, time, scale = 0.0035) {
+        const eps = 0.005;
+        const t = time * 0.22;
         
         const n_x = this.getNoise3D(x * scale, y * scale, z * scale + t);
         const n_y = this.getNoise3D(x * scale + t, y * scale, z * scale);
@@ -72,68 +74,86 @@ class FlowSimulation3D {
         const d_z = (this.getNoise3D(x * scale, y * scale + t, (z + eps) * scale) - n_z) / eps;
         
         return {
-            vx: (d_y - d_z) * 1.6,
-            vy: (d_z - d_x) * 1.6,
-            vz: (d_x - d_y) * 1.6
+            vx: (d_y - d_z) * 2.8,
+            vy: (d_z - d_x) * 2.8,
+            vz: (d_x - d_y) * 2.8
         };
     }
 
     initParticles() {
-        // Build positions, colors, and sizes Float32Arrays for Three.js points
-        const positions = new Float32Array(this.particleCount * 3);
-        const colors = new Float32Array(this.particleCount * 3);
-        const sizes = new Float32Array(this.particleCount);
+        const totalPoints = this.particleCount * this.trailLength;
+        const positions = new Float32Array(totalPoints * 3);
+        const colors = new Float32Array(totalPoints * 3);
+        const sizes = new Float32Array(totalPoints);
+        const alphas = new Float32Array(totalPoints);
         
         const paletteColors = this.palette.map(c => new THREE.Color(c));
         
         for (let i = 0; i < this.particleCount; i++) {
-            // Spawn inside a 3D spherical bubble
-            const u = Math.random();
-            const v = Math.random();
-            const theta = u * 2.0 * Math.PI;
-            const phi = Math.acos(2.0 * v - 1.0);
-            const r = Math.cbrt(Math.random()) * 260; // sphere radius
+            // Spawn inside a loose, wide spherical region
+            const angle = Math.random() * Math.PI * 2;
+            const phi = Math.acos(Math.random() * 2.0 - 1.0);
+            const r = Math.cbrt(Math.random()) * 220;
             
-            const px = r * Math.sin(phi) * Math.cos(theta);
-            const py = r * Math.sin(phi) * Math.sin(theta);
+            const px = r * Math.sin(phi) * Math.cos(angle);
+            const py = r * Math.sin(phi) * Math.sin(angle);
             const pz = r * Math.cos(phi);
             
-            positions[i * 3] = px;
-            positions[i * 3 + 1] = py;
-            positions[i * 3 + 2] = pz;
+            const colorIndex = Math.floor(Math.random() * paletteColors.length);
             
-            // Initial velocity state
             this.particles.push({
-                vx: (Math.random() - 0.5) * 1.5,
-                vy: (Math.random() - 0.5) * 1.5,
-                vz: (Math.random() - 0.5) * 1.5,
-                life: Math.random() * 90 + 30,
-                maxLife: 120,
+                x: px,
+                y: py,
+                z: pz,
+                vx: (Math.random() - 0.5) * 1.0,
+                vy: (Math.random() - 0.5) * 1.0,
+                vz: (Math.random() - 0.5) * 1.0,
+                life: Math.random() * 100 + 40,
+                maxLife: 140,
                 sizeOffset: Math.random() - 0.5,
-                colorIndex: Math.floor(Math.random() * paletteColors.length)
+                colorIndex: colorIndex,
+                history: [] // trail positions history
             });
             
-            const col = paletteColors[this.particles[i].colorIndex];
-            colors[i * 3] = col.r;
-            colors[i * 3 + 1] = col.g;
-            colors[i * 3 + 2] = col.b;
+            // Seed initial history
+            for (let t = 0; t < this.trailLength; t++) {
+                this.particles[i].history.push({ x: px, y: py, z: pz });
+            }
             
-            sizes[i] = 1.0;
+            // Configure vertices in buffer (trail points)
+            for (let t = 0; t < this.trailLength; t++) {
+                const idx = i * this.trailLength + t;
+                positions[idx * 3] = px;
+                positions[idx * 3 + 1] = py;
+                positions[idx * 3 + 2] = pz;
+                
+                const col = paletteColors[colorIndex];
+                colors[idx * 3] = col.r;
+                colors[idx * 3 + 1] = col.g;
+                colors[idx * 3 + 2] = col.b;
+                
+                // Trail steps shrink and fade out along the tail
+                const fadeFactor = 1.0 - (t / this.trailLength);
+                sizes[idx] = fadeFactor;
+                alphas[idx] = fadeFactor * 0.8;
+            }
         }
         
         this.geometry = new THREE.BufferGeometry();
         this.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
         this.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
         this.geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+        this.geometry.setAttribute('alpha', new THREE.BufferAttribute(alphas, 1));
         
-        // ShaderMaterial for premium glowing spherical 3D points
+        // ShaderMaterial supporting dynamic alphachannels and depth perspective rendering
         this.material = new THREE.ShaderMaterial({
             uniforms: {
-                pointSize: { value: 3.5 },
+                pointSize: { value: 4.5 },
                 trebleGlow: { value: 0.0 }
             },
             vertexShader: `
                 attribute float size;
+                attribute float alpha;
                 attribute vec3 color;
                 varying vec3 vColor;
                 varying float vAlpha;
@@ -141,26 +161,30 @@ class FlowSimulation3D {
                 
                 void main() {
                     vColor = color;
+                    vAlpha = alpha;
                     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                    // size attenuation (depth perspective sizing)
+                    // size attenuation makes nearby streaking trails look huge
                     gl_PointSize = size * pointSize * (300.0 / -mvPosition.z);
                     gl_Position = projectionMatrix * mvPosition;
                 }
             `,
             fragmentShader: `
                 varying vec3 vColor;
+                varying float vAlpha;
                 uniform float trebleGlow;
                 
                 void main() {
-                    // Draw soft round radial glow point instead of flat webgl quads
                     float dist = distance(gl_PointCoord, vec2(0.5));
                     if (dist > 0.5) discard;
                     
-                    float alpha = smoothstep(0.5, 0.15, dist);
+                    // Smooth gaseous radial glow point shape
+                    float shapeAlpha = smoothstep(0.5, 0.15, dist);
                     
-                    // Treble transient flares up the core brightness (neon glow effect)
+                    // Multiply shape transparency by trail step transparency (vAlpha)
+                    float finalAlpha = shapeAlpha * vAlpha;
+                    
                     vec3 finalColor = vColor + (vec3(1.0) * trebleGlow * (0.5 - dist));
-                    gl_FragColor = vec4(finalColor, alpha * 0.9);
+                    gl_FragColor = vec4(finalColor, finalAlpha * 0.95);
                 }
             `,
             transparent: true,
@@ -184,7 +208,6 @@ class FlowSimulation3D {
             const dx = x - this.pointerX;
             const dy = y - this.pointerY;
             
-            // Drag rotates the scene
             this.targetRotationY += dx * 0.005;
             this.targetRotationX += dy * 0.005;
             
@@ -221,59 +244,62 @@ class FlowSimulation3D {
             if (p) {
                 p.colorIndex = Math.floor(Math.random() * paletteColors.length);
                 const col = paletteColors[p.colorIndex];
-                colors[i * 3] = col.r;
-                colors[i * 3 + 1] = col.g;
-                colors[i * 3 + 2] = col.b;
+                
+                // Update color for all trail step vertices
+                for (let t = 0; t < this.trailLength; t++) {
+                    const idx = i * this.trailLength + t;
+                    colors[idx * 3] = col.r;
+                    colors[idx * 3 + 1] = col.g;
+                    colors[idx * 3 + 2] = col.b;
+                }
             }
         }
         this.geometry.attributes.color.needsUpdate = true;
     }
 
-    triggerBurst(x, y, count = 35) {
-        // Spawn burst particles at 3D center
-        const positions = this.geometry.attributes.position.array;
-        
+    triggerBurst(x, y, count = 45) {
+        // Explode particles outward from center
         for (let k = 0; k < count; k++) {
             const idx = Math.floor(Math.random() * this.particleCount);
             const p = this.particles[idx];
             if (p) {
-                // Reset position to center with offset
-                positions[idx * 3] = (Math.random() - 0.5) * 20;
-                positions[idx * 3 + 1] = (Math.random() - 0.5) * 20;
-                positions[idx * 3 + 2] = (Math.random() - 0.5) * 20;
+                p.x = (Math.random() - 0.5) * 15;
+                p.y = (Math.random() - 0.5) * 15;
+                p.z = (Math.random() - 0.5) * 15;
                 
                 const angle = Math.random() * Math.PI * 2;
                 const phi = Math.acos(Math.random() * 2.0 - 1.0);
-                const speed = 4.0 + Math.random() * 5.0;
+                const speed = 5.0 + Math.random() * 7.0;
                 
                 p.vx = Math.sin(phi) * Math.cos(angle) * speed;
                 p.vy = Math.sin(phi) * Math.sin(angle) * speed;
                 p.vz = Math.cos(phi) * speed;
                 
-                p.life = Math.random() * 40 + 25;
+                p.life = Math.random() * 45 + 30;
+                p.history = [];
+                for (let t = 0; t < this.trailLength; t++) {
+                    p.history.push({ x: p.x, y: p.y, z: p.z });
+                }
             }
         }
-        this.geometry.attributes.position.needsUpdate = true;
     }
 
     triggerShockwave(x, y, force = 55.0, speed = 10.5) {
-        // 3D physical expanding sphere wave
         this.shockwaves.push({
-            radius: 5,
-            maxRadius: 280,
-            speed: speed,
-            force: force
+            radius: 10,
+            maxRadius: 360,
+            speed: speed * 1.1,
+            force: force * 1.2
         });
     }
 
     triggerVortex(x, y, radius = 280, strength = 16.0, life = 45) {
-        // 3D center spinning vortex
         this.vortices.push({
             x: 0,
             y: 0,
             z: 0,
-            radius: radius,
-            strength: strength,
+            radius: radius * 1.1,
+            strength: strength * 1.3,
             life: life,
             maxLife: life
         });
@@ -317,47 +343,47 @@ class FlowSimulation3D {
             }
         }
         
-        // Physics update on particles
         const positions = this.geometry.attributes.position.array;
         const sizes = this.geometry.attributes.size.array;
+        const alphas = this.geometry.attributes.alpha.array;
         
         for (let i = 0; i < this.particleCount; i++) {
             const p = this.particles[i];
-            const px = positions[i * 3];
-            const py = positions[i * 3 + 1];
-            const pz = positions[i * 3 + 2];
             
-            // 3D Curl Noise Field
-            const curl = this.getCurlNoise3D(px, py, pz, this.globalTime * 0.28, 0.005);
-            const tVal = this.getNoise3D(px * 0.01, py * 0.01, pz * 0.01 + this.globalTime * 0.08);
+            // 3D Curl Noise Field (Low frequency noise scale = long, elegant cosmic streams)
+            const curl = this.getCurlNoise3D(p.x, p.y, p.z, this.globalTime * 0.22, 0.0035);
+            const tVal = this.getNoise3D(p.x * 0.008, p.y * 0.008, p.z * 0.008 + this.globalTime * 0.06);
             
-            let targetVx = (curl.vx * organic + tVal * (1 - organic) * turb) * speed * 0.24;
-            let targetVy = (curl.vy * organic + tVal * (1 - organic) * turb) * speed * 0.24;
-            let targetVz = (curl.vz * organic + tVal * (1 - organic) * turb) * speed * 0.24;
+            // Low drag (0.975 speed retention) to stretch trails out into long flowing lines
+            let targetVx = (curl.vx * organic + tVal * (1 - organic) * turb) * speed * 0.22;
+            let targetVy = (curl.vy * organic + tVal * (1 - organic) * turb) * speed * 0.22;
+            let targetVz = (curl.vz * organic + tVal * (1 - organic) * turb) * speed * 0.22;
             
-            p.vx = p.vx * 0.88 + targetVx * 0.6;
-            p.vy = p.vy * 0.88 + targetVy * 0.6;
-            p.vz = p.vz * 0.88 + targetVz * 0.6;
+            p.vx = p.vx * 0.975 + targetVx * 0.085;
+            p.vy = p.vy * 0.975 + targetVy * 0.085;
+            p.vz = p.vz * 0.975 + targetVz * 0.085;
             
-            // Apply Vortices (swirling pull to center + helical rotation)
+            // Apply physical vortices
             if (this.vortices.length > 0) {
                 for (let k = 0; k < this.vortices.length; k++) {
                     const v = this.vortices[k];
-                    // distance from center (0,0,0)
-                    const distSq = px*px + py*py + pz*pz;
+                    const dx = p.x - v.x;
+                    const dy = p.y - v.y;
+                    const dz = p.z - v.z;
+                    const distSq = dx*dx + dy*dy + dz*dz;
                     if (distSq < v.radius * v.radius && distSq > 4) {
                         const dist = Math.sqrt(distSq);
                         const lifeRatio = v.life / v.maxLife;
                         const strength = (v.radius - dist) / v.radius * v.strength * lifeRatio;
                         
-                        // Pull to center
-                        p.vx -= (px / dist) * strength * 0.5;
-                        p.vy -= (py / dist) * strength * 0.5;
-                        p.vz -= (pz / dist) * strength * 0.5;
+                        // Pull inward to center
+                        p.vx -= (dx / dist) * strength * 0.25;
+                        p.vy -= (dy / dist) * strength * 0.25;
+                        p.vz -= (dz / dist) * strength * 0.25;
                         
-                        // Spin vortex around Z/Y axis
-                        p.vx += (-py / dist) * strength * 1.8;
-                        p.vy += (px / dist) * strength * 1.8;
+                        // Rotational swirl around central Z-axis
+                        p.vx += (-dy / dist) * strength * 1.5;
+                        p.vy += (dx / dist) * strength * 1.5;
                     }
                 }
             }
@@ -366,74 +392,98 @@ class FlowSimulation3D {
             if (this.shockwaves.length > 0) {
                 for (let k = 0; k < this.shockwaves.length; k++) {
                     const sw = this.shockwaves[k];
-                    const distSq = px*px + py*py + pz*pz;
+                    const dx = p.x;
+                    const dy = p.y;
+                    const dz = p.z;
+                    const distSq = dx*dx + dy*dy + dz*dz;
                     if (distSq > 9) {
                         const dist = Math.sqrt(distSq);
-                        const ringWidth = 40;
+                        const ringWidth = 50;
                         if (Math.abs(dist - sw.radius) < ringWidth) {
                             const distFromWave = 1.0 - Math.abs(dist - sw.radius) / ringWidth;
                             const lifeFactor = 1.0 - sw.radius / sw.maxRadius;
                             const strength = distFromWave * lifeFactor * sw.force;
                             
-                            p.vx += (px / dist) * strength * 0.8;
-                            p.vy += (py / dist) * strength * 0.8;
-                            p.vz += (pz / dist) * strength * 0.8;
+                            p.vx += (dx / dist) * strength * 0.7;
+                            p.vy += (dy / dist) * strength * 0.7;
+                            p.vz += (dz / dist) * strength * 0.7;
                         }
                     }
                 }
             }
             
             // Move Position
-            positions[i * 3] += p.vx;
-            positions[i * 3 + 1] += p.vy;
-            positions[i * 3 + 2] += p.vz;
+            p.x += p.vx;
+            p.y += p.vy;
+            p.z += p.vz;
             
-            // Round/Spherical boundary reset
-            const distanceCenter = Math.sqrt(positions[i * 3]**2 + positions[i * 3 + 1]**2 + positions[i * 3 + 2]**2);
-            if (distanceCenter > 300) {
-                // Re-spawn near center
-                positions[i * 3] = (Math.random() - 0.5) * 80;
-                positions[i * 3 + 1] = (Math.random() - 0.5) * 80;
-                positions[i * 3 + 2] = (Math.random() - 0.5) * 80;
-                p.vx = (Math.random() - 0.5) * 1.0;
-                p.vy = (Math.random() - 0.5) * 1.0;
-                p.vz = (Math.random() - 0.5) * 1.0;
-                p.life = Math.random() * 90 + 30;
+            // Bounding boundary wrap-around box [-280, 280] (essential for VR space streaking)
+            // If a particle moves behind you, it wraps to the front, creating infinite stars streaking past your face
+            const limit = 280;
+            if (p.x > limit) { p.x = -limit; p.history = []; }
+            else if (p.x < -limit) { p.x = limit; p.history = []; }
+            
+            if (p.y > limit) { p.y = -limit; p.history = []; }
+            else if (p.y < -limit) { p.y = limit; p.history = []; }
+            
+            if (p.z > limit) { p.z = -limit; p.history = []; }
+            else if (p.z < -limit) { p.z = limit; p.history = []; }
+            
+            // Update history array
+            p.history.unshift({ x: p.x, y: p.y, z: p.z });
+            if (p.history.length > this.trailLength) {
+                p.history.pop();
             }
             
-            // Rhythmic Size swell mapping
-            sizes[i] = (baseSize + p.sizeOffset * sizeVar) * (1.0 + this.sizePulse * 0.95);
+            // Calculate size/alpha base scaling
+            const lifeRatio = Math.max(0.1, p.life / p.maxLife);
+            const particleBaseSize = (baseSize + p.sizeOffset * sizeVar) * (1.0 + this.sizePulse * 0.85);
+            
+            // Fill historical trail points into GL float arrays
+            for (let t = 0; t < this.trailLength; t++) {
+                const idx = i * this.trailLength + t;
+                const hist = p.history[t] || { x: p.x, y: p.y, z: p.z };
+                
+                positions[idx * 3] = hist.x;
+                positions[idx * 3 + 1] = hist.y;
+                positions[idx * 3 + 2] = hist.z;
+                
+                // Trail opacity decay factor (t/trailLength)
+                const fadeFactor = 1.0 - (t / this.trailLength);
+                sizes[idx] = fadeFactor * particleBaseSize;
+                alphas[idx] = fadeFactor * lifeRatio * 0.76;
+            }
             
             p.life--;
             if (p.life <= 0) {
-                p.life = Math.random() * 90 + 30;
+                p.life = Math.random() * 100 + 40;
             }
         }
         
         this.geometry.attributes.position.needsUpdate = true;
         this.geometry.attributes.size.needsUpdate = true;
+        this.geometry.attributes.alpha.needsUpdate = true;
         
-        // Pass treble transient to fragment shader glow uniform
-        this.material.uniforms.trebleGlow.value = this.trebleIntensity * 1.8;
-        this.material.uniforms.pointSize.value = baseSize * 1.1;
+        // Pass treble frequency spikes to GL uniforms for flare glows
+        this.material.uniforms.trebleGlow.value = this.trebleIntensity * 2.2;
+        this.material.uniforms.pointSize.value = 1.05;
         
-        // Smoothly rotate the scene to match user drag interaction
+        // Adjust camera angle based on drag rotation
         this.rotationX += (this.targetRotationX - this.rotationX) * 0.05;
         this.rotationY += (this.targetRotationY - this.rotationY) * 0.05;
         this.points.rotation.x = this.rotationX;
         this.points.rotation.y = this.rotationY;
         
-        // Autonomous subtle idle drift rotation
-        this.points.rotation.y += 0.0015;
+        // Subtle autonomous rotation
+        this.points.rotation.y += 0.001;
         
-        // Sync background color dynamically
+        // Sync background color
         const bgHex = document.getElementById("bg-color-picker") ? document.getElementById("bg-color-picker").value : "#050507";
         this.scene.background.set(bgHex);
         
         this.renderer.render(this.scene, this.camera);
     }
     
-    // VR Session triggers
     async startVR() {
         if (!navigator.xr) {
             CosmicLogger.error("WebXR is not supported on this device/browser.");
