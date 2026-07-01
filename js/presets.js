@@ -313,6 +313,30 @@ const StylePresets = {
         kaleidoscopeEnabled: false,
         bilateralEnabled: true,
         asmrEnabled: true
+    },
+    cluster: {
+        name: "Cosmic Organelles",
+        desc: "Nested clusters of bubble membranes with 3D specular highlights floating in a slow, glowing fluid matrix.",
+        speed: 0.70,
+        turbulence: 0.45,
+        curl: 0.88,
+        density: 1200,
+        dissipation: 0.012,
+        zoom: 0.85,
+        size: 7.5,
+        sizeVar: 3.0,
+        stretch: 1.0,
+        interaction: 1.5,
+        rotationSpeed: 0.02,
+        wobble: 0.15,
+        colors: ["#a855f7", "#ec4899", "#06b6d4", "#22d3ee", "#e0f2fe", "#fdf4ff", "#ffffff"],
+        particleShape: "cluster",
+        psychedelicMode: false,
+        morphingBg: false,
+        spinningKaleido: false,
+        kaleidoscopeEnabled: false,
+        bilateralEnabled: true,
+        asmrEnabled: true
     }
 };
 

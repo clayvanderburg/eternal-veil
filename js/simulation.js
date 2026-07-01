@@ -522,6 +522,41 @@ class Particle {
                 ctx.lineTo(bx, by);
                 ctx.stroke();
             }
+        } else if (shape === "cluster") {
+            ctx.fillStyle = this.color;
+            
+            // 1. Big background circle (50-80% transparent base)
+            const baseRad = drawSize * 1.5;
+            ctx.globalAlpha = drawAlpha * 0.58;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, baseRad, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 2. Nested smaller circles with varying sizes and opacities
+            // Circle A: Central core bubble
+            ctx.globalAlpha = drawAlpha * 0.76;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, drawSize * 0.72, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Circle B: Offset top-left, small and faint
+            ctx.globalAlpha = drawAlpha * 0.35;
+            ctx.beginPath();
+            ctx.arc(this.x - drawSize * 0.55, this.y - drawSize * 0.55, drawSize * 0.45, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Circle C: Offset bottom-right, medium and brighter
+            ctx.globalAlpha = drawAlpha * 0.62;
+            ctx.beginPath();
+            ctx.arc(this.x + drawSize * 0.5, this.y + drawSize * 0.45, drawSize * 0.58, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Circle D: Specular white reflection dot for 3D depth/glow
+            ctx.fillStyle = "#ffffff";
+            ctx.globalAlpha = drawAlpha * 0.78;
+            ctx.beginPath();
+            ctx.arc(this.x - drawSize * 0.45, this.y - drawSize * 0.45, drawSize * 0.22, 0, Math.PI * 2);
+            ctx.fill();
         }
     }
 }
