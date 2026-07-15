@@ -415,6 +415,15 @@ document.addEventListener("DOMContentLoaded", () => {
         CosmicLogger.info(`Preset shifted to: ${p.name.toUpperCase()}.`);
     }
 
+    function turnOffPsychedelicMode() {
+        if (sim.settings.psychedelicMode) {
+            sim.settings.psychedelicMode = false;
+            if (elements.psychedelicToggle) elements.psychedelicToggle.checked = false;
+            showToast("Rainbow Mode disabled to show custom colors.");
+            CosmicLogger.info("Rainbow Cycle Mode disabled due to manual color change.");
+        }
+    }
+
     // --- PALETTE SWATCHES RENDERER ---
     function renderSwatches() {
         elements.swatchesPalette.innerHTML = "";
@@ -429,6 +438,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     return;
                 }
                 setOptionToManual("colors");
+                turnOffPsychedelicMode();
                 sim.palette.splice(idx, 1);
                 updateActivePalette([...sim.palette]);
                 renderSwatches();
@@ -1208,6 +1218,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Color additions
         elements.randomizePaletteBtn.onclick = () => {
             setOptionToManual("colors");
+            turnOffPsychedelicMode();
             const palette = generateHarmoniousPalette();
             updateActivePalette(palette);
             renderSwatches();
@@ -1219,6 +1230,7 @@ document.addEventListener("DOMContentLoaded", () => {
         };
         elements.addColorBtn.onclick = () => {
             setOptionToManual("colors");
+            turnOffPsychedelicMode();
             if (sim.palette.length >= 6) {
                 sim.palette.shift(); // remove oldest
             }
