@@ -52,7 +52,9 @@ class NativeFlowSimulation3D {
         this.scene.add(this.world);
 
         this.maxParticles = 14000;
-        this.trailSegments = 18;
+        // Dense enough that the glow samples overlap into a continuous comet tail
+        // instead of reading as a string of separate pearls.
+        this.trailSegments = 52;
         this.activeParticles = 7600;
         this.palette = ["#6366f1", "#a855f7", "#06b6d4", "#f472b6"];
 
@@ -216,7 +218,7 @@ class NativeFlowSimulation3D {
                     float perspective = 300.0 / max(10.0, -mvPosition.z);
                     float pulse = 1.0 + min(2.4, uBass * 1.8);
                     float headDiameter = clamp(uPointSize * aScale * perspective * pulse, 1.0, 144.0);
-                    float taper = pow(max(0.0, 1.0 - aTrail), 1.12);
+                    float taper = pow(max(0.0, 1.0 - aTrail), 0.74);
                     // The first glow sample exactly matches the particle diameter;
                     // subsequent overlapping samples taper into a soft plasma tail.
                     gl_PointSize = max(0.5, headDiameter * taper * uTrailWidthScale);
@@ -271,7 +273,7 @@ class NativeFlowSimulation3D {
             varying float vTrailAmount;
 
             void main() {
-                float tail = pow(1.0 - vTrailAmount, 1.45);
+                float tail = pow(1.0 - vTrailAmount, 0.92);
                 vec2 d = gl_PointCoord - vec2(0.5);
                 float radius = length(d);
                 if (radius > 0.5) discard;
@@ -280,7 +282,7 @@ class NativeFlowSimulation3D {
 
                 // Bright packets travel backward through the tail, giving the
                 // stream visible internal motion even without external audio.
-                float energyWave = 0.72 + 0.28 * pow(
+                float energyWave = 0.9 + 0.1 * pow(
                     0.5 + 0.5 * sin(uTime * 8.0 - vTrailAmount * 24.0),
                     3.0
                 );
