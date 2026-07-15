@@ -220,6 +220,19 @@ document.addEventListener("DOMContentLoaded", () => {
         setupInteractionEvents();
         updateSliderTextDisplays();
         renderSwatches();
+
+        // WebXR VR session callbacks to resize the canvas dynamically
+        window.onVRSessionStart = () => {
+            const profile = window.RenderQuality.getProfile("vrBalanced");
+            CosmicLogger.info(`WebXR VR Session active. Resizing simulation backing texture to: ${profile.width}x${profile.height}`);
+            sim.resize(profile.width, profile.height, 1.0);
+        };
+
+        window.onVRSessionEnd = () => {
+            const profile = window.RenderQuality.getProfile("desktopHigh");
+            CosmicLogger.info(`WebXR VR Session ended. Restoring desktop-3D backing texture to: ${profile.width}x${profile.height}`);
+            sim.resize(profile.width, profile.height, 1.0);
+        };
         
         // Start inactivity fade countdown
         resetUiFadeTimer();
@@ -755,10 +768,9 @@ document.addEventListener("DOMContentLoaded", () => {
         is3DMode = nextState;
         
         if (is3DMode) {
-            // Scale the 2D canvas buffer to High-Definition QHD (2560x1440) for sharp VR projections
-            elements.canvas2D.width = 2560;
-            elements.canvas2D.height = 1440;
-            sim.resize(2560, 1440);
+            // Scale the 2D canvas buffer to aspect-correct desktop high resolution (1920x1080) for sharp projections
+            const profile = window.RenderQuality.getProfile("desktopHigh");
+            sim.resize(profile.width, profile.height, 1.0);
 
             if (!sim3D) {
                 CosmicLogger.info("Initializing 3D WebGL Simulation Engine using Three.js...");
@@ -827,10 +839,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 sim3D.renderer.setAnimationLoop(null);
             }
             
-            // Restore 2D canvas buffer to native window viewport dimensions
-            elements.canvas2D.width = window.innerWidth;
-            elements.canvas2D.height = window.innerHeight;
-            sim.resize(window.innerWidth, window.innerHeight);
+            // Restore 2D canvas buffer to native window viewport dimensions and default DPR
+            sim.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio || 1.0);
 
             elements.webglCanvas.classList.add("hidden");
             elements.canvas2D.classList.remove("hidden");
@@ -1537,14 +1547,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 clientX = e.clientX;
                 clientY = e.clientY;
             }
-            if (is3DMode) {
-                // Scale from window coordinates to 2560x1440 simulation buffer coordinates
-                return {
-                    x: (clientX / window.innerWidth) * 2560,
-                    y: (clientY / window.innerHeight) * 1440
-                };
-            }
-            return { x: clientX, y: clientY };
+            // Scale dynamically from window viewport coordinates to the active simulation backing size
+            return {
+                x: (clientX / window.innerWidth) * sim.width,
+                y: (clientY / window.innerHeight) * sim.height
+            };
         };
 
         const handleStart = (e) => {

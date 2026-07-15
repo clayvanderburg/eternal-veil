@@ -676,18 +676,70 @@ class FlowSimulation {
         this.ctx.setTransform(d, 0, 0, d, 0, 0);
     }
 
-    resize(newWidth, newHeight) {
+    resize(newWidth, newHeight, customDpr) {
+        const oldWidth = this.width;
+        const oldHeight = this.height;
+
         this.width = newWidth;
         this.height = newHeight;
         this.viewportScale = Math.min(2.0, Math.max(0.42, this.width / 1600));
+        
+        if (customDpr !== undefined) {
+            this.dpr = customDpr;
+        } else {
+            this.dpr = window.devicePixelRatio || 1.0;
+        }
+
         this.initCanvas();
         
-        // Update dimensions and viewport scale in particles
+        // Calculate scale ratios
+        const sx = oldWidth > 0 ? (newWidth / oldWidth) : 1.0;
+        const sy = oldHeight > 0 ? (newHeight / oldHeight) : 1.0;
+
+        // Scale existing particle states rather than resetting them
         this.particles.forEach(p => {
             p.w = this.width;
             p.h = this.height;
             p.viewportScale = this.viewportScale;
+            if (sx !== 1.0 || sy !== 1.0) {
+                p.x *= sx;
+                p.lastX *= sx;
+                p.vx *= sx;
+                p.y *= sy;
+                p.lastY *= sy;
+                p.vy *= sy;
+            }
         });
+
+        // Scale custom force fields
+        if (this.customForces && (sx !== 1.0 || sy !== 1.0)) {
+            this.customForces.forEach(f => {
+                f.x *= sx;
+                f.y *= sy;
+                f.vx *= sx;
+                f.vy *= sy;
+            });
+        }
+
+        // Scale vortices
+        if (this.vortices && (sx !== 1.0 || sy !== 1.0)) {
+            this.vortices.forEach(v => {
+                v.x *= sx;
+                v.y *= sy;
+                v.radius *= sx;
+            });
+        }
+
+        // Scale shockwaves
+        if (this.shockwaves && (sx !== 1.0 || sy !== 1.0)) {
+            this.shockwaves.forEach(s => {
+                s.x *= sx;
+                s.y *= sy;
+                s.radius *= sx;
+                s.maxRadius *= sx;
+                s.speed *= sx;
+            });
+        }
     }
 
     spawnParticles() {
@@ -945,3 +997,6 @@ class FlowSimulation {
 
 // Expose simulation globally
 window.FlowSimulation = FlowSimulation;
+if (typeof module !== "undefined" && module.exports) {
+    module.exports = FlowSimulation;
+}

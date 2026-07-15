@@ -7,8 +7,31 @@
 const assert = require("assert");
 const StateSchema = require("../js/state-schema.js");
 
-// Mock window object for node compatibility if needed (StateSchema is designed to run in node too)
-global.window = {};
+// Mock window and document object for node compatibility
+global.window = {
+    devicePixelRatio: 1.5
+};
+global.document = {
+    getElementById: (id) => {
+        return {
+            getContext: (type) => {
+                return {
+                    setTransform: () => {},
+                    fillRect: () => {},
+                    save: () => {},
+                    restore: () => {},
+                    scale: () => {},
+                    rotate: () => {},
+                    translate: () => {}
+                };
+            },
+            width: 0,
+            height: 0
+        };
+    }
+};
+
+const FlowSimulation = require("../js/simulation.js");
 
 console.log("--------------------------------------------------");
 console.log("🧪 RUNNING STATE SCHEMA VALIDATOR TESTS...");
@@ -126,6 +149,30 @@ try {
     assert.strictEqual(outPalette.palette[1], "#6366f1", "Invalid color element should fall back to default hex");
     assert.strictEqual(outPalette.backgroundColor, "#050507", "Invalid background color should fall back to default");
     console.log("✅ Passed: Color palettes are validated, sanitized, and sized to maximum 6 elements.");
+
+    // Test Case 7: Resolution Scaling & Coordinate Scaling on Resize
+    const canvasMock = document.getElementById("canvas");
+    const sim = new FlowSimulation(canvasMock);
+    
+    // Set settings manually
+    sim.settings = { density: 100 };
+    sim.resize(800, 600, 1.0);
+    sim.spawnParticles();
+    
+    // Verify initial positions are within 800x600 bounds
+    assert.ok(sim.particles[0].x >= 0 && sim.particles[0].x <= 800, "Initial particle X should be within bounds");
+    
+    // Capture some particle positions
+    const oldX = sim.particles[0].x;
+    const oldY = sim.particles[0].y;
+    
+    // Perform resize to double resolution (1600x1200)
+    sim.resize(1600, 1200, 1.0);
+    
+    // Verify positions doubled proportionately
+    assert.strictEqual(sim.particles[0].x, oldX * 2, "X position should scale by factor of 2");
+    assert.strictEqual(sim.particles[0].y, oldY * 2, "Y position should scale by factor of 2");
+    console.log("✅ Passed: Resizing simulation cleanly scales particle positions and velocities (prevents jump/teleport bugs).");
 
     console.log("\n--------------------------------------------------");
     console.log("🎉 ALL TESTS PASSED SUCCESSFULLY!");

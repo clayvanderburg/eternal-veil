@@ -50,14 +50,9 @@ class FlowSimulation3D {
     }
 
     initDomes() {
-        // Create Canvas Texture from our live 2D flow canvas via a capped 1024x1024 intermediate buffer
+        // Create Canvas Texture directly from our live 2D flow canvas
         const canvas2D = document.getElementById("canvas");
-        this.scaledCanvas = document.createElement("canvas");
-        this.scaledCanvas.width = 1024;
-        this.scaledCanvas.height = 1024;
-        this.scaledCtx = this.scaledCanvas.getContext("2d");
-        
-        this.texture = new THREE.CanvasTexture(this.scaledCanvas);
+        this.texture = new THREE.CanvasTexture(canvas2D);
         this.texture.minFilter = THREE.LinearFilter;
         this.texture.magFilter = THREE.LinearFilter;
         
@@ -207,12 +202,8 @@ class FlowSimulation3D {
         const dt = Math.min(delta * 60, 2.0);
         this.globalTime += delta * 60;
         
-        // Downscale main 2D canvas to the capped WebGL texture buffer
-        const canvas2D = document.getElementById("canvas");
-        if (canvas2D) {
-            this.scaledCtx.drawImage(canvas2D, 0, 0, 1024, 1024);
-            this.texture.needsUpdate = true;
-        }
+        // Upload updated 2D Canvas pixels to WebGL texture directly
+        this.texture.needsUpdate = true;
         
         // Morph progress drifts slowly over time + flares to cube on bass attacks
         let targetMorph = 0.5 + Math.sin(this.globalTime * 0.012) * 0.5;
@@ -259,10 +250,17 @@ class FlowSimulation3D {
             this.renderer.xr.setSession(session);
             CosmicLogger.info("Immersive WebXR VR Session started inside the Parallax Flow Dome.");
             
+            if (typeof window.onVRSessionStart === "function") {
+                window.onVRSessionStart();
+            }
+            
             session.addEventListener('end', () => {
                 CosmicLogger.info("WebXR Session ended.");
                 const enterVrBtn = document.getElementById("enter-vr-btn");
                 if (enterVrBtn) enterVrBtn.classList.remove("highlight");
+                if (typeof window.onVRSessionEnd === "function") {
+                    window.onVRSessionEnd();
+                }
             });
             
         } catch (e) {
