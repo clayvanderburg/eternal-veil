@@ -1091,12 +1091,22 @@ class NativeFlowSimulation3D {
         if (!inXR) {
             this.rotationX += (this.targetRotationX - this.rotationX) * 0.045;
             this.rotationY += (this.targetRotationY - this.rotationY) * 0.045;
-            this.world.rotation.x = this.rotationX * 0.32;
-            this.world.rotation.y = this.rotationY + Math.sin(this.elapsed * 0.045) * 0.12;
+            // A long, bounded orbital drift reveals depth without ever turning
+            // the comfortable forward corridor away from the viewer.
+            this.world.rotation.x = this.rotationX * 0.32
+                + Math.sin(this.elapsed * 0.021 + 1.7) * 0.025;
+            this.world.rotation.y = this.rotationY
+                + Math.sin(this.elapsed * 0.028) * 0.11;
+            this.world.rotation.z = Math.sin(this.elapsed * 0.013 + 0.6) * 0.005;
         } else {
-            // Keep the volume stable in world space for VR comfort.
-            this.world.rotation.x *= 0.94;
-            this.world.rotation.y *= 0.94;
+            // Headset-safe ambient orbit: mostly yaw, tiny pitch, almost no roll.
+            // Sine limits create smooth reversals instead of continuous spinning.
+            const xrYaw = Math.sin(this.elapsed * 0.018) * 0.085;
+            const xrPitch = Math.sin(this.elapsed * 0.012 + 1.7) * 0.026;
+            const xrRoll = Math.sin(this.elapsed * 0.009 + 0.6) * 0.0045;
+            this.world.rotation.x = THREE.MathUtils.lerp(this.world.rotation.x, xrPitch, 0.024);
+            this.world.rotation.y = THREE.MathUtils.lerp(this.world.rotation.y, xrYaw, 0.024);
+            this.world.rotation.z = THREE.MathUtils.lerp(this.world.rotation.z, xrRoll, 0.02);
             this.updateVRPanelInteraction();
         }
 
