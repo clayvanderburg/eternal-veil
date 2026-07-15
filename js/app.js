@@ -630,10 +630,12 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.autopilotToggle.checked = state;
         
         if (state) {
+            document.body.classList.add("autopilot-active");
             elements.autopilotSettings.classList.remove("hidden");
             startAutopilotIntervals();
             showToast("Autopilot co-pilot engaged.");
         } else {
+            document.body.classList.remove("autopilot-active");
             elements.autopilotSettings.classList.add("hidden");
             stopAutopilotIntervals();
             showToast("Autopilot co-pilot disengaged.");
@@ -674,17 +676,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const rndInt = (min, max) => Math.floor(rnd(min, max + 1));
         
         // Randomize all available sliders over their absolute full ranges (matching HTML inputs)
-        if (isFlowEnabled("speed")) startMorph("speed", rnd(0.1, 4.0));
-        if (isFlowEnabled("turbulence")) startMorph("turbulence", rnd(0.0, 2.5));
-        if (isFlowEnabled("density")) startMorph("density", rndInt(200, 4000));
-        if (isFlowEnabled("flowOrganic")) startMorph("flowOrganic", rnd(0.0, 1.0));
-        if (isFlowEnabled("dissipation")) startMorph("dissipation", rnd(0.002, 0.06));
-        if (isFlowEnabled("zoom")) startMorph("zoom", rnd(0.3, 3.5));
-        if (isFlowEnabled("baseSize")) startMorph("baseSize", rnd(0.5, 7.0));
-        if (isFlowEnabled("sizeVariation")) startMorph("sizeVariation", rnd(0.0, 3.5));
-        if (isFlowEnabled("stretch")) startMorph("stretch", rnd(0.0, 4.0));
-        if (isFlowEnabled("interaction")) startMorph("interaction", rnd(0.0, 2.5));
-        if (isFlowEnabled("mouseInfluence")) startMorph("mouseInfluence", rnd(0.0, 3.0));
+        if (isFlowEnabled("speed")) startMorph("speed", rnd(0.0, 8.0));
+        if (isFlowEnabled("turbulence")) startMorph("turbulence", rnd(0.0, 5.0));
+        if (isFlowEnabled("density")) startMorph("density", rndInt(100, 8000));
+        if (isFlowEnabled("flowOrganic")) startMorph("flowOrganic", rnd(0.0, 2.0));
+        if (isFlowEnabled("dissipation")) startMorph("dissipation", rnd(0.001, 0.12));
+        if (isFlowEnabled("zoom")) startMorph("zoom", rnd(0.1, 7.0));
+        if (isFlowEnabled("baseSize")) startMorph("baseSize", rnd(0.1, 14.0));
+        if (isFlowEnabled("sizeVariation")) startMorph("sizeVariation", rnd(0.0, 7.0));
+        if (isFlowEnabled("stretch")) startMorph("stretch", rnd(0.0, 8.0));
+        if (isFlowEnabled("interaction")) startMorph("interaction", rnd(0.0, 5.0));
+        if (isFlowEnabled("mouseInfluence")) startMorph("mouseInfluence", rnd(0.0, 6.0));
         if (isFlowEnabled("rotationSpeed")) startMorph("rotationSpeed", rnd(0.0, 1.2));
         if (isFlowEnabled("wobble")) startMorph("wobble", rnd(0.0, 1.5));
         

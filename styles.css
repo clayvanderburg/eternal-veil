@@ -1427,6 +1427,11 @@ kbd {
     100% { transform: scale(1.4); opacity: 1; box-shadow: 0 0 8px 3px rgba(129, 140, 248, 0.6); }
 }
 
+/* Hide flow toggle pills when Autopilot is disabled */
+body:not(.autopilot-active) .flow-toggle-group {
+    display: none !important;
+}
+
 /* Segments for Manual vs Flow control in Autopilot */
 .flow-toggle-group {
     display: inline-flex;
