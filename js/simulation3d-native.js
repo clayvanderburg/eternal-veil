@@ -55,7 +55,7 @@ class NativeFlowSimulation3D {
         // Dense enough that the glow samples overlap into a continuous comet tail
         // instead of reading as a string of separate pearls.
         this.trailSegments = 52;
-        this.activeParticles = 7600;
+        this.activeParticles = 5600;
         this.palette = ["#6366f1", "#a855f7", "#06b6d4", "#f472b6"];
 
         this.clock = new THREE.Clock();
@@ -74,6 +74,17 @@ class NativeFlowSimulation3D {
         this.shockStrength = 0;
         this.shockRadius = 0;
         this.xrControllers = [];
+        this.isPaused = false;
+        this.vrPanelGroup = null;
+        this.vrPanelMesh = null;
+        this.vrPanelCanvas = null;
+        this.vrPanelTexture = null;
+        this.vrPanelButtons = [];
+        this.vrPanelHoverAction = null;
+        this.vrPanelStateHash = "";
+        this.vrPanelRefreshAt = 0;
+        this.xrRaycaster = new THREE.Raycaster();
+        this.xrRayRotation = new THREE.Matrix4();
 
         this.sharedUniforms = this.createSharedUniforms();
         this.initParticleField();
@@ -82,6 +93,227 @@ class NativeFlowSimulation3D {
         this.initInteraction();
 
         window.nativeSim3DInstance = this;
+    }
+
+    useBoundedGlowBlending(material) {
+        // Screen-style blending keeps luminous overlaps bright, but unlike pure
+        // additive blending it asymptotically approaches white instead of piling
+        // unlimited energy into a blinding, featureless hotspot. It is also
+        // order-independent, which is important for unsorted 3D particles.
+        material.blending = THREE.CustomBlending;
+        material.blendEquation = THREE.AddEquation;
+        material.blendSrc = THREE.OneFactor;
+        material.blendDst = THREE.OneMinusSrcColorFactor;
+        material.blendEquationAlpha = THREE.AddEquation;
+        material.blendSrcAlpha = THREE.OneFactor;
+        material.blendDstAlpha = THREE.OneMinusSrcAlphaFactor;
+        return material;
+    }
+
+    getVRControlState() {
+        if (typeof window.onNativeVRControl === "function") {
+            return window.onNativeVRControl("getState") || {};
+        }
+        const s = this.settings || {};
+        return {
+            autopilot: true,
+            paused: this.isPaused,
+            size: s.baseSize ?? 2.8,
+            speed: s.speed ?? 1,
+            density: s.density ?? 1200
+        };
+    }
+
+    initVRPanel() {
+        if (this.vrPanelGroup) {
+            this.vrPanelGroup.visible = true;
+            this.drawVRPanel();
+            return;
+        }
+
+        this.vrPanelCanvas = document.createElement("canvas");
+        this.vrPanelCanvas.width = 1024;
+        this.vrPanelCanvas.height = 1024;
+        this.vrPanelTexture = new THREE.CanvasTexture(this.vrPanelCanvas);
+        this.vrPanelTexture.minFilter = THREE.LinearFilter;
+        this.vrPanelTexture.magFilter = THREE.LinearFilter;
+
+        const geometry = new THREE.PlaneGeometry(0.92, 0.92);
+        const material = new THREE.MeshBasicMaterial({
+            map: this.vrPanelTexture,
+            transparent: true,
+            depthTest: false,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+            toneMapped: false
+        });
+        this.vrPanelMesh = new THREE.Mesh(geometry, material);
+        this.vrPanelMesh.renderOrder = 1000;
+
+        this.vrPanelGroup = new THREE.Group();
+        this.vrPanelGroup.position.set(-0.58, 1.42, -1.48);
+        this.vrPanelGroup.add(this.vrPanelMesh);
+        this.vrPanelGroup.lookAt(0, 1.42, 0);
+        this.scene.add(this.vrPanelGroup);
+
+        this.vrPanelButtons = [
+            { action: "togglePause", x: 56, y: 170, w: 438, h: 104 },
+            { action: "toggleAutopilot", x: 530, y: 170, w: 438, h: 104 },
+            { action: "sizeDown", x: 650, y: 320, w: 132, h: 102 },
+            { action: "sizeUp", x: 818, y: 320, w: 132, h: 102 },
+            { action: "speedDown", x: 650, y: 454, w: 132, h: 102 },
+            { action: "speedUp", x: 818, y: 454, w: 132, h: 102 },
+            { action: "densityDown", x: 650, y: 588, w: 132, h: 102 },
+            { action: "densityUp", x: 818, y: 588, w: 132, h: 102 },
+            { action: "hideMenu", x: 56, y: 748, w: 912, h: 92 },
+            { action: "exitToSettings", x: 56, y: 864, w: 912, h: 108 }
+        ];
+        this.drawVRPanel();
+    }
+
+    drawVRPanel(hoverAction = this.vrPanelHoverAction) {
+        if (!this.vrPanelCanvas || !this.vrPanelTexture) return;
+        const ctx = this.vrPanelCanvas.getContext("2d");
+        const state = this.getVRControlState();
+        const roundedRect = (x, y, w, h, radius) => {
+            const r = Math.min(radius, w / 2, h / 2);
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.lineTo(x + w - r, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+            ctx.lineTo(x + w, y + h - r);
+            ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            ctx.lineTo(x + r, y + h);
+            ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+            ctx.lineTo(x, y + r);
+            ctx.quadraticCurveTo(x, y, x + r, y);
+            ctx.closePath();
+        };
+        const button = (rect, label, accent = "#60a5fa") => {
+            const hovered = hoverAction === rect.action;
+            ctx.fillStyle = hovered ? accent : "rgba(25, 33, 57, 0.96)";
+            ctx.strokeStyle = hovered ? "#ffffff" : accent;
+            ctx.lineWidth = hovered ? 5 : 3;
+            roundedRect(rect.x, rect.y, rect.w, rect.h, 22);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = hovered ? "#07101f" : "#f8fafc";
+            ctx.font = "700 31px system-ui, sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(label, rect.x + rect.w / 2, rect.y + rect.h / 2 + 1);
+        };
+
+        ctx.clearRect(0, 0, 1024, 1024);
+        ctx.fillStyle = "rgba(3, 7, 18, 0.94)";
+        roundedRect(12, 12, 1000, 1000, 38);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(103, 232, 249, 0.72)";
+        ctx.lineWidth = 5;
+        ctx.stroke();
+
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#e0f2fe";
+        ctx.font = "800 42px system-ui, sans-serif";
+        ctx.fillText("ETERNAL VEIL  //  VR", 58, 70);
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "500 23px system-ui, sans-serif";
+        ctx.fillText("Aim with either controller • Trigger selects • Grip hides/shows", 58, 116);
+
+        button(this.vrPanelButtons[0], state.paused ? "RESUME" : "PAUSE", "#a78bfa");
+        button(
+            this.vrPanelButtons[1],
+            `AUTOPILOT  ${state.autopilot ? "ON" : "OFF"}`,
+            state.autopilot ? "#34d399" : "#64748b"
+        );
+
+        const drawSettingRow = (y, label, value, downAction, upAction) => {
+            ctx.fillStyle = "#cbd5e1";
+            ctx.font = "650 31px system-ui, sans-serif";
+            ctx.textAlign = "left";
+            ctx.fillText(label, 66, y + 38);
+            ctx.fillStyle = "#67e8f9";
+            ctx.font = "800 39px system-ui, sans-serif";
+            ctx.fillText(value, 360, y + 39);
+            button(this.vrPanelButtons.find(b => b.action === downAction), "−", "#38bdf8");
+            button(this.vrPanelButtons.find(b => b.action === upAction), "+", "#38bdf8");
+        };
+        drawSettingRow(320, "PARTICLE SIZE", Number(state.size || 0).toFixed(1), "sizeDown", "sizeUp");
+        drawSettingRow(454, "FLOW SPEED", Number(state.speed || 0).toFixed(2), "speedDown", "speedUp");
+        drawSettingRow(588, "PARTICLES", String(Math.round(state.density || 0)), "densityDown", "densityUp");
+
+        button(this.vrPanelButtons.find(b => b.action === "hideMenu"), "HIDE MENU  •  GRIP TO REOPEN", "#64748b");
+        button(this.vrPanelButtons.find(b => b.action === "exitToSettings"), "EXIT VR  →  2D SETTINGS", "#fb7185");
+
+        this.vrPanelTexture.needsUpdate = true;
+        this.vrPanelStateHash = JSON.stringify(state);
+    }
+
+    setVRPanelVisible(visible) {
+        if (!this.vrPanelGroup) this.initVRPanel();
+        this.vrPanelGroup.visible = visible;
+        this.vrPanelHoverAction = null;
+        if (visible) this.drawVRPanel();
+    }
+
+    getVRPanelHit(controller) {
+        if (!this.vrPanelMesh || !this.vrPanelGroup.visible) return null;
+        controller.updateMatrixWorld(true);
+        this.xrRayRotation.identity().extractRotation(controller.matrixWorld);
+        this.xrRaycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+        this.xrRaycaster.ray.direction.set(0, 0, -1).applyMatrix4(this.xrRayRotation).normalize();
+        const intersection = this.xrRaycaster.intersectObject(this.vrPanelMesh, false)[0];
+        if (!intersection || !intersection.uv) return null;
+        const x = intersection.uv.x * this.vrPanelCanvas.width;
+        const y = (1 - intersection.uv.y) * this.vrPanelCanvas.height;
+        const control = this.vrPanelButtons.find(b =>
+            x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h
+        );
+        return control ? { action: control.action, distance: intersection.distance } : null;
+    }
+
+    updateVRPanelInteraction() {
+        if (!this.vrPanelGroup || !this.vrPanelGroup.visible) return;
+        let nextHover = null;
+        for (const controller of this.xrControllers) {
+            const hit = this.getVRPanelHit(controller);
+            controller.userData.vrPanelHit = hit;
+            const ray = controller.userData.pointerRay;
+            if (ray) {
+                ray.scale.z = hit ? Math.max(0.15, hit.distance) : 18;
+                ray.material.opacity = hit ? 1 : 0.72;
+            }
+            if (!nextHover && hit) nextHover = hit.action;
+        }
+
+        const now = this.elapsed;
+        const stateHash = JSON.stringify(this.getVRControlState());
+        if (nextHover !== this.vrPanelHoverAction || stateHash !== this.vrPanelStateHash || now >= this.vrPanelRefreshAt) {
+            this.vrPanelHoverAction = nextHover;
+            this.vrPanelRefreshAt = now + 0.5;
+            this.drawVRPanel(nextHover);
+        }
+    }
+
+    activateVRControl(action) {
+        if (!action) return false;
+        if (action === "hideMenu") {
+            this.setVRPanelVisible(false);
+            return true;
+        }
+        if (action === "exitToSettings") {
+            const session = this.renderer.xr.getSession ? this.renderer.xr.getSession() : null;
+            if (session) session.end();
+            return true;
+        }
+        if (typeof window.onNativeVRControl === "function") {
+            window.onNativeVRControl(action);
+            const state = this.getVRControlState();
+            this.isPaused = Boolean(state.paused);
+            this.drawVRPanel(action);
+            return true;
+        }
+        return false;
     }
 
     createSharedUniforms() {
@@ -103,6 +335,7 @@ class NativeFlowSimulation3D {
             uVortex: { value: 0 },
             uShock: { value: 0 },
             uShockRadius: { value: 0 },
+            uGlowEnergy: { value: 0.78 },
             uPalette: { value: colors }
         };
     }
@@ -247,6 +480,7 @@ class NativeFlowSimulation3D {
             precision highp float;
             uniform float uTreble;
             uniform float uPointSize;
+            uniform float uGlowEnergy;
             varying vec3 vColor;
             varying float vAlpha;
             varying float vRenderedSize;
@@ -264,8 +498,9 @@ class NativeFlowSimulation3D {
                 float largeSizeBalance = min(settingBalance, heroBalance);
                 vec3 color = vColor * (halo * 0.82 + core * 1.9)
                     * sparkle * mix(1.0, 0.72, 1.0 - largeSizeBalance);
-                float alpha = (halo * 0.56 + core * 0.86) * vAlpha * largeSizeBalance;
-                gl_FragColor = vec4(color, alpha);
+                float alpha = (halo * 0.56 + core * 0.86) * vAlpha
+                    * largeSizeBalance * uGlowEnergy;
+                gl_FragColor = vec4(color * alpha, alpha);
             }
         `;
     }
@@ -278,6 +513,7 @@ class NativeFlowSimulation3D {
             uniform float uPointSize;
             uniform float uTrailOpacity;
             uniform float uTrailCoreBoost;
+            uniform float uGlowEnergy;
             varying vec3 vColor;
             varying float vAlpha;
             varying float vTrailAmount;
@@ -305,8 +541,9 @@ class NativeFlowSimulation3D {
                 float settingBalance = mix(1.0, 0.18, smoothstep(12.0, 36.0, uPointSize));
                 float heroBalance = mix(1.0, 0.1, smoothstep(90.0, 432.0, vRenderedSize));
                 float largeSizeBalance = min(settingBalance, heroBalance);
-                float alpha = tail * halo * vAlpha * uTrailOpacity * largeSizeBalance;
-                gl_FragColor = vec4(glow, alpha);
+                float alpha = tail * halo * vAlpha * uTrailOpacity
+                    * largeSizeBalance * uGlowEnergy;
+                gl_FragColor = vec4(glow * alpha, alpha);
             }
         `;
     }
@@ -347,10 +584,10 @@ class NativeFlowSimulation3D {
             vertexShader: this.createFlowVertexShader(false),
             fragmentShader: this.createHeadFragmentShader(),
             transparent: true,
-            blending: THREE.AdditiveBlending,
             depthTest: true,
             depthWrite: false
         });
+        this.useBoundedGlowBlending(this.headMaterial);
 
         this.particleHeads = new THREE.Points(this.headGeometry, this.headMaterial);
         this.particleHeads.frustumCulled = false;
@@ -392,7 +629,7 @@ class NativeFlowSimulation3D {
         this.trailGeometry.setAttribute("aHero", new THREE.BufferAttribute(trailHeroes, 1));
         this.trailGeometry.setAttribute("aTrail", new THREE.BufferAttribute(trailAmounts, 1));
 
-        const createTrailMaterial = (widthScale, opacity, coreBoost) => new THREE.ShaderMaterial({
+        const createTrailMaterial = (widthScale, opacity, coreBoost) => this.useBoundedGlowBlending(new THREE.ShaderMaterial({
             // Preserve references to the shared animated uniforms while allowing
             // each visual layer to own its width/brightness treatment.
             uniforms: {
@@ -404,10 +641,9 @@ class NativeFlowSimulation3D {
             vertexShader: this.createFlowVertexShader(true),
             fragmentShader: this.createTrailFragmentShader(),
             transparent: true,
-            blending: THREE.AdditiveBlending,
             depthTest: true,
             depthWrite: false
-        });
+        }));
 
         // A broad chromatic atmosphere makes the trail readable at world scale;
         // a second head-sized layer supplies the hot, energetic plasma spine.
@@ -427,7 +663,7 @@ class NativeFlowSimulation3D {
     }
 
     initNebulaClouds() {
-        const cloudCount = 46;
+        const cloudCount = 72;
         const verticesPerCloud = 6;
         const vertexCount = cloudCount * verticesPerCloud;
         const corners = new Float32Array(vertexCount * 3);
@@ -510,12 +746,12 @@ class NativeFlowSimulation3D {
                     );
 
                     vec4 mvCenter = modelViewMatrix * vec4(center, 1.0);
-                    float cloudSize = mix(85.0, 430.0, aScale) * (1.0 + min(0.22, uBass * 0.12));
+                    float cloudSize = mix(125.0, 610.0, aScale) * (1.0 + min(0.24, uBass * 0.13));
                     vec4 mvPosition = mvCenter;
                     mvPosition.xy += position.xy * cloudSize;
                     gl_Position = projectionMatrix * mvPosition;
 
-                    float breathe = pow(0.5 + 0.5 * sin(uTime * 0.115 + phase), 2.6);
+                    float breathe = pow(0.5 + 0.5 * sin(uTime * 0.105 + phase), 2.4);
                     float nearFade = smoothstep(130.0, 320.0, abs(mvCenter.z));
                     float farFade = smoothstep(920.0, 250.0, abs(mvCenter.z));
                     vAlpha = breathe * nearFade * farFade;
@@ -547,17 +783,17 @@ class NativeFlowSimulation3D {
                     float density = (body * 0.62 + lobeA * 0.24 + lobeB * 0.2)
                         * mix(0.58, 1.0, filaments);
                     float edge = smoothstep(1.0, 0.22, r);
-                    float alpha = density * edge * vAlpha * 0.14;
+                    float alpha = density * edge * vAlpha * 0.15;
                     vec3 color = vColor * (0.64 + density * 0.58);
-                    gl_FragColor = vec4(color, alpha);
+                    gl_FragColor = vec4(color * alpha, alpha);
                 }
             `,
             transparent: true,
-            blending: THREE.AdditiveBlending,
             depthTest: true,
             depthWrite: false,
             side: THREE.DoubleSide
         });
+        this.useBoundedGlowBlending(this.nebulaMaterial);
 
         this.nebulaClouds = new THREE.Mesh(this.nebulaGeometry, this.nebulaMaterial);
         this.nebulaClouds.frustumCulled = false;
@@ -644,7 +880,7 @@ class NativeFlowSimulation3D {
         this.headGeometry.setDrawRange(0, this.activeParticles);
         // A minority of particles carry connected trails. Heads remain dense and
         // volumetric while the scene avoids collapsing into a uniform wire mesh.
-        const trailedParticles = Math.max(700, Math.floor(this.activeParticles * 0.32));
+        const trailedParticles = Math.max(620, Math.floor(this.activeParticles * 0.28));
         this.trailGeometry.setDrawRange(0, trailedParticles * this.trailSegments);
     }
 
@@ -697,7 +933,10 @@ class NativeFlowSimulation3D {
 
     updateFromSettings() {
         const s = this.settings || {};
-        this.sharedUniforms.uSpeed.value = Math.max(0.0, Math.min(8.0, s.speed ?? 1.0));
+        const requestedSpeed = Math.max(0.0, Math.min(8.0, s.speed ?? 1.0));
+        // Preserve the control's range while biasing native 3D toward a calmer,
+        // more readable drift. Fast presets still accelerate, just less violently.
+        this.sharedUniforms.uSpeed.value = requestedSpeed * 0.62;
         this.sharedUniforms.uTurbulence.value = Math.max(0.0, Math.min(5.0, s.turbulence ?? 0.65));
         this.sharedUniforms.uOrganic.value = Math.max(0.0, Math.min(2.0, s.flowOrganic ?? 0.85));
         // The flat renderer's 0.1–14 size range was too compressed in a world-scale
@@ -712,12 +951,20 @@ class NativeFlowSimulation3D {
         this.sharedUniforms.uTrailLength.value = 0.62 + sizePosition * 0.9;
 
         const density = Math.max(100, Math.min(8000, s.density ?? 1200));
-        const baseCount = 3400 + ((density - 100) / 7900) * (this.maxParticles - 3400);
+        const densityPosition = (density - 100) / 7900;
+        const baseCount = 2600 + densityPosition * (10500 - 2600);
         // Large sprites need spatial breathing room. Preserve their dramatic size
         // while reducing overlap instead of allowing a max-size/max-density scene
         // to collapse into a featureless white screen.
         const crowdingScale = 1.0 - 0.65 * Math.pow(sizePosition, 1.7);
-        const desiredCount = 2200 + (baseCount - 2200) * crowdingScale;
+        const desiredCount = 1900 + (baseCount - 1900) * crowdingScale;
+        // Dynamically budget glow energy as sprites get larger and more numerous.
+        // This keeps contrast in the busiest presets before bounded blending has
+        // to do all of the highlight protection by itself.
+        this.sharedUniforms.uGlowEnergy.value = Math.max(
+            0.46,
+            0.94 - densityPosition * 0.28 - sizePosition * 0.2
+        );
         if (Math.abs(desiredCount - this.activeParticles) > 160) {
             this.setActiveParticleCount(desiredCount);
         }
@@ -752,7 +999,8 @@ class NativeFlowSimulation3D {
     }
 
     tick() {
-        const delta = Math.min(this.clock.getDelta(), 0.05);
+        const frameDelta = Math.min(this.clock.getDelta(), 0.05);
+        const delta = this.isPaused ? 0 : frameDelta;
         this.elapsed += delta;
         this.updateFromSettings();
 
@@ -781,6 +1029,7 @@ class NativeFlowSimulation3D {
             // Keep the volume stable in world space for VR comfort.
             this.world.rotation.x *= 0.94;
             this.world.rotation.y *= 0.94;
+            this.updateVRPanelInteraction();
         }
 
         this.deepStars.rotation.y = this.elapsed * 0.003;
@@ -803,11 +1052,18 @@ class NativeFlowSimulation3D {
             });
             const ray = new THREE.Line(geometry, material);
             ray.scale.z = 18;
+            ray.renderOrder = 1001;
             controller.add(ray);
+            controller.userData.pointerRay = ray;
             controller.addEventListener("selectstart", () => {
+                const hit = this.getVRPanelHit(controller);
+                if (hit && this.activateVRControl(hit.action)) return;
                 this.triggerBurst();
                 this.triggerVortex(0, 0, 300, 12, 45);
                 this.triggerShockwave(0, 0, 48, 9);
+            });
+            controller.addEventListener("squeezestart", () => {
+                this.setVRPanelVisible(!this.vrPanelGroup || !this.vrPanelGroup.visible);
             });
             this.scene.add(controller);
             this.xrControllers.push(controller);
@@ -825,6 +1081,8 @@ class NativeFlowSimulation3D {
             });
             await this.renderer.xr.setSession(session);
             this.initXRControllers();
+            this.initVRPanel();
+            this.setVRPanelVisible(true);
             CosmicLogger.info("Immersive WebXR session started inside the Native Cosmic Flow Field.");
             if (typeof window.onVRSessionStart === "function") window.onVRSessionStart();
 
@@ -832,6 +1090,7 @@ class NativeFlowSimulation3D {
                 CosmicLogger.info("Native Cosmic Flow WebXR session ended.");
                 const enterVrBtn = document.getElementById("enter-vr-btn");
                 if (enterVrBtn) enterVrBtn.classList.remove("highlight");
+                if (this.vrPanelGroup) this.vrPanelGroup.visible = false;
                 if (typeof window.onVRSessionEnd === "function") window.onVRSessionEnd();
             }, { once: true });
             return true;
@@ -858,6 +1117,12 @@ class NativeFlowSimulation3D {
         this.nebulaMaterial.dispose();
         this.deepStars.geometry.dispose();
         this.deepStars.material.dispose();
+        if (this.vrPanelMesh) {
+            this.vrPanelMesh.geometry.dispose();
+            this.vrPanelMesh.material.dispose();
+        }
+        if (this.vrPanelTexture) this.vrPanelTexture.dispose();
+        if (this.vrPanelGroup) this.scene.remove(this.vrPanelGroup);
         this.renderer.dispose();
     }
 }
