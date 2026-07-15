@@ -93,7 +93,7 @@ class NativeFlowSimulation3D {
             uVolumeRadius: { value: 250 },
             uDepth: { value: 1000 },
             uTrailLength: { value: 0.42 },
-            uPointSize: { value: 4.8 },
+            uPointSize: { value: 9.5 },
             uBass: { value: 0 },
             uTreble: { value: 0 },
             uBurst: { value: 0 },
@@ -214,7 +214,10 @@ class NativeFlowSimulation3D {
                 ${isTrail ? "" : `
                     float perspective = 300.0 / max(10.0, -mvPosition.z);
                     float pulse = 1.0 + min(2.4, uBass * 1.8);
-                    gl_PointSize = clamp(uPointSize * aScale * perspective * pulse, 1.0, 42.0);
+                    // Allow the size control to produce everything from fine dust
+                    // to large, soft energy orbs. The hardware point-size limit is
+                    // still respected automatically by WebGL.
+                    gl_PointSize = clamp(uPointSize * aScale * perspective * pulse, 1.0, 144.0);
                 `}
             }
         `;
@@ -484,7 +487,13 @@ class NativeFlowSimulation3D {
         this.sharedUniforms.uSpeed.value = Math.max(0.05, Math.min(4, s.speed ?? 1));
         this.sharedUniforms.uTurbulence.value = Math.max(0, Math.min(2.4, s.turbulence ?? 0.65));
         this.sharedUniforms.uOrganic.value = Math.max(0, Math.min(2, s.flowOrganic ?? 0.85));
-        this.sharedUniforms.uPointSize.value = Math.max(1.2, Math.min(10, (s.baseSize ?? 2.8) * 1.45));
+        // The flat renderer's 0.5–7 size range was too compressed in a world-scale
+        // 3D volume. A curved mapping keeps the lower half controllable while the
+        // upper end can create genuinely large VR particles. Approximate native
+        // range: 1.5px–40px before distance, random scale, and music pulses.
+        const baseSize = Math.max(0.5, Math.min(7, s.baseSize ?? 2.8));
+        const sizePosition = (baseSize - 0.5) / 6.5;
+        this.sharedUniforms.uPointSize.value = 1.5 + Math.pow(sizePosition, 1.5) * 38.5;
 
         const density = Math.max(200, Math.min(4000, s.density ?? 1200));
         const desiredCount = 3400 + ((density - 200) / 3800) * (this.maxParticles - 3400);
