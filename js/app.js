@@ -52,6 +52,253 @@ document.addEventListener("DOMContentLoaded", () => {
     let is3DMode = false;
     let sim3D = null;
 
+    function load3DStyle() {
+        const saved = localStorage.getItem("eternalVeil3DStyle");
+        return (saved === "dome" || saved === "native") ? saved : "native";
+    }
+
+    function save3DStyle(style) {
+        localStorage.setItem("eternalVeil3DStyle", style);
+    }
+
+    let selected3DStyle = load3DStyle();
+
+    // --- COSMIC CONFIGURATION HISTORY ENGINE ---
+    const ConfigHistory = {
+        states: [],
+        index: -1,
+        maxSize: 50,
+        
+        init() {
+            try {
+                const saved = localStorage.getItem("eternalVeilHistory");
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (Array.isArray(parsed)) {
+                        this.states = parsed;
+                        this.index = this.states.length - 1;
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to load configuration history", e);
+            }
+        },
+        
+        save() {
+            try {
+                localStorage.setItem("eternalVeilHistory", JSON.stringify(this.states));
+            } catch (e) {
+                console.error("Failed to save configuration history", e);
+            }
+        },
+        
+        push(state) {
+            // If we are in the middle of history (went back) and push a new config,
+            // truncate all forward history (browser history style)
+            if (this.index < this.states.length - 1) {
+                this.states = this.states.slice(0, this.index + 1);
+            }
+            
+            // Check if the state is identical to current to avoid duplicate history states
+            if (this.states.length > 0) {
+                const current = this.states[this.index];
+                if (current && JSON.stringify(current.settings) === JSON.stringify(state.settings) && 
+                    JSON.stringify(current.palette) === JSON.stringify(state.palette) && 
+                    current.backgroundColor === state.backgroundColor && 
+                    current.isSolidMode === state.isSolidMode) {
+                    return;
+                }
+            }
+            
+            this.states.push(state);
+            if (this.states.length > this.maxSize) {
+                this.states.shift();
+            }
+            this.index = this.states.length - 1;
+            this.save();
+            this.updateButtons();
+        },
+        
+        back() {
+            if (this.index > 0) {
+                this.index--;
+                this.updateButtons();
+                return this.states[this.index];
+            }
+            return null;
+        },
+        
+        forward() {
+            if (this.index < this.states.length - 1) {
+                this.index++;
+                this.updateButtons();
+                return this.states[this.index];
+            }
+            return null;
+        },
+        
+        updateButtons() {
+            const prevBtn = document.getElementById("history-prev-btn");
+            const nextBtn = document.getElementById("history-next-btn");
+            if (prevBtn) {
+                prevBtn.disabled = this.index <= 0;
+                prevBtn.classList.toggle("disabled", this.index <= 0);
+            }
+            if (nextBtn) {
+                nextBtn.disabled = this.index >= this.states.length - 1;
+                nextBtn.classList.toggle("disabled", this.index >= this.states.length - 1);
+            }
+        }
+    };
+
+    function captureHistoryState() {
+        if (!sim) return;
+        const state = {
+            settings: { ...sim.settings },
+            palette: [...sim.palette],
+            backgroundColor: sim.backgroundColor,
+            isSolidMode: sim.isSolidMode
+        };
+        ConfigHistory.push(state);
+    }
+
+    let historyDebounceTimer = null;
+    function triggerHistoryCaptureDebounced() {
+        clearTimeout(historyDebounceTimer);
+        historyDebounceTimer = setTimeout(() => {
+            captureHistoryState();
+        }, 1000);
+    }
+
+    function syncAllSlidersToSettings() {
+        const sliderMap = {
+            speed: "speed-slider",
+            turbulence: "turbulence-slider",
+            density: "density-slider",
+            flowOrganic: "curl-slider",
+            dissipation: "dissipation-slider",
+            zoom: "zoom-slider",
+            baseSize: "size-slider",
+            sizeVariation: "size-var-slider",
+            stretch: "stretch-slider",
+            interaction: "interaction-slider",
+            mouseInfluence: "mouse-influence-slider",
+            rotationSpeed: "rotation-slider",
+            wobble: "wobble-slider",
+            kaleidoscopeSegments: "kaleido-segments-slider"
+        };
+        Object.keys(sliderMap).forEach(key => {
+            const slider = document.getElementById(sliderMap[key]);
+            if (slider && sim.settings[key] !== undefined) {
+                slider.value = sim.settings[key];
+            }
+        });
+        updateSliderTextDisplays();
+    }
+
+    function applyHistoryState(state) {
+        if (!state) return;
+        
+        Object.keys(state.settings).forEach(key => {
+            const val = state.settings[key];
+            if (typeof val === "number") {
+                startMorph(key, val);
+            } else {
+                sim.settings[key] = val;
+            }
+        });
+        
+        elements.kaleidoscopeToggle.checked = state.settings.kaleidoscopeEnabled;
+        if (state.settings.kaleidoscopeEnabled) {
+            elements.kaleidoscopeSettings.classList.remove("hidden");
+        } else {
+            elements.kaleidoscopeSettings.classList.add("hidden");
+        }
+        elements.psychedelicToggle.checked = state.settings.psychedelicMode;
+        elements.morphingBgToggle.checked = state.settings.morphingBg;
+        elements.spinningKaleidoToggle.checked = state.settings.spinningKaleido;
+        elements.particleShapeSelect.value = state.settings.particleShape || "ellipse";
+        
+        syncAllSlidersToSettings();
+        
+        updateActivePalette([...state.palette]);
+        renderSwatches();
+        
+        sim.backgroundColor = state.backgroundColor;
+        if (elements.bgColorPicker) {
+            elements.bgColorPicker.value = state.backgroundColor;
+            elements.bgHexVal.textContent = state.backgroundColor.toUpperCase();
+        }
+        
+        sim.isSolidMode = state.isSolidMode;
+        elements.solidModeToggle.checked = state.isSolidMode;
+        
+        modulateSynth();
+        
+        document.querySelectorAll(".preset-card").forEach(c => c.classList.remove("active"));
+        lastPresetKey = null;
+    }
+
+    function applyRandomConfig() {
+        const rnd = (min, max) => min + Math.random() * (max - min);
+        const rndInt = (min, max) => Math.floor(rnd(min, max + 1));
+        
+        const randomSettings = {
+            speed: rnd(0.2, 5.0),
+            turbulence: rnd(0.0, 3.5),
+            density: rndInt(600, 3500),
+            flowOrganic: rnd(0.0, 1.8),
+            dissipation: rnd(0.004, 0.05),
+            zoom: rnd(0.4, 4.5),
+            baseSize: rnd(0.6, 9.0),
+            sizeVariation: rnd(0.2, 5.0),
+            stretch: rnd(0.0, 5.0),
+            interaction: rnd(0.0, 3.5),
+            mouseInfluence: rnd(0.2, 4.0),
+            rotationSpeed: rnd(0.0, 0.6),
+            wobble: rnd(0.0, 0.8),
+            kaleidoscopeEnabled: Math.random() > 0.6,
+            kaleidoscopeSegments: rndInt(3, 10),
+            psychedelicMode: Math.random() > 0.8,
+            morphingBg: Math.random() > 0.7,
+            spinningKaleido: Math.random() > 0.7,
+            particleShape: ["ellipse", "drop", "ring", "aquatic", "nebula", "brush", "cluster"][Math.floor(Math.random() * 7)]
+        };
+
+        const randomPalette = generateHarmoniousPalette();
+        
+        Object.keys(randomSettings).forEach(key => {
+            if (typeof randomSettings[key] === "number") {
+                startMorph(key, randomSettings[key]);
+            } else {
+                sim.settings[key] = randomSettings[key];
+            }
+        });
+        
+        elements.kaleidoscopeToggle.checked = randomSettings.kaleidoscopeEnabled;
+        if (randomSettings.kaleidoscopeEnabled) {
+            elements.kaleidoscopeSettings.classList.remove("hidden");
+        } else {
+            elements.kaleidoscopeSettings.classList.add("hidden");
+        }
+        elements.psychedelicToggle.checked = randomSettings.psychedelicMode;
+        elements.morphingBgToggle.checked = randomSettings.morphingBg;
+        elements.spinningKaleidoToggle.checked = randomSettings.spinningKaleido;
+        elements.particleShapeSelect.value = randomSettings.particleShape;
+        
+        updateActivePalette(randomPalette);
+        renderSwatches();
+        modulateSynth();
+        
+        document.querySelectorAll(".preset-card").forEach(c => c.classList.remove("active"));
+        lastPresetKey = null;
+        
+        captureHistoryState();
+        
+        showToast("New cosmic configuration generated! 🎲");
+        CosmicLogger.info("Generated new custom randomized settings.");
+    }
+
     // Fading UI inactivity timers & headphones warning variables
     let uiFadeTimeout = null;
     let isMouseOverUI = false;
@@ -156,6 +403,9 @@ document.addEventListener("DOMContentLoaded", () => {
         spinningKaleidoToggle: document.getElementById("spinning-kaleido-toggle"),
         shockwavesToggle: document.getElementById("shockwaves-toggle"),
         particleShapeSelect: document.getElementById("particle-shape-select"),
+        webglStyleQuickSelector: document.getElementById("webgl-style-quick-selector"),
+        stylePillNative: document.getElementById("style-pill-native"),
+        stylePillDome: document.getElementById("style-pill-dome"),
         
         // Fading & binaural elements
         hud: document.getElementById("hud"),
@@ -193,6 +443,46 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- INITIALIZATION ---
     function initialize() {
         CosmicLogger.info("ETERNAL VEIL initializing...");
+        
+        // --- DOMAIN LOCK PROTECTOR ---
+        const allowedHosts = ["localhost", "127.0.0.1"];
+        const hostname = window.location.hostname;
+        const isAllowed = allowedHosts.includes(hostname) || hostname.endsWith("netlify.app");
+        if (!isAllowed) {
+            document.body.innerHTML = `
+                <div style="
+                    display: flex; 
+                    flex-direction: column; 
+                    justify-content: center; 
+                    align-items: center; 
+                    height: 100vh; 
+                    background: #020207; 
+                    color: #e2e8f0; 
+                    font-family: 'Inter', system-ui, sans-serif;
+                    text-align: center;
+                    padding: 20px;
+                ">
+                    <h1 style="color: #818cf8; font-size: 24px; margin-bottom: 10px; font-weight: 700; letter-spacing: 0.5px;">Unauthorized Mirror Detected</h1>
+                    <p style="color: #94a3b8; font-size: 14px; max-width: 400px; line-height: 1.6; margin-bottom: 24px;">
+                        This digital interactive art piece is hosted exclusively at the official domain.
+                    </p>
+                    <a href="https://eternal-veil.netlify.app" style="
+                        background: #4f46e5; 
+                        color: #ffffff; 
+                        text-decoration: none; 
+                        padding: 12px 24px; 
+                        border-radius: 8px; 
+                        font-weight: 700;
+                        font-size: 13px;
+                        box-shadow: 0 0 20px rgba(79, 70, 229, 0.4);
+                        transition: all 0.2s ease;
+                    ">Go to Official Site</a>
+                </div>
+            `;
+            throw new Error("Domain lock triggered: unauthorized hostname mirror.");
+        }
+
+        ConfigHistory.init();
         setupTabs();
         setupFlowToggles();
         buildPresetCards();
@@ -215,6 +505,7 @@ document.addEventListener("DOMContentLoaded", () => {
             randomizeAllParameters();
             CosmicLogger.info("Autopilot enabled and parameters randomized on launch.");
         }
+        captureHistoryState();
         
         setupEventListeners();
         setupInteractionEvents();
@@ -223,6 +514,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // WebXR VR session callbacks to resize the canvas dynamically
         window.onVRSessionStart = () => {
+            if (elements.stylePillNative) elements.stylePillNative.disabled = true;
+            if (elements.stylePillDome) elements.stylePillDome.disabled = true;
             if (sim3D && sim3D.usesFlowTexture === false) {
                 CosmicLogger.info("WebXR VR Session active in native volumetric particle mode.");
                 return;
@@ -233,6 +526,8 @@ document.addEventListener("DOMContentLoaded", () => {
         };
 
         window.onVRSessionEnd = () => {
+            if (elements.stylePillNative) elements.stylePillNative.disabled = false;
+            if (elements.stylePillDome) elements.stylePillDome.disabled = false;
             if (sim3D && sim3D.usesFlowTexture === false) {
                 CosmicLogger.info("WebXR VR Session ended. Returning to the 2D visualizer and opening settings.");
                 toggle3DMode(false);
@@ -294,6 +589,64 @@ document.addEventListener("DOMContentLoaded", () => {
                     break;
                 case "densityUp":
                     adjust("density", 250, 200, 4000, elements.densitySlider, true);
+                    break;
+            }
+
+            if (sim3D && sim3D.usesFlowTexture === false) {
+                sim3D.isPaused = Boolean(sim.isPaused);
+            }
+            return state();
+        };
+        
+        // Native VR uses a lightweight in-headset canvas panel instead of trying
+        // to project the full desktop drawer into WebXR. Keep this bridge small
+        // and explicit so controller actions use the same settings/state logic as
+        // desktop controls and remain synchronized after leaving the headset.
+        window.onNativeVRControl = action => {
+            const state = () => ({
+                autopilot: isAutopilot,
+                paused: Boolean(sim.isPaused),
+                size: sim.settings.baseSize,
+                speed: sim.settings.speed,
+                density: sim.settings.density
+            });
+            if (action === "getState") return state();
+
+            const adjust = (key, delta, min, max, slider, integer = false) => {
+                delete activeTransitions[key];
+                setOptionToManual(key);
+                let next = Math.max(min, Math.min(max, Number(sim.settings[key]) + delta));
+                if (integer) next = Math.round(next);
+                updateActiveSetting(key, next);
+                if (slider) slider.value = String(next);
+                if (key === "density") sim.updateDensity();
+                updateSliderTextDisplays();
+            };
+
+            switch (action) {
+                case "togglePause":
+                    togglePause();
+                    break;
+                case "toggleAutopilot":
+                    toggleAutopilot(!isAutopilot);
+                    break;
+                case "sizeDown":
+                    adjust("baseSize", -0.5, 0.1, 14.0, elements.sizeSlider);
+                    break;
+                case "sizeUp":
+                    adjust("baseSize", 0.5, 0.1, 14.0, elements.sizeSlider);
+                    break;
+                case "speedDown":
+                    adjust("speed", -0.25, 0.0, 8.0, elements.speedSlider);
+                    break;
+                case "speedUp":
+                    adjust("speed", 0.25, 0.0, 8.0, elements.speedSlider);
+                    break;
+                case "densityDown":
+                    adjust("density", -250, 100, 8000, elements.densitySlider, true);
+                    break;
+                case "densityUp":
+                    adjust("density", 250, 100, 8000, elements.densitySlider, true);
                     break;
             }
 
@@ -456,6 +809,16 @@ document.addEventListener("DOMContentLoaded", () => {
         
         showToast(`Preset shifted to: ${p.name}`);
         CosmicLogger.info(`Preset shifted to: ${p.name.toUpperCase()}.`);
+        captureHistoryState();
+    }
+
+    function turnOffPsychedelicMode() {
+        if (sim.settings.psychedelicMode) {
+            sim.settings.psychedelicMode = false;
+            if (elements.psychedelicToggle) elements.psychedelicToggle.checked = false;
+            showToast("Rainbow Mode disabled to show custom colors.");
+            CosmicLogger.info("Rainbow Cycle Mode disabled due to manual color change.");
+        }
     }
 
     // --- PALETTE SWATCHES RENDERER ---
@@ -472,6 +835,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     return;
                 }
                 setOptionToManual("colors");
+                turnOffPsychedelicMode();
                 sim.palette.splice(idx, 1);
                 updateActivePalette([...sim.palette]);
                 renderSwatches();
@@ -673,10 +1037,12 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.autopilotToggle.checked = state;
         
         if (state) {
+            document.body.classList.add("autopilot-active");
             elements.autopilotSettings.classList.remove("hidden");
             startAutopilotIntervals();
             showToast("Autopilot co-pilot engaged.");
         } else {
+            document.body.classList.remove("autopilot-active");
             elements.autopilotSettings.classList.add("hidden");
             stopAutopilotIntervals();
             showToast("Autopilot co-pilot disengaged.");
@@ -717,17 +1083,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const rndInt = (min, max) => Math.floor(rnd(min, max + 1));
         
         // Randomize all available sliders over their absolute full ranges (matching HTML inputs)
-        if (isFlowEnabled("speed")) startMorph("speed", rnd(0.1, 4.0));
-        if (isFlowEnabled("turbulence")) startMorph("turbulence", rnd(0.0, 2.5));
-        if (isFlowEnabled("density")) startMorph("density", rndInt(200, 4000));
-        if (isFlowEnabled("flowOrganic")) startMorph("flowOrganic", rnd(0.0, 1.0));
-        if (isFlowEnabled("dissipation")) startMorph("dissipation", rnd(0.002, 0.06));
-        if (isFlowEnabled("zoom")) startMorph("zoom", rnd(0.3, 3.5));
-        if (isFlowEnabled("baseSize")) startMorph("baseSize", rnd(0.5, 7.0));
-        if (isFlowEnabled("sizeVariation")) startMorph("sizeVariation", rnd(0.0, 3.5));
-        if (isFlowEnabled("stretch")) startMorph("stretch", rnd(0.0, 4.0));
-        if (isFlowEnabled("interaction")) startMorph("interaction", rnd(0.0, 2.5));
-        if (isFlowEnabled("mouseInfluence")) startMorph("mouseInfluence", rnd(0.0, 3.0));
+        if (isFlowEnabled("speed")) startMorph("speed", rnd(0.0, 8.0));
+        if (isFlowEnabled("turbulence")) startMorph("turbulence", rnd(0.0, 5.0));
+        if (isFlowEnabled("density")) startMorph("density", rndInt(100, 8000));
+        if (isFlowEnabled("flowOrganic")) startMorph("flowOrganic", rnd(0.0, 2.0));
+        if (isFlowEnabled("dissipation")) startMorph("dissipation", rnd(0.001, 0.12));
+        if (isFlowEnabled("zoom")) startMorph("zoom", rnd(0.1, 7.0));
+        if (isFlowEnabled("baseSize")) startMorph("baseSize", rnd(0.1, 14.0));
+        if (isFlowEnabled("sizeVariation")) startMorph("sizeVariation", rnd(0.0, 7.0));
+        if (isFlowEnabled("stretch")) startMorph("stretch", rnd(0.0, 8.0));
+        if (isFlowEnabled("interaction")) startMorph("interaction", rnd(0.0, 5.0));
+        if (isFlowEnabled("mouseInfluence")) startMorph("mouseInfluence", rnd(0.0, 6.0));
         if (isFlowEnabled("rotationSpeed")) startMorph("rotationSpeed", rnd(0.0, 1.2));
         if (isFlowEnabled("wobble")) startMorph("wobble", rnd(0.0, 1.5));
         
@@ -837,13 +1203,28 @@ document.addEventListener("DOMContentLoaded", () => {
         is3DMode = nextState;
         
         if (is3DMode) {
+            if (elements.webglStyleQuickSelector) {
+                elements.webglStyleQuickSelector.classList.remove("hide");
+                if (typeof window.updateQuickSelectorPill === "function") {
+                    window.updateQuickSelectorPill(selected3DStyle);
+                }
+            }
+            
             if (!sim3D) {
-                CosmicLogger.info("Initializing native volumetric 3D particle engine using Three.js...");
+                CosmicLogger.info(`Initializing 3D renderer style: ${selected3DStyle.toUpperCase()} using Three.js...`);
                 try {
-                    const RendererClass = window.NativeFlowSimulation3D || window.FlowSimulation3D;
-                    sim3D = new RendererClass("webgl-canvas");
+                    if (selected3DStyle === "dome") {
+                        sim3D = new FlowSimulation3D("webgl-canvas");
+                    } else {
+                        sim3D = new NativeFlowSimulation3D("webgl-canvas");
+                    }
                 } catch (error) {
-                    CosmicLogger.warn("Native 3D initialization failed; falling back to Parallax Flow Dome. " + error.message);
+                    CosmicLogger.warn("3D initialization failed; falling back to Parallax Flow Dome. " + error.message);
+                    selected3DStyle = "dome";
+                    save3DStyle("dome");
+                    if (typeof window.updateQuickSelectorPill === "function") {
+                        window.updateQuickSelectorPill("dome");
+                    }
                     sim3D = new FlowSimulation3D("webgl-canvas");
                 }
                 window.sim3D = sim3D;
@@ -884,83 +1265,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 ? "Switched from 2D Canvas to native GPU-driven volumetric particles."
                 : "Switched simulation engine from 2D Canvas to 3D WebGL projection.");
             
-            // WebGL rendering and physics tick step with decoupled flow scheduling & performance sampling
-            let lastFlowUpdateTime = 0;
-            let lastRenderTime = performance.now();
-            let lastFpsUpdate = performance.now();
-            
-            sim3D.renderer.setAnimationLoop(() => {
-                if (is3DMode) {
-                    const now = performance.now();
-                    const frameDuration = now - lastRenderTime;
-                    lastRenderTime = now;
-
-                    processMusicReactivity();
-                    processMorphs();
-                    
-                    // Decoupled flow scheduler using RenderQuality settings
-                    const profile = window.RenderQuality.getProfile();
-                    const flowHz = profile.flowHz || 60;
-                    const flowInterval = 1000 / flowHz;
-                    
-                    let flowMs = 0;
-                    let flowTicked = false;
-                    
-                    const elapsed = now - lastFlowUpdateTime;
-                    if (sim3D.usesFlowTexture !== false && elapsed >= flowInterval) {
-                        const flowStart = performance.now();
-                        sim.tick();
-                        const flowEnd = performance.now();
-                        flowMs = flowEnd - flowStart;
-                        
-                        // Mark texture for upload directly
-                        if (sim3D.texture) sim3D.texture.needsUpdate = true;
-                        
-                        lastFlowUpdateTime = now - (elapsed % flowInterval);
-                        flowTicked = true;
-                    }
-                    
-                    // Render WebGL/XR camera frame
-                    const threeStart = performance.now();
-                    sim3D.tick();
-                    const threeEnd = performance.now();
-                    const threeMs = threeEnd - threeStart;
-                    
-                    // Sample performance metrics (EWMA frame time and render times)
-                    if (sim3D.usesFlowTexture !== false) {
-                        if (flowTicked) {
-                            window.RenderQuality.sampleFrame(frameDuration, flowMs, threeMs);
-                        } else {
-                            window.RenderQuality.sampleFrame(frameDuration, undefined, threeMs);
-                        }
-                    } else {
-                        // Native 3D has no hidden 2D texture to resize or throttle.
-                        window.RenderQuality.averageFrameInterval =
-                            window.RenderQuality.averageFrameInterval * 0.95 + frameDuration * 0.05;
-                        window.RenderQuality.canvasDrawMsAvg =
-                            window.RenderQuality.canvasDrawMsAvg * 0.95 + threeMs * 0.05;
-                        window.RenderQuality.flowMsAvg = 0;
-                    }
-                    
-                    // Update diagnostics FPS and console overlay stats
-                    frameCount++;
-                    if (now - lastFpsUpdate >= 500) {
-                        const fps = Math.round((frameCount * 1000) / (now - lastFpsUpdate));
-                        elements.hudFps.textContent = fps;
-                        if (sim3D.usesFlowTexture === false && sim3D.activeParticles) {
-                            elements.hudParticles.textContent = sim3D.activeParticles;
-                        }
-                        frameCount = 0;
-                        lastFpsUpdate = now;
-                        
-                        updatePerfDiagnosticConsole(fps);
-                    }
-                    
-                    updateHudWaveform();
-                }
-            });
+            // Start the Three.js loop
+            restart3DLoop();
             
         } else {
+            if (elements.webglStyleQuickSelector) {
+                elements.webglStyleQuickSelector.classList.add("hide");
+            }
+            
             if (sim3D) {
                 sim3D.renderer.setAnimationLoop(null);
             }
@@ -980,6 +1292,155 @@ document.addEventListener("DOMContentLoaded", () => {
             
             requestAnimationFrame(tickLoop);
         }
+    }
+
+    // Handles live hot-swapping between Native 3D Volumetric and Parallax Dome styles
+    function change3DStyle(newStyle) {
+        if (newStyle === selected3DStyle) return;
+        
+        // Safety lock: do not allow style changes during WebXR presentations
+        if (sim3D && sim3D.renderer.xr.isPresenting) {
+            CosmicLogger.warn("Cannot switch 3D styles during an active WebXR VR session.");
+            showToast("Exit VR first to switch 3D styles.");
+            if (typeof window.updateQuickSelectorPill === "function") {
+                window.updateQuickSelectorPill(selected3DStyle);
+            }
+            return;
+        }
+
+        selected3DStyle = newStyle;
+        save3DStyle(newStyle);
+        
+        if (is3DMode) {
+            CosmicLogger.info(`Hot-swapping active 3D renderer style to: ${newStyle.toUpperCase()}`);
+            
+            // 1. Shut down and clean up active renderer
+            if (sim3D) {
+                sim3D.dispose();
+                sim3D = null;
+                window.sim3D = null;
+            }
+            
+            // 2. Instantiate newly selected renderer style
+            try {
+                if (selected3DStyle === "dome") {
+                    sim3D = new FlowSimulation3D("webgl-canvas");
+                } else {
+                    sim3D = new NativeFlowSimulation3D("webgl-canvas");
+                }
+            } catch (err) {
+                CosmicLogger.error("Failed to hot-swap 3D renderer. Rolling back to Dome. " + err.message);
+                selected3DStyle = "dome";
+                save3DStyle("dome");
+                if (typeof window.updateQuickSelectorPill === "function") {
+                    window.updateQuickSelectorPill("dome");
+                }
+                sim3D = new FlowSimulation3D("webgl-canvas");
+            }
+            window.sim3D = sim3D;
+            
+            // 3. Toggle hidden 2D buffer resizing depending on engine style needs
+            if (sim3D.usesFlowTexture !== false) {
+                const profile = window.RenderQuality.getProfile("desktopHigh");
+                sim.resize(profile.width, profile.height, 1.0);
+            }
+            
+            // 4. Propagate active configurations
+            sim3D.settings = sim.settings;
+            sim3D.backgroundColor = sim.backgroundColor;
+            sim3D.updatePalette([...sim.palette]);
+            
+            // 5. Restart WebGL render pipeline
+            restart3DLoop();
+            
+            // 6. Refresh indicators and HUD values
+            elements.hudMode.textContent = sim3D.usesFlowTexture === false ? "NATIVE 3D" : "3D FLOW";
+            showToast(selected3DStyle === "native" ? "Switched to Volumetric GPU particles" : "Switched to Parallax Flow Dome");
+        }
+    }
+
+    // Configures and starts the Three.js render loop for the active 3D engine style
+    function restart3DLoop() {
+        if (!sim3D) return;
+        
+        let lastFlowUpdateTime = 0;
+        let lastRenderTime = performance.now();
+        let lastFpsUpdate = performance.now();
+        
+        sim3D.renderer.setAnimationLoop(() => {
+            if (is3DMode && sim3D) {
+                const now = performance.now();
+                const frameDuration = now - lastRenderTime;
+                lastRenderTime = now;
+
+                processMusicReactivity();
+                processMorphs();
+                
+                // Track music pulse and treble intensity in both renderers
+                const audioValues = window.audioReactivityValues || { bass: 0, mid: 0, treble: 0, volume: 0 };
+                sim3D.sizePulse = audioValues.bass * (sim.settings.zoom ?? 1.0);
+                sim3D.trebleIntensity = audioValues.treble;
+                
+                // Decoupled flow scheduler (only runs if dome style is active)
+                const profile = window.RenderQuality.getProfile();
+                const flowHz = profile.flowHz || 60;
+                const flowInterval = 1000 / flowHz;
+                
+                let flowMs = 0;
+                let flowTicked = false;
+                
+                const elapsed = now - lastFlowUpdateTime;
+                if (sim3D.usesFlowTexture !== false && elapsed >= flowInterval) {
+                    const flowStart = performance.now();
+                    sim.tick();
+                    const flowEnd = performance.now();
+                    flowMs = flowEnd - flowStart;
+                    
+                    if (sim3D.texture) sim3D.texture.needsUpdate = true;
+                    
+                    lastFlowUpdateTime = now - (elapsed % flowInterval);
+                    flowTicked = true;
+                }
+                
+                // Tick and render WebGL dome/camera perspective
+                const threeStart = performance.now();
+                sim3D.tick();
+                const threeEnd = performance.now();
+                const threeMs = threeEnd - threeStart;
+                
+                // Accumulate timing samples
+                if (sim3D.usesFlowTexture !== false) {
+                    if (flowTicked) {
+                        window.RenderQuality.sampleFrame(frameDuration, flowMs, threeMs);
+                    } else {
+                        window.RenderQuality.sampleFrame(frameDuration, undefined, threeMs);
+                    }
+                } else {
+                    // Volumetric Native mode doesn't compute 2D canvas flows
+                    window.RenderQuality.averageFrameInterval =
+                        window.RenderQuality.averageFrameInterval * 0.95 + frameDuration * 0.05;
+                    window.RenderQuality.canvasDrawMsAvg =
+                        window.RenderQuality.canvasDrawMsAvg * 0.95 + threeMs * 0.05;
+                    window.RenderQuality.flowMsAvg = 0;
+                }
+                
+                // Diagnostics and diagnostics console updater
+                frameCount++;
+                if (now - lastFpsUpdate >= 500) {
+                    const fps = Math.round((frameCount * 1000) / (now - lastFpsUpdate));
+                    elements.hudFps.textContent = fps;
+                    if (sim3D.usesFlowTexture === false && sim3D.activeParticles) {
+                        elements.hudParticles.textContent = sim3D.activeParticles;
+                    }
+                    frameCount = 0;
+                    lastFpsUpdate = now;
+                    
+                    updatePerfDiagnosticConsole(fps);
+                }
+                
+                updateHudWaveform();
+            }
+        });
     }
 
     // Update floating HUD waveform visualizer bar scales
@@ -1049,6 +1510,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Setup input slider events and map them directly to simulation settings
     function setupEventListeners() {
+        // Config History Navigation
+        const prevBtn = document.getElementById("history-prev-btn");
+        const nextBtn = document.getElementById("history-next-btn");
+        const randBtn = document.getElementById("history-rand-btn");
+        
+        if (prevBtn) {
+            prevBtn.onclick = () => {
+                const prevState = ConfigHistory.back();
+                if (prevState) applyHistoryState(prevState);
+            };
+        }
+        if (nextBtn) {
+            nextBtn.onclick = () => {
+                const nextState = ConfigHistory.forward();
+                if (nextState) applyHistoryState(nextState);
+            };
+        }
+        if (randBtn) {
+            randBtn.onclick = () => {
+                applyRandomConfig();
+            };
+        }
+
         // Toggle Sidebar panel
         elements.menuToggleBtn.onclick = () => togglePanel();
         elements.closePanelBtn.onclick = () => togglePanel(false);
@@ -1154,6 +1638,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Color additions
         elements.randomizePaletteBtn.onclick = () => {
             setOptionToManual("colors");
+            turnOffPsychedelicMode();
             const palette = generateHarmoniousPalette();
             updateActivePalette(palette);
             renderSwatches();
@@ -1165,6 +1650,7 @@ document.addEventListener("DOMContentLoaded", () => {
         };
         elements.addColorBtn.onclick = () => {
             setOptionToManual("colors");
+            turnOffPsychedelicMode();
             if (sim.palette.length >= 6) {
                 sim.palette.shift(); // remove oldest
             }
@@ -1257,6 +1743,31 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.particleShapeSelect.onchange = () => {
             sim.settings.particleShape = elements.particleShapeSelect.value;
         };
+        if (elements.webglStyleQuickSelector) {
+            const updateQuickSelectorPill = (style) => {
+                if (style === "native") {
+                    elements.stylePillNative.classList.add("active");
+                    elements.stylePillDome.classList.remove("active");
+                } else {
+                    elements.stylePillNative.classList.remove("active");
+                    elements.stylePillDome.classList.add("active");
+                }
+            };
+            
+            updateQuickSelectorPill(selected3DStyle);
+
+            elements.stylePillNative.onclick = () => {
+                change3DStyle("native");
+                updateQuickSelectorPill("native");
+            };
+            elements.stylePillDome.onclick = () => {
+                change3DStyle("dome");
+                updateQuickSelectorPill("dome");
+            };
+            
+            // Expose globally so other functions can keep the quick selector synced
+            window.updateQuickSelectorPill = updateQuickSelectorPill;
+        }
 
         // Media Exports
         elements.captureSnapshotBtn.onclick = () => exporter.captureSnapshot();
@@ -1549,6 +2060,20 @@ document.addEventListener("DOMContentLoaded", () => {
                         CosmicLogger.info("Diagnostic Console visibility toggled.");
                     }
                     break;
+                case "arrowleft":
+                    e.preventDefault();
+                    const prevState = ConfigHistory.back();
+                    if (prevState) applyHistoryState(prevState);
+                    break;
+                case "arrowright":
+                    e.preventDefault();
+                    const nextState = ConfigHistory.forward();
+                    if (nextState) applyHistoryState(nextState);
+                    break;
+                case "g":
+                    e.preventDefault();
+                    applyRandomConfig();
+                    break;
                 case "3":
                     e.preventDefault();
                     toggle3DMode();
@@ -1663,6 +2188,7 @@ document.addEventListener("DOMContentLoaded", () => {
             };
             const key = inputToKeyMap[id];
             if (key) setOptionToManual(key);
+            triggerHistoryCaptureDebounced();
         });
 
         elements.controlPanel.addEventListener("change", (e) => {
@@ -1676,6 +2202,7 @@ document.addEventListener("DOMContentLoaded", () => {
             };
             const key = inputToKeyMap[id];
             if (key) setOptionToManual(key);
+            triggerHistoryCaptureDebounced();
         });
 
         // Dismiss autopilot help tooltip when clicked anywhere on the screen

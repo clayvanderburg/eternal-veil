@@ -112,6 +112,12 @@
             <span style="font-weight: bold; font-size: 9px; letter-spacing: 0.5px;">3D</span>
         </button>
 
+        <!-- 3D Style Quick Selector (Visible only when 3D mode is active) -->
+        <div class="style-selector-pill hide" id="webgl-style-quick-selector">
+            <button class="style-pill-btn active" id="style-pill-native" data-style="native">NATIVE</button>
+            <button class="style-pill-btn" id="style-pill-dome" data-style="dome">DOME</button>
+        </div>
+
         <!-- Enter VR (Hidden by default) -->
         <button class="icon-btn tool-tip hide" id="enter-vr-btn" data-tooltip="Enter VR Headset Mode (V)" style="border-color: #ff3333;">
             <span style="font-weight: bold; font-size: 9px; letter-spacing: 0.5px; color: #ff3333;">VR</span>
@@ -188,11 +194,29 @@
 
             <!-- TAB 1: PRESETS & COLORS -->
             <section class="tab-content active" id="tab-presets">
+                <!-- Config History Toolbar -->
+                <div class="setting-group" style="padding-bottom: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 14px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span class="setting-label-header" style="margin-bottom: 0;">COSMIC HISTORY</span>
+                        <div style="display: flex; gap: 6px;">
+                            <button class="btn-history tool-tip" id="history-prev-btn" data-tooltip="Step back in history (←)" disabled>
+                                ◄ Prev
+                            </button>
+                            <button class="btn-history tool-tip" id="history-rand-btn" data-tooltip="Generate random new config (G)">
+                                🎲 Random Next
+                            </button>
+                            <button class="btn-history tool-tip" id="history-next-btn" data-tooltip="Step forward in history (→)" disabled>
+                                Next ►
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Autopilot toggle -->
                 <div class="setting-group control-switch">
                     <div class="switch-info">
                         <label for="autopilot-toggle" class="setting-label-header">AUTOPILOT CO-PILOT</label>
-                        <p class="setting-desc">Shifts flows and colors morphing over time</p>
+                        <p class="setting-desc">Automatically morphs settings over time to keep the display changing. Dragging any slider takes manual control of that setting.</p>
                     </div>
                     <label class="switch">
                         <input type="checkbox" id="autopilot-toggle" checked>
@@ -284,7 +308,8 @@
                         <span class="setting-label">Flow Speed</span>
                         <span class="slider-value" id="speed-val">1.00</span>
                     </div>
-                    <input type="range" id="speed-slider" class="range-slider" min="0.1" max="4.0" step="0.05" value="1.00">
+                    <input type="range" id="speed-slider" class="range-slider" min="0.0" max="8.0" step="0.05" value="1.00">
+                    <p class="micro-tip">Controls how fast the background currents flow. 0 freezes the motion entirely.</p>
                 </div>
 
                 <!-- Turbulence -->
@@ -293,7 +318,8 @@
                         <span class="setting-label">Turbulence Chaos</span>
                         <span class="slider-value" id="turbulence-val">0.65</span>
                     </div>
-                    <input type="range" id="turbulence-slider" class="range-slider" min="0.0" max="2.5" step="0.05" value="0.65">
+                    <input type="range" id="turbulence-slider" class="range-slider" min="0.0" max="5.0" step="0.05" value="0.65">
+                    <p class="micro-tip">Adds wind-like chaos to paths. Higher values make paths look jagged and erratic.</p>
                 </div>
 
                 <!-- Density -->
@@ -302,7 +328,8 @@
                         <span class="setting-label">Particle Density</span>
                         <span class="slider-value" id="density-val">1200</span>
                     </div>
-                    <input type="range" id="density-slider" class="range-slider" min="200" max="4000" step="50" value="1200">
+                    <input type="range" id="density-slider" class="range-slider" min="100" max="8000" step="50" value="1200">
+                    <p class="micro-tip">Total count of particles. More particles look richer but slow down older computers.</p>
                 </div>
 
                 <!-- Organic Flow vs Turbulence grid -->
@@ -311,8 +338,8 @@
                         <span class="setting-label">Flow Organic (Curl)</span>
                         <span class="slider-value" id="curl-val">0.85</span>
                     </div>
-                    <input type="range" id="curl-slider" class="range-slider" min="0.0" max="1.0" step="0.01" value="0.85">
-                    <p class="micro-tip">Higher values create fluid whirlpools; lower values resemble static heatwaves.</p>
+                    <input type="range" id="curl-slider" class="range-slider" min="0.0" max="2.0" step="0.01" value="0.85">
+                    <p class="micro-tip">Curviness of flow lines. High values create whirlpools; low values create straight lines.</p>
                 </div>
 
                 <!-- Dissipation / Trail length -->
@@ -321,7 +348,8 @@
                         <span class="setting-label">Dissipation (Trail Shortness)</span>
                         <span class="slider-value" id="dissipation-val">0.012</span>
                     </div>
-                    <input type="range" id="dissipation-slider" class="range-slider" min="0.002" max="0.06" step="0.001" value="0.012">
+                    <input type="range" id="dissipation-slider" class="range-slider" min="0.001" max="0.12" step="0.001" value="0.012">
+                    <p class="micro-tip">How fast trails fade. Lower values create infinite trails; higher values leave only tiny dots.</p>
                 </div>
 
                 <!-- Zoom / Noise Scale -->
@@ -330,7 +358,8 @@
                         <span class="setting-label">Flow Pattern Scale (Zoom)</span>
                         <span class="slider-value" id="zoom-val">1.00</span>
                     </div>
-                    <input type="range" id="zoom-slider" class="range-slider" min="0.3" max="3.5" step="0.05" value="1.00">
+                    <input type="range" id="zoom-slider" class="range-slider" min="0.1" max="7.0" step="0.05" value="1.00">
+                    <p class="micro-tip">Visual zoom of the noise waves. High zooms create huge sweeps; low zooms show tiny waves.</p>
                 </div>
             </section>
 
@@ -342,7 +371,8 @@
                         <span class="setting-label">Particle Size</span>
                         <span class="slider-value" id="size-val">2.8</span>
                     </div>
-                    <input type="range" id="size-slider" class="range-slider" min="0.5" max="7.0" step="0.1" value="2.8">
+                    <input type="range" id="size-slider" class="range-slider" min="0.1" max="14.0" step="0.1" value="2.8">
+                    <p class="micro-tip">Thickness of individual particles. Range goes from fine dust to giant energy bubbles.</p>
                 </div>
 
                 <!-- Size Variation -->
@@ -351,7 +381,8 @@
                         <span class="setting-label">Size Variation</span>
                         <span class="slider-value" id="size-var-val">1.4</span>
                     </div>
-                    <input type="range" id="size-var-slider" class="range-slider" min="0.0" max="3.5" step="0.1" value="1.4">
+                    <input type="range" id="size-var-slider" class="range-slider" min="0.0" max="7.0" step="0.1" value="1.4">
+                    <p class="micro-tip">How different particle sizes are. Higher mixes huge and tiny particles together.</p>
                 </div>
 
                 <!-- Particle Stretch / Directionality -->
@@ -360,7 +391,8 @@
                         <span class="setting-label">Speed Stretch</span>
                         <span class="slider-value" id="stretch-val">1.6</span>
                     </div>
-                    <input type="range" id="stretch-slider" class="range-slider" min="0.0" max="4.0" step="0.1" value="1.6">
+                    <input type="range" id="stretch-slider" class="range-slider" min="0.0" max="8.0" step="0.1" value="1.6">
+                    <p class="micro-tip">Stretches moving particles into lines. 0 is round; high values create warp speed trails.</p>
                 </div>
 
                 <!-- Particle Interaction (repel forces) -->
@@ -369,7 +401,8 @@
                         <span class="setting-label">Swarm Repulsion Force</span>
                         <span class="slider-value" id="interaction-val">0.7</span>
                     </div>
-                    <input type="range" id="interaction-slider" class="range-slider" min="0.0" max="2.5" step="0.1" value="0.7">
+                    <input type="range" id="interaction-slider" class="range-slider" min="0.0" max="5.0" step="0.1" value="0.7">
+                    <p class="micro-tip">How strongly particles push away from neighbors. High values create clean, organized lanes.</p>
                 </div>
 
                 <!-- Mouse Influence -->
@@ -378,7 +411,8 @@
                         <span class="setting-label">Mouse Influence</span>
                         <span class="slider-value" id="mouse-influence-val">0.8</span>
                     </div>
-                    <input type="range" id="mouse-influence-slider" class="range-slider" min="0.0" max="3.0" step="0.1" value="0.8">
+                    <input type="range" id="mouse-influence-slider" class="range-slider" min="0.0" max="6.0" step="0.1" value="0.8">
+                    <p class="micro-tip">How strongly the mouse cursor pulls, pushes, or twists particles on screen.</p>
                     
                     <div class="setting-select-row">
                         <span class="setting-label" style="font-size: 11px;">Mouse Click Mode:</span>
@@ -439,7 +473,7 @@
                     <div class="control-row">
                         <div class="control-row-info">
                             <span class="setting-label">Rainbow Cycle Mode</span>
-                            <p class="setting-desc">Continuous HSL color sweeps for particles</p>
+                            <p class="setting-desc">Forces particles to shift through gaming-keyboard rainbow colors (overrides custom palette)</p>
                         </div>
                         <label class="switch small">
                             <input type="checkbox" id="psychedelic-toggle">
@@ -493,6 +527,7 @@
                             <option value="cluster">Bubble Clusters (Nested Circles)</option>
                         </select>
                     </div>
+
                 </div>
             </section>
 
@@ -649,9 +684,12 @@
 
                 <!-- System Reset -->
                 <div class="setting-group border-top">
-                    <button class="btn btn-danger" id="factory-reset-btn" style="width: 100%;">
+                    <button class="btn btn-danger" id="factory-reset-btn" style="width: 100%; margin-bottom: 12px;">
                         Reset to Defaults
                     </button>
+                    <div style="text-align: center; font-size: 9px; opacity: 0.35; font-family: var(--font-primary); letter-spacing: 0.5px;">
+                        © 2026 MADKINGCDV. ALL RIGHTS RESERVED.
+                    </div>
                 </div>
             </section>
 
@@ -788,7 +826,7 @@
     <script src="js/url-sync.js?v=90375e6"></script>
     <script src="js/simulation.js?v=90375e6"></script>
     <script src="js/simulation3d.js?v=90375e6"></script>
-    <script src="js/simulation3d-native.js?v=native3d-prototype-16"></script>
-    <script src="js/app.js?v=native-vr-controls-1"></script>
+    <script src="js/simulation3d-native.js?v=native3d-prototype-14"></script>
+    <script src="js/app.js?v=90375e6"></script>
 </body>
 </html>

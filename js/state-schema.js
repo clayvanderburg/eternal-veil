@@ -76,19 +76,19 @@ const StateSchema = {
         const sanitized = {
             settings: {
                 // Physics Sliders
-                speed: this.sanitizeNumber(rawState.settings?.speed, 1.0, 0.1, 4.0),
-                turbulence: this.sanitizeNumber(rawState.settings?.turbulence, 0.65, 0.0, 2.5),
-                density: Math.round(this.sanitizeNumber(rawState.settings?.density, 1200, 200, 4000)),
-                flowOrganic: this.sanitizeNumber(rawState.settings?.flowOrganic, 0.85, 0.0, 1.0),
-                dissipation: this.sanitizeNumber(rawState.settings?.dissipation, 0.012, 0.002, 0.06),
-                zoom: this.sanitizeNumber(rawState.settings?.zoom, 1.0, 0.3, 3.5),
+                speed: this.sanitizeNumber(rawState.settings?.speed, 1.0, 0.0, 8.0),
+                turbulence: this.sanitizeNumber(rawState.settings?.turbulence, 0.65, 0.0, 5.0),
+                density: Math.round(this.sanitizeNumber(rawState.settings?.density, 1200, 100, 8000)),
+                flowOrganic: this.sanitizeNumber(rawState.settings?.flowOrganic, 0.85, 0.0, 2.0),
+                dissipation: this.sanitizeNumber(rawState.settings?.dissipation, 0.012, 0.001, 0.12),
+                zoom: this.sanitizeNumber(rawState.settings?.zoom, 1.0, 0.1, 7.0),
 
                 // Particle Dynamics
-                baseSize: this.sanitizeNumber(rawState.settings?.baseSize, 2.8, 0.5, 7.0),
-                sizeVariation: this.sanitizeNumber(rawState.settings?.sizeVariation, 1.4, 0.0, 3.5),
-                stretch: this.sanitizeNumber(rawState.settings?.stretch, 1.6, 0.0, 4.0),
-                interaction: this.sanitizeNumber(rawState.settings?.interaction, 0.7, 0.0, 2.5),
-                mouseInfluence: this.sanitizeNumber(rawState.settings?.mouseInfluence, 0.8, 0.0, 3.0),
+                baseSize: this.sanitizeNumber(rawState.settings?.baseSize, 2.8, 0.1, 14.0),
+                sizeVariation: this.sanitizeNumber(rawState.settings?.sizeVariation, 1.4, 0.0, 7.0),
+                stretch: this.sanitizeNumber(rawState.settings?.stretch, 1.6, 0.0, 8.0),
+                interaction: this.sanitizeNumber(rawState.settings?.interaction, 0.7, 0.0, 5.0),
+                mouseInfluence: this.sanitizeNumber(rawState.settings?.mouseInfluence, 0.8, 0.0, 6.0),
                 
                 mouseMode: this.VALID_MOUSE_MODES.has(rawState.settings?.mouseMode) 
                     ? rawState.settings.mouseMode 
@@ -128,10 +128,10 @@ const StateSchema = {
         let wasClamped = false;
         if (rawState.settings) {
             const rawDensity = Number(rawState.settings.density);
-            if (rawDensity > 4000 || rawDensity < 200) wasClamped = true;
+            if (rawDensity > 8000 || rawDensity < 100) wasClamped = true;
             
             const rawSpeed = Number(rawState.settings.speed);
-            if (rawSpeed > 4.0 || rawSpeed < 0.1) wasClamped = true;
+            if (rawSpeed > 8.0 || rawSpeed < 0.0) wasClamped = true;
         }
 
         if (wasClamped) {

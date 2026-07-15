@@ -933,25 +933,25 @@ class NativeFlowSimulation3D {
 
     updateFromSettings() {
         const s = this.settings || {};
-        const requestedSpeed = Math.max(0.05, Math.min(4, s.speed ?? 1));
+        const requestedSpeed = Math.max(0.0, Math.min(8.0, s.speed ?? 1.0));
         // Preserve the control's range while biasing native 3D toward a calmer,
         // more readable drift. Fast presets still accelerate, just less violently.
         this.sharedUniforms.uSpeed.value = requestedSpeed * 0.62;
-        this.sharedUniforms.uTurbulence.value = Math.max(0, Math.min(2.4, s.turbulence ?? 0.65));
-        this.sharedUniforms.uOrganic.value = Math.max(0, Math.min(2, s.flowOrganic ?? 0.85));
-        // The flat renderer's 0.5–7 size range was too compressed in a world-scale
+        this.sharedUniforms.uTurbulence.value = Math.max(0.0, Math.min(5.0, s.turbulence ?? 0.65));
+        this.sharedUniforms.uOrganic.value = Math.max(0.0, Math.min(2.0, s.flowOrganic ?? 0.85));
+        // The flat renderer's 0.1–14 size range was too compressed in a world-scale
         // 3D volume. A curved mapping keeps the lower half controllable while the
         // upper end can create genuinely large VR particles. Approximate native
         // range: 1.5px–40px before distance, random scale, and music pulses.
-        const baseSize = Math.max(0.5, Math.min(7, s.baseSize ?? 2.8));
-        const sizePosition = (baseSize - 0.5) / 6.5;
+        const baseSize = Math.max(0.1, Math.min(14.0, s.baseSize ?? 2.8));
+        const sizePosition = (baseSize - 0.1) / 13.9;
         this.sharedUniforms.uPointSize.value = 1.5 + Math.pow(sizePosition, 1.5) * 38.5;
         // Larger particles need longer spatial separation between glow samples;
         // otherwise a dramatic tail compresses into one fuzzy blob.
         this.sharedUniforms.uTrailLength.value = 0.62 + sizePosition * 0.9;
 
-        const density = Math.max(200, Math.min(4000, s.density ?? 1200));
-        const densityPosition = (density - 200) / 3800;
+        const density = Math.max(100, Math.min(8000, s.density ?? 1200));
+        const densityPosition = (density - 100) / 7900;
         const baseCount = 2600 + densityPosition * (10500 - 2600);
         // Large sprites need spatial breathing room. Preserve their dramatic size
         // while reducing overlap instead of allowing a max-size/max-density scene
