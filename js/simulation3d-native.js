@@ -52,7 +52,9 @@ class NativeFlowSimulation3D {
         this.scene.add(this.world);
 
         this.maxParticles = 14000;
-        this.trailSegments = 14;
+        // Dense enough that the glow samples overlap into a continuous comet tail
+        // instead of reading as a string of separate pearls.
+        this.trailSegments = 52;
         this.activeParticles = 7600;
         this.palette = ["#6366f1", "#a855f7", "#06b6d4", "#f472b6"];
 
@@ -75,6 +77,7 @@ class NativeFlowSimulation3D {
 
         this.sharedUniforms = this.createSharedUniforms();
         this.initParticleField();
+        this.initNebulaClouds();
         this.initDeepStars();
         this.initInteraction();
 
@@ -92,7 +95,7 @@ class NativeFlowSimulation3D {
             uOrganic: { value: 0.85 },
             uVolumeRadius: { value: 250 },
             uDepth: { value: 1000 },
-            uTrailLength: { value: 0.42 },
+            uTrailLength: { value: 0.72 },
             uPointSize: { value: 9.5 },
             uBass: { value: 0 },
             uTreble: { value: 0 },
@@ -112,6 +115,7 @@ class NativeFlowSimulation3D {
             attribute float aPhase;
             attribute float aPaletteIndex;
             attribute float aScale;
+            attribute float aHero;
             ${isTrail ? "attribute float aTrail;" : ""}
 
             uniform float uTime;
@@ -122,6 +126,7 @@ class NativeFlowSimulation3D {
             uniform float uDepth;
             uniform float uTrailLength;
             uniform float uPointSize;
+            ${isTrail ? "uniform float uTrailWidthScale;" : ""}
             uniform float uBass;
             uniform float uTreble;
             uniform float uBurst;
@@ -133,6 +138,7 @@ class NativeFlowSimulation3D {
             varying vec3 vColor;
             varying float vAlpha;
             varying float vTrailAmount;
+            varying float vRenderedSize;
 
             const float PI = 3.141592653589793;
 
@@ -214,11 +220,13 @@ class NativeFlowSimulation3D {
                     gl_Position = projectionMatrix * mvPosition;
                     float perspective = 300.0 / max(10.0, -mvPosition.z);
                     float pulse = 1.0 + min(2.4, uBass * 1.8);
-                    float headDiameter = clamp(uPointSize * aScale * perspective * pulse, 1.0, 144.0);
-                    float taper = pow(max(0.0, 1.0 - aTrail), 1.12);
+                    float sizeCeiling = mix(144.0, 432.0, aHero);
+                    float headDiameter = clamp(uPointSize * aScale * perspective * pulse, 1.0, sizeCeiling);
+                    float taper = pow(max(0.0, 1.0 - aTrail), 0.74);
                     // The first glow sample exactly matches the particle diameter;
                     // subsequent overlapping samples taper into a soft plasma tail.
-                    gl_PointSize = max(0.5, headDiameter * taper);
+                    vRenderedSize = max(0.5, headDiameter * taper * uTrailWidthScale);
+                    gl_PointSize = vRenderedSize;
                 ` : `
                     gl_Position = projectionMatrix * mvPosition;
                     float perspective = 300.0 / max(10.0, -mvPosition.z);
@@ -226,7 +234,9 @@ class NativeFlowSimulation3D {
                     // Allow the size control to produce everything from fine dust
                     // to large, soft energy orbs. The hardware point-size limit is
                     // still respected automatically by WebGL.
-                    gl_PointSize = clamp(uPointSize * aScale * perspective * pulse, 1.0, 144.0);
+                    float sizeCeiling = mix(144.0, 432.0, aHero);
+                    vRenderedSize = clamp(uPointSize * aScale * perspective * pulse, 1.0, sizeCeiling);
+                    gl_PointSize = vRenderedSize;
                 `}
             }
         `;
@@ -236,8 +246,10 @@ class NativeFlowSimulation3D {
         return `
             precision highp float;
             uniform float uTreble;
+            uniform float uPointSize;
             varying vec3 vColor;
             varying float vAlpha;
+            varying float vRenderedSize;
 
             void main() {
                 vec2 d = gl_PointCoord - vec2(0.5);
@@ -247,8 +259,12 @@ class NativeFlowSimulation3D {
                 float core = smoothstep(0.16, 0.0, r);
                 float halo = smoothstep(0.5, 0.04, r);
                 float sparkle = 1.0 + min(1.8, uTreble * 1.35);
-                vec3 color = vColor * (halo * 0.82 + core * 1.9) * sparkle;
-                float alpha = (halo * 0.56 + core * 0.86) * vAlpha;
+                float settingBalance = mix(1.0, 0.42, smoothstep(12.0, 36.0, uPointSize));
+                float heroBalance = mix(1.0, 0.14, smoothstep(90.0, 432.0, vRenderedSize));
+                float largeSizeBalance = min(settingBalance, heroBalance);
+                vec3 color = vColor * (halo * 0.82 + core * 1.9)
+                    * sparkle * mix(1.0, 0.72, 1.0 - largeSizeBalance);
+                float alpha = (halo * 0.56 + core * 0.86) * vAlpha * largeSizeBalance;
                 gl_FragColor = vec4(color, alpha);
             }
         `;
@@ -257,21 +273,40 @@ class NativeFlowSimulation3D {
     createTrailFragmentShader() {
         return `
             precision highp float;
+            uniform float uTime;
             uniform float uTreble;
+            uniform float uPointSize;
+            uniform float uTrailOpacity;
+            uniform float uTrailCoreBoost;
             varying vec3 vColor;
             varying float vAlpha;
             varying float vTrailAmount;
+            varying float vRenderedSize;
 
             void main() {
-                float tail = pow(1.0 - vTrailAmount, 1.45);
+                float tail = pow(1.0 - vTrailAmount, 0.92);
                 vec2 d = gl_PointCoord - vec2(0.5);
                 float radius = length(d);
                 if (radius > 0.5) discard;
-                float softEdge = smoothstep(0.5, 0.08, radius);
-                float core = smoothstep(0.18, 0.0, radius);
-                float shimmer = 0.78 + min(0.8, uTreble * 0.5);
-                vec3 glow = vColor * shimmer * (0.82 + core * 0.72);
-                gl_FragColor = vec4(glow, tail * softEdge * vAlpha * 0.23);
+                float halo = smoothstep(0.5, 0.04, radius);
+                float core = smoothstep(0.2, 0.0, radius);
+
+                // Bright packets travel backward through the tail, giving the
+                // stream visible internal motion even without external audio.
+                float energyWave = 0.9 + 0.1 * pow(
+                    0.5 + 0.5 * sin(uTime * 8.0 - vTrailAmount * 24.0),
+                    3.0
+                );
+                float shimmer = (0.95 + min(1.0, uTreble * 0.62)) * energyWave;
+                vec3 hotColor = mix(vColor, vec3(1.0), core * 0.08 * uTrailCoreBoost);
+                vec3 glow = hotColor * shimmer * (0.86 + core * 0.32 * uTrailCoreBoost);
+                // Large particles cover far more pixels. Temper only their energy,
+                // not their width, so max-size trails stay readable without whiteout.
+                float settingBalance = mix(1.0, 0.18, smoothstep(12.0, 36.0, uPointSize));
+                float heroBalance = mix(1.0, 0.1, smoothstep(90.0, 432.0, vRenderedSize));
+                float largeSizeBalance = min(settingBalance, heroBalance);
+                float alpha = tail * halo * vAlpha * uTrailOpacity * largeSizeBalance;
+                gl_FragColor = vec4(glow, alpha);
             }
         `;
     }
@@ -282,6 +317,7 @@ class NativeFlowSimulation3D {
         const phases = new Float32Array(count);
         const paletteIndices = new Float32Array(count);
         const scales = new Float32Array(count);
+        const heroes = new Float32Array(count);
         const positions = new Float32Array(count * 3);
 
         for (let i = 0; i < count; i++) {
@@ -292,6 +328,10 @@ class NativeFlowSimulation3D {
             phases[i] = Math.random();
             paletteIndices[i] = Math.floor(Math.random() * 6);
             scales[i] = 0.55 + Math.pow(Math.random(), 2.0) * 2.8;
+            // A tiny population becomes a hero comet. Its head and matching tail
+            // can reach roughly three times the ordinary close-fly-by ceiling.
+            heroes[i] = Math.random() < 0.006 ? 1 : 0;
+            if (heroes[i] > 0.5) scales[i] *= 2.7;
         }
 
         this.headGeometry = new THREE.BufferGeometry();
@@ -300,6 +340,7 @@ class NativeFlowSimulation3D {
         this.headGeometry.setAttribute("aPhase", new THREE.BufferAttribute(phases, 1));
         this.headGeometry.setAttribute("aPaletteIndex", new THREE.BufferAttribute(paletteIndices, 1));
         this.headGeometry.setAttribute("aScale", new THREE.BufferAttribute(scales, 1));
+        this.headGeometry.setAttribute("aHero", new THREE.BufferAttribute(heroes, 1));
 
         this.headMaterial = new THREE.ShaderMaterial({
             uniforms: this.sharedUniforms,
@@ -321,6 +362,7 @@ class NativeFlowSimulation3D {
         const trailPhases = new Float32Array(trailVertexCount);
         const trailPaletteIndices = new Float32Array(trailVertexCount);
         const trailScales = new Float32Array(trailVertexCount);
+        const trailHeroes = new Float32Array(trailVertexCount);
         const trailAmounts = new Float32Array(trailVertexCount);
 
         let v = 0;
@@ -335,6 +377,7 @@ class NativeFlowSimulation3D {
                 trailPhases[v] = phases[i];
                 trailPaletteIndices[v] = paletteIndices[i];
                 trailScales[v] = scales[i];
+                trailHeroes[v] = heroes[i];
                 trailAmounts[v] = amount;
                 v++;
             }
@@ -346,10 +389,18 @@ class NativeFlowSimulation3D {
         this.trailGeometry.setAttribute("aPhase", new THREE.BufferAttribute(trailPhases, 1));
         this.trailGeometry.setAttribute("aPaletteIndex", new THREE.BufferAttribute(trailPaletteIndices, 1));
         this.trailGeometry.setAttribute("aScale", new THREE.BufferAttribute(trailScales, 1));
+        this.trailGeometry.setAttribute("aHero", new THREE.BufferAttribute(trailHeroes, 1));
         this.trailGeometry.setAttribute("aTrail", new THREE.BufferAttribute(trailAmounts, 1));
 
-        this.trailMaterial = new THREE.ShaderMaterial({
-            uniforms: this.sharedUniforms,
+        const createTrailMaterial = (widthScale, opacity, coreBoost) => new THREE.ShaderMaterial({
+            // Preserve references to the shared animated uniforms while allowing
+            // each visual layer to own its width/brightness treatment.
+            uniforms: {
+                ...this.sharedUniforms,
+                uTrailWidthScale: { value: widthScale },
+                uTrailOpacity: { value: opacity },
+                uTrailCoreBoost: { value: coreBoost }
+            },
             vertexShader: this.createFlowVertexShader(true),
             fragmentShader: this.createTrailFragmentShader(),
             transparent: true,
@@ -358,12 +409,161 @@ class NativeFlowSimulation3D {
             depthWrite: false
         });
 
-        this.particleTrails = new THREE.Points(this.trailGeometry, this.trailMaterial);
+        // A broad chromatic atmosphere makes the trail readable at world scale;
+        // a second head-sized layer supplies the hot, energetic plasma spine.
+        this.trailHaloMaterial = createTrailMaterial(1.42, 0.1, 0.12);
+        this.trailCoreMaterial = createTrailMaterial(1.0, 0.42, 0.68);
+
+        this.particleTrailHalo = new THREE.Points(this.trailGeometry, this.trailHaloMaterial);
+        this.particleTrailHalo.frustumCulled = false;
+        this.world.add(this.particleTrailHalo);
+
+        this.particleTrails = new THREE.Points(this.trailGeometry, this.trailCoreMaterial);
         this.particleTrails.frustumCulled = false;
         this.world.add(this.particleTrails);
 
         this.setActiveParticleCount(this.activeParticles);
         this.updatePalette(this.palette);
+    }
+
+    initNebulaClouds() {
+        const cloudCount = 46;
+        const verticesPerCloud = 6;
+        const vertexCount = cloudCount * verticesPerCloud;
+        const corners = new Float32Array(vertexCount * 3);
+        const seeds = new Float32Array(vertexCount * 3);
+        const phases = new Float32Array(vertexCount);
+        const scales = new Float32Array(vertexCount);
+        const paletteIndices = new Float32Array(vertexCount);
+        const cornerPattern = [
+            [-1, -1], [1, -1], [-1, 1],
+            [1, -1], [1, 1], [-1, 1]
+        ];
+
+        let v = 0;
+        for (let i = 0; i < cloudCount; i++) {
+            const seed = [Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1];
+            const phase = Math.random();
+            // Most clouds are substantial; a few become world-sized nebula banks.
+            const scale = Math.pow(Math.random(), 0.58);
+            const paletteIndex = Math.floor(Math.random() * 6);
+            for (let c = 0; c < verticesPerCloud; c++, v++) {
+                const v3 = v * 3;
+                corners[v3] = cornerPattern[c][0];
+                corners[v3 + 1] = cornerPattern[c][1];
+                corners[v3 + 2] = 0;
+                seeds[v3] = seed[0];
+                seeds[v3 + 1] = seed[1];
+                seeds[v3 + 2] = seed[2];
+                phases[v] = phase;
+                scales[v] = scale;
+                paletteIndices[v] = paletteIndex;
+            }
+        }
+
+        this.nebulaGeometry = new THREE.BufferGeometry();
+        this.nebulaGeometry.setAttribute("position", new THREE.BufferAttribute(corners, 3));
+        this.nebulaGeometry.setAttribute("aSeed", new THREE.BufferAttribute(seeds, 3));
+        this.nebulaGeometry.setAttribute("aPhase", new THREE.BufferAttribute(phases, 1));
+        this.nebulaGeometry.setAttribute("aScale", new THREE.BufferAttribute(scales, 1));
+        this.nebulaGeometry.setAttribute("aPaletteIndex", new THREE.BufferAttribute(paletteIndices, 1));
+
+        this.nebulaMaterial = new THREE.ShaderMaterial({
+            uniforms: this.sharedUniforms,
+            vertexShader: `
+                precision highp float;
+                attribute vec3 aSeed;
+                attribute float aPhase;
+                attribute float aScale;
+                attribute float aPaletteIndex;
+                uniform float uTime;
+                uniform float uBass;
+                uniform vec3 uPalette[6];
+                varying vec2 vUv;
+                varying vec3 vColor;
+                varying float vAlpha;
+                varying float vNoiseSeed;
+
+                const float PI = 3.141592653589793;
+
+                vec3 paletteColor(float indexValue) {
+                    vec3 c = uPalette[0];
+                    c = mix(c, uPalette[1], step(0.5, indexValue));
+                    c = mix(c, uPalette[2], step(1.5, indexValue));
+                    c = mix(c, uPalette[3], step(2.5, indexValue));
+                    c = mix(c, uPalette[4], step(3.5, indexValue));
+                    c = mix(c, uPalette[5], step(4.5, indexValue));
+                    return pow(max(c, vec3(0.001)), vec3(0.68));
+                }
+
+                void main() {
+                    float phase = aPhase * PI * 2.0;
+                    float drift = uTime * 0.055;
+                    float orbitRadius = 360.0 + abs(aSeed.x) * 390.0;
+                    float z = mod((aSeed.z * 0.5 + 0.5) * 1500.0 + uTime * 2.2, 1500.0) - 750.0;
+                    vec3 center = vec3(
+                        cos(phase + drift * (0.24 + abs(aSeed.y) * 0.18)) * orbitRadius
+                            + sin(drift * 0.7 + aSeed.z * 8.0) * 150.0,
+                        sin(phase * 1.37 - drift * 0.19) * (240.0 + abs(aSeed.y) * 330.0)
+                            + cos(drift * 0.43 + aSeed.x * 7.0) * 95.0,
+                        z
+                    );
+
+                    vec4 mvCenter = modelViewMatrix * vec4(center, 1.0);
+                    float cloudSize = mix(85.0, 430.0, aScale) * (1.0 + min(0.22, uBass * 0.12));
+                    vec4 mvPosition = mvCenter;
+                    mvPosition.xy += position.xy * cloudSize;
+                    gl_Position = projectionMatrix * mvPosition;
+
+                    float breathe = pow(0.5 + 0.5 * sin(uTime * 0.115 + phase), 2.6);
+                    float nearFade = smoothstep(130.0, 320.0, abs(mvCenter.z));
+                    float farFade = smoothstep(920.0, 250.0, abs(mvCenter.z));
+                    vAlpha = breathe * nearFade * farFade;
+                    vUv = position.xy * 0.5 + 0.5;
+                    vColor = paletteColor(aPaletteIndex);
+                    vNoiseSeed = phase + aSeed.x * 3.1 + aSeed.y * 5.7;
+                }
+            `,
+            fragmentShader: `
+                precision highp float;
+                uniform float uTime;
+                varying vec2 vUv;
+                varying vec3 vColor;
+                varying float vAlpha;
+                varying float vNoiseSeed;
+
+                void main() {
+                    vec2 p = vUv * 2.0 - 1.0;
+                    float r = length(p);
+                    if (r > 1.0) discard;
+
+                    float body = exp(-r * r * 3.0);
+                    float lobeA = exp(-dot(p - vec2(0.27, -0.13), p - vec2(0.27, -0.13)) * 8.0);
+                    float lobeB = exp(-dot(p + vec2(0.31, 0.19), p + vec2(0.31, 0.19)) * 7.0);
+                    float filaments = 0.62 + 0.38 * sin(
+                        p.x * 13.0 + sin(p.y * 9.0 + uTime * 0.09 + vNoiseSeed) * 2.6
+                    );
+                    filaments *= 0.72 + 0.28 * cos(p.y * 15.0 - uTime * 0.07 + vNoiseSeed);
+                    float density = (body * 0.62 + lobeA * 0.24 + lobeB * 0.2)
+                        * mix(0.58, 1.0, filaments);
+                    float edge = smoothstep(1.0, 0.22, r);
+                    float alpha = density * edge * vAlpha * 0.14;
+                    vec3 color = vColor * (0.64 + density * 0.58);
+                    gl_FragColor = vec4(color, alpha);
+                }
+            `,
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            depthTest: true,
+            depthWrite: false,
+            side: THREE.DoubleSide
+        });
+
+        this.nebulaClouds = new THREE.Mesh(this.nebulaGeometry, this.nebulaMaterial);
+        this.nebulaClouds.frustumCulled = false;
+        // Clouds sit behind sharp heads and tails in the group render order.
+        this.nebulaClouds.renderOrder = -1;
+        this.world.add(this.nebulaClouds);
     }
 
     initDeepStars() {
@@ -444,7 +644,7 @@ class NativeFlowSimulation3D {
         this.headGeometry.setDrawRange(0, this.activeParticles);
         // A minority of particles carry connected trails. Heads remain dense and
         // volumetric while the scene avoids collapsing into a uniform wire mesh.
-        const trailedParticles = Math.max(600, Math.floor(this.activeParticles * 0.28));
+        const trailedParticles = Math.max(700, Math.floor(this.activeParticles * 0.32));
         this.trailGeometry.setDrawRange(0, trailedParticles * this.trailSegments);
     }
 
@@ -507,9 +707,17 @@ class NativeFlowSimulation3D {
         const baseSize = Math.max(0.1, Math.min(14.0, s.baseSize ?? 2.8));
         const sizePosition = (baseSize - 0.1) / 13.9;
         this.sharedUniforms.uPointSize.value = 1.5 + Math.pow(sizePosition, 1.5) * 38.5;
+        // Larger particles need longer spatial separation between glow samples;
+        // otherwise a dramatic tail compresses into one fuzzy blob.
+        this.sharedUniforms.uTrailLength.value = 0.62 + sizePosition * 0.9;
 
         const density = Math.max(100, Math.min(8000, s.density ?? 1200));
-        const desiredCount = 3400 + ((density - 100) / 7900) * (this.maxParticles - 3400);
+        const baseCount = 3400 + ((density - 100) / 7900) * (this.maxParticles - 3400);
+        // Large sprites need spatial breathing room. Preserve their dramatic size
+        // while reducing overlap instead of allowing a max-size/max-density scene
+        // to collapse into a featureless white screen.
+        const crowdingScale = 1.0 - 0.65 * Math.pow(sizePosition, 1.7);
+        const desiredCount = 2200 + (baseCount - 2200) * crowdingScale;
         if (Math.abs(desiredCount - this.activeParticles) > 160) {
             this.setActiveParticleCount(desiredCount);
         }
@@ -644,7 +852,10 @@ class NativeFlowSimulation3D {
         this.headGeometry.dispose();
         this.trailGeometry.dispose();
         this.headMaterial.dispose();
-        this.trailMaterial.dispose();
+        this.trailHaloMaterial.dispose();
+        this.trailCoreMaterial.dispose();
+        this.nebulaGeometry.dispose();
+        this.nebulaMaterial.dispose();
         this.deepStars.geometry.dispose();
         this.deepStars.material.dispose();
         this.renderer.dispose();
