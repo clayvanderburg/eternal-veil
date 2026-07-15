@@ -112,6 +112,12 @@
             <span style="font-weight: bold; font-size: 9px; letter-spacing: 0.5px;">3D</span>
         </button>
 
+        <!-- 3D Style Quick Selector (Visible only when 3D mode is active) -->
+        <div class="style-selector-pill hide" id="webgl-style-quick-selector">
+            <button class="style-pill-btn active" id="style-pill-native" data-style="native">NATIVE</button>
+            <button class="style-pill-btn" id="style-pill-dome" data-style="dome">DOME</button>
+        </div>
+
         <!-- Enter VR (Hidden by default) -->
         <button class="icon-btn tool-tip hide" id="enter-vr-btn" data-tooltip="Enter VR Headset Mode (V)" style="border-color: #ff3333;">
             <span style="font-weight: bold; font-size: 9px; letter-spacing: 0.5px; color: #ff3333;">VR</span>
@@ -494,13 +500,6 @@
                         </select>
                     </div>
 
-                    <div class="setting-select-row" style="margin-top: 14px;">
-                        <span class="setting-label" style="font-size: 11px;">3D Visual Style:</span>
-                        <select id="webgl-style-select" class="dropdown-select">
-                            <option value="native" selected>Volumetric Flow (GPU)</option>
-                            <option value="dome">Parallax Flow Dome</option>
-                        </select>
-                    </div>
                 </div>
             </section>
 

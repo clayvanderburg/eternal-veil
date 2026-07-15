@@ -167,7 +167,9 @@ document.addEventListener("DOMContentLoaded", () => {
         spinningKaleidoToggle: document.getElementById("spinning-kaleido-toggle"),
         shockwavesToggle: document.getElementById("shockwaves-toggle"),
         particleShapeSelect: document.getElementById("particle-shape-select"),
-        webglStyleSelect: document.getElementById("webgl-style-select"),
+        webglStyleQuickSelector: document.getElementById("webgl-style-quick-selector"),
+        stylePillNative: document.getElementById("style-pill-native"),
+        stylePillDome: document.getElementById("style-pill-dome"),
         
         // Fading & binaural elements
         hud: document.getElementById("hud"),
@@ -235,7 +237,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // WebXR VR session callbacks to resize the canvas dynamically
         window.onVRSessionStart = () => {
-            if (elements.webglStyleSelect) elements.webglStyleSelect.disabled = true;
+            if (elements.stylePillNative) elements.stylePillNative.disabled = true;
+            if (elements.stylePillDome) elements.stylePillDome.disabled = true;
             if (sim3D && sim3D.usesFlowTexture === false) {
                 CosmicLogger.info("WebXR VR Session active in native volumetric particle mode.");
                 return;
@@ -246,7 +249,8 @@ document.addEventListener("DOMContentLoaded", () => {
         };
 
         window.onVRSessionEnd = () => {
-            if (elements.webglStyleSelect) elements.webglStyleSelect.disabled = false;
+            if (elements.stylePillNative) elements.stylePillNative.disabled = false;
+            if (elements.stylePillDome) elements.stylePillDome.disabled = false;
             if (sim3D && sim3D.usesFlowTexture === false) {
                 CosmicLogger.info("WebXR VR Session ended. Native volumetric field remains active in desktop 3D.");
                 return;
@@ -790,6 +794,13 @@ document.addEventListener("DOMContentLoaded", () => {
         is3DMode = nextState;
         
         if (is3DMode) {
+            if (elements.webglStyleQuickSelector) {
+                elements.webglStyleQuickSelector.classList.remove("hide");
+                if (typeof window.updateQuickSelectorPill === "function") {
+                    window.updateQuickSelectorPill(selected3DStyle);
+                }
+            }
+            
             if (!sim3D) {
                 CosmicLogger.info(`Initializing 3D renderer style: ${selected3DStyle.toUpperCase()} using Three.js...`);
                 try {
@@ -802,7 +813,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     CosmicLogger.warn("3D initialization failed; falling back to Parallax Flow Dome. " + error.message);
                     selected3DStyle = "dome";
                     save3DStyle("dome");
-                    if (elements.webglStyleSelect) elements.webglStyleSelect.value = "dome";
+                    if (typeof window.updateQuickSelectorPill === "function") {
+                        window.updateQuickSelectorPill("dome");
+                    }
                     sim3D = new FlowSimulation3D("webgl-canvas");
                 }
                 window.sim3D = sim3D;
@@ -847,6 +860,10 @@ document.addEventListener("DOMContentLoaded", () => {
             restart3DLoop();
             
         } else {
+            if (elements.webglStyleQuickSelector) {
+                elements.webglStyleQuickSelector.classList.add("hide");
+            }
+            
             if (sim3D) {
                 sim3D.renderer.setAnimationLoop(null);
             }
@@ -876,7 +893,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (sim3D && sim3D.renderer.xr.isPresenting) {
             CosmicLogger.warn("Cannot switch 3D styles during an active WebXR VR session.");
             showToast("Exit VR first to switch 3D styles.");
-            if (elements.webglStyleSelect) elements.webglStyleSelect.value = selected3DStyle;
+            if (typeof window.updateQuickSelectorPill === "function") {
+                window.updateQuickSelectorPill(selected3DStyle);
+            }
             return;
         }
 
@@ -904,7 +923,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 CosmicLogger.error("Failed to hot-swap 3D renderer. Rolling back to Dome. " + err.message);
                 selected3DStyle = "dome";
                 save3DStyle("dome");
-                if (elements.webglStyleSelect) elements.webglStyleSelect.value = "dome";
+                if (typeof window.updateQuickSelectorPill === "function") {
+                    window.updateQuickSelectorPill("dome");
+                }
                 sim3D = new FlowSimulation3D("webgl-canvas");
             }
             window.sim3D = sim3D;
@@ -1288,11 +1309,30 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.particleShapeSelect.onchange = () => {
             sim.settings.particleShape = elements.particleShapeSelect.value;
         };
-        if (elements.webglStyleSelect) {
-            elements.webglStyleSelect.value = selected3DStyle;
-            elements.webglStyleSelect.onchange = () => {
-                change3DStyle(elements.webglStyleSelect.value);
+        if (elements.webglStyleQuickSelector) {
+            const updateQuickSelectorPill = (style) => {
+                if (style === "native") {
+                    elements.stylePillNative.classList.add("active");
+                    elements.stylePillDome.classList.remove("active");
+                } else {
+                    elements.stylePillNative.classList.remove("active");
+                    elements.stylePillDome.classList.add("active");
+                }
             };
+            
+            updateQuickSelectorPill(selected3DStyle);
+
+            elements.stylePillNative.onclick = () => {
+                change3DStyle("native");
+                updateQuickSelectorPill("native");
+            };
+            elements.stylePillDome.onclick = () => {
+                change3DStyle("dome");
+                updateQuickSelectorPill("dome");
+            };
+            
+            // Expose globally so other functions can keep the quick selector synced
+            window.updateQuickSelectorPill = updateQuickSelectorPill;
         }
 
         // Media Exports

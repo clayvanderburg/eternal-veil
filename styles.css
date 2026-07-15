@@ -220,6 +220,57 @@ body {
     right: calc(var(--panel-width) + 24px);
 }
 
+/* Glassmorphic 3D Style Pill Selector */
+.style-selector-pill {
+    display: flex;
+    align-items: center;
+    background: rgba(12, 12, 18, 0.45);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 30px;
+    padding: 3px;
+    gap: 2px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    opacity: 1;
+    transform: scale(1);
+}
+
+.style-selector-pill.hide {
+    display: none;
+    opacity: 0;
+    transform: scale(0.9) translateX(10px);
+    pointer-events: none;
+}
+
+.style-pill-btn {
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: var(--font-primary);
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    padding: 5px 10px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    outline: none;
+}
+
+.style-pill-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.style-pill-btn.active {
+    color: var(--text-primary);
+    background: rgba(99, 102, 241, 0.2); /* Sleek translucent Indigo */
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.15);
+}
+
 /* Icon Buttons styling */
 .icon-btn {
     width: 38px;
