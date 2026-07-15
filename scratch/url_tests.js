@@ -104,19 +104,19 @@ try {
     const extremeState = {
         v: 1,
         settings: {
-            density: 999999,      // Exceeds max 4000
-            speed: 55.5,          // Exceeds max 4.0
+            density: 999999,      // Exceeds max 8000
+            speed: 55.5,          // Exceeds max 8.0
             turbulence: -12.0,    // Exceeds min 0.0
-            zoom: 0.02,           // Exceeds min 0.3
+            zoom: 0.02,           // Exceeds min 0.1
             kaleidoscopeSegments: 99, // Exceeds max 12
         }
     };
 
     const outExtreme = StateSchema.sanitize(extremeState);
-    assert.strictEqual(outExtreme.settings.density, 4000, "Extreme density 999999 should be clamped to 4000");
-    assert.strictEqual(outExtreme.settings.speed, 4.0, "Extreme speed 55.5 should be clamped to 4.0");
+    assert.strictEqual(outExtreme.settings.density, 8000, "Extreme density 999999 should be clamped to 8000");
+    assert.strictEqual(outExtreme.settings.speed, 8.0, "Extreme speed 55.5 should be clamped to 8.0");
     assert.strictEqual(outExtreme.settings.turbulence, 0.0, "Negative turbulence should be clamped to 0.0");
-    assert.strictEqual(outExtreme.settings.zoom, 0.3, "Tiny zoom 0.02 should be clamped to 0.3");
+    assert.strictEqual(outExtreme.settings.zoom, 0.1, "Tiny zoom 0.02 should be clamped to 0.1");
     assert.strictEqual(outExtreme.settings.kaleidoscopeSegments, 12, "Extreme segments should be clamped to 12");
     assert.strictEqual(outExtreme.clampedWarning, true, "clampedWarning flag should be set");
     console.log("✅ Passed: Extreme setting bounds are correctly clamped.");

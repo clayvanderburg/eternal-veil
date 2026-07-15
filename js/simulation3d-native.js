@@ -497,19 +497,19 @@ class NativeFlowSimulation3D {
 
     updateFromSettings() {
         const s = this.settings || {};
-        this.sharedUniforms.uSpeed.value = Math.max(0.05, Math.min(4, s.speed ?? 1));
-        this.sharedUniforms.uTurbulence.value = Math.max(0, Math.min(2.4, s.turbulence ?? 0.65));
-        this.sharedUniforms.uOrganic.value = Math.max(0, Math.min(2, s.flowOrganic ?? 0.85));
-        // The flat renderer's 0.5–7 size range was too compressed in a world-scale
+        this.sharedUniforms.uSpeed.value = Math.max(0.0, Math.min(8.0, s.speed ?? 1.0));
+        this.sharedUniforms.uTurbulence.value = Math.max(0.0, Math.min(5.0, s.turbulence ?? 0.65));
+        this.sharedUniforms.uOrganic.value = Math.max(0.0, Math.min(2.0, s.flowOrganic ?? 0.85));
+        // The flat renderer's 0.1–14 size range was too compressed in a world-scale
         // 3D volume. A curved mapping keeps the lower half controllable while the
         // upper end can create genuinely large VR particles. Approximate native
         // range: 1.5px–40px before distance, random scale, and music pulses.
-        const baseSize = Math.max(0.5, Math.min(7, s.baseSize ?? 2.8));
-        const sizePosition = (baseSize - 0.5) / 6.5;
+        const baseSize = Math.max(0.1, Math.min(14.0, s.baseSize ?? 2.8));
+        const sizePosition = (baseSize - 0.1) / 13.9;
         this.sharedUniforms.uPointSize.value = 1.5 + Math.pow(sizePosition, 1.5) * 38.5;
 
-        const density = Math.max(200, Math.min(4000, s.density ?? 1200));
-        const desiredCount = 3400 + ((density - 200) / 3800) * (this.maxParticles - 3400);
+        const density = Math.max(100, Math.min(8000, s.density ?? 1200));
+        const desiredCount = 3400 + ((density - 100) / 7900) * (this.maxParticles - 3400);
         if (Math.abs(desiredCount - this.activeParticles) > 160) {
             this.setActiveParticleCount(desiredCount);
         }

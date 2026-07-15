@@ -290,7 +290,8 @@
                         <span class="setting-label">Flow Speed</span>
                         <span class="slider-value" id="speed-val">1.00</span>
                     </div>
-                    <input type="range" id="speed-slider" class="range-slider" min="0.1" max="4.0" step="0.05" value="1.00">
+                    <input type="range" id="speed-slider" class="range-slider" min="0.0" max="8.0" step="0.05" value="1.00">
+                    <p class="micro-tip">Controls how fast the background currents flow. 0 freezes the motion entirely.</p>
                 </div>
 
                 <!-- Turbulence -->
@@ -299,7 +300,8 @@
                         <span class="setting-label">Turbulence Chaos</span>
                         <span class="slider-value" id="turbulence-val">0.65</span>
                     </div>
-                    <input type="range" id="turbulence-slider" class="range-slider" min="0.0" max="2.5" step="0.05" value="0.65">
+                    <input type="range" id="turbulence-slider" class="range-slider" min="0.0" max="5.0" step="0.05" value="0.65">
+                    <p class="micro-tip">Adds wind-like chaos to paths. Higher values make paths look jagged and erratic.</p>
                 </div>
 
                 <!-- Density -->
@@ -308,7 +310,8 @@
                         <span class="setting-label">Particle Density</span>
                         <span class="slider-value" id="density-val">1200</span>
                     </div>
-                    <input type="range" id="density-slider" class="range-slider" min="200" max="4000" step="50" value="1200">
+                    <input type="range" id="density-slider" class="range-slider" min="100" max="8000" step="50" value="1200">
+                    <p class="micro-tip">Total count of particles. More particles look richer but slow down older computers.</p>
                 </div>
 
                 <!-- Organic Flow vs Turbulence grid -->
@@ -317,8 +320,8 @@
                         <span class="setting-label">Flow Organic (Curl)</span>
                         <span class="slider-value" id="curl-val">0.85</span>
                     </div>
-                    <input type="range" id="curl-slider" class="range-slider" min="0.0" max="1.0" step="0.01" value="0.85">
-                    <p class="micro-tip">Higher values create fluid whirlpools; lower values resemble static heatwaves.</p>
+                    <input type="range" id="curl-slider" class="range-slider" min="0.0" max="2.0" step="0.01" value="0.85">
+                    <p class="micro-tip">Curviness of flow lines. High values create whirlpools; low values create straight lines.</p>
                 </div>
 
                 <!-- Dissipation / Trail length -->
@@ -327,7 +330,8 @@
                         <span class="setting-label">Dissipation (Trail Shortness)</span>
                         <span class="slider-value" id="dissipation-val">0.012</span>
                     </div>
-                    <input type="range" id="dissipation-slider" class="range-slider" min="0.002" max="0.06" step="0.001" value="0.012">
+                    <input type="range" id="dissipation-slider" class="range-slider" min="0.001" max="0.12" step="0.001" value="0.012">
+                    <p class="micro-tip">How fast trails fade. Lower values create infinite trails; higher values leave only tiny dots.</p>
                 </div>
 
                 <!-- Zoom / Noise Scale -->
@@ -336,7 +340,8 @@
                         <span class="setting-label">Flow Pattern Scale (Zoom)</span>
                         <span class="slider-value" id="zoom-val">1.00</span>
                     </div>
-                    <input type="range" id="zoom-slider" class="range-slider" min="0.3" max="3.5" step="0.05" value="1.00">
+                    <input type="range" id="zoom-slider" class="range-slider" min="0.1" max="7.0" step="0.05" value="1.00">
+                    <p class="micro-tip">Visual zoom of the noise waves. High zooms create huge sweeps; low zooms show tiny waves.</p>
                 </div>
             </section>
 
@@ -348,7 +353,8 @@
                         <span class="setting-label">Particle Size</span>
                         <span class="slider-value" id="size-val">2.8</span>
                     </div>
-                    <input type="range" id="size-slider" class="range-slider" min="0.5" max="7.0" step="0.1" value="2.8">
+                    <input type="range" id="size-slider" class="range-slider" min="0.1" max="14.0" step="0.1" value="2.8">
+                    <p class="micro-tip">Thickness of individual particles. Range goes from fine dust to giant energy bubbles.</p>
                 </div>
 
                 <!-- Size Variation -->
@@ -357,7 +363,8 @@
                         <span class="setting-label">Size Variation</span>
                         <span class="slider-value" id="size-var-val">1.4</span>
                     </div>
-                    <input type="range" id="size-var-slider" class="range-slider" min="0.0" max="3.5" step="0.1" value="1.4">
+                    <input type="range" id="size-var-slider" class="range-slider" min="0.0" max="7.0" step="0.1" value="1.4">
+                    <p class="micro-tip">How different particle sizes are. Higher mixes huge and tiny particles together.</p>
                 </div>
 
                 <!-- Particle Stretch / Directionality -->
@@ -366,7 +373,8 @@
                         <span class="setting-label">Speed Stretch</span>
                         <span class="slider-value" id="stretch-val">1.6</span>
                     </div>
-                    <input type="range" id="stretch-slider" class="range-slider" min="0.0" max="4.0" step="0.1" value="1.6">
+                    <input type="range" id="stretch-slider" class="range-slider" min="0.0" max="8.0" step="0.1" value="1.6">
+                    <p class="micro-tip">Stretches moving particles into lines. 0 is round; high values create warp speed trails.</p>
                 </div>
 
                 <!-- Particle Interaction (repel forces) -->
@@ -375,7 +383,8 @@
                         <span class="setting-label">Swarm Repulsion Force</span>
                         <span class="slider-value" id="interaction-val">0.7</span>
                     </div>
-                    <input type="range" id="interaction-slider" class="range-slider" min="0.0" max="2.5" step="0.1" value="0.7">
+                    <input type="range" id="interaction-slider" class="range-slider" min="0.0" max="5.0" step="0.1" value="0.7">
+                    <p class="micro-tip">How strongly particles push away from neighbors. High values create clean, organized lanes.</p>
                 </div>
 
                 <!-- Mouse Influence -->
@@ -384,7 +393,8 @@
                         <span class="setting-label">Mouse Influence</span>
                         <span class="slider-value" id="mouse-influence-val">0.8</span>
                     </div>
-                    <input type="range" id="mouse-influence-slider" class="range-slider" min="0.0" max="3.0" step="0.1" value="0.8">
+                    <input type="range" id="mouse-influence-slider" class="range-slider" min="0.0" max="6.0" step="0.1" value="0.8">
+                    <p class="micro-tip">How strongly the mouse cursor pulls, pushes, or twists particles on screen.</p>
                     
                     <div class="setting-select-row">
                         <span class="setting-label" style="font-size: 11px;">Mouse Click Mode:</span>
