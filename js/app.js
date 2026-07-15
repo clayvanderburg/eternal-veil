@@ -443,6 +443,45 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- INITIALIZATION ---
     function initialize() {
         CosmicLogger.info("ETERNAL VEIL initializing...");
+        
+        // --- DOMAIN LOCK PROTECTOR ---
+        const allowedHosts = ["localhost", "127.0.0.1"];
+        const hostname = window.location.hostname;
+        const isAllowed = allowedHosts.includes(hostname) || hostname.endsWith("netlify.app");
+        if (!isAllowed) {
+            document.body.innerHTML = `
+                <div style="
+                    display: flex; 
+                    flex-direction: column; 
+                    justify-content: center; 
+                    align-items: center; 
+                    height: 100vh; 
+                    background: #020207; 
+                    color: #e2e8f0; 
+                    font-family: 'Inter', system-ui, sans-serif;
+                    text-align: center;
+                    padding: 20px;
+                ">
+                    <h1 style="color: #818cf8; font-size: 24px; margin-bottom: 10px; font-weight: 700; letter-spacing: 0.5px;">Unauthorized Mirror Detected</h1>
+                    <p style="color: #94a3b8; font-size: 14px; max-width: 400px; line-height: 1.6; margin-bottom: 24px;">
+                        This digital interactive art piece is hosted exclusively at the official domain.
+                    </p>
+                    <a href="https://eternal-veil.netlify.app" style="
+                        background: #4f46e5; 
+                        color: #ffffff; 
+                        text-decoration: none; 
+                        padding: 12px 24px; 
+                        border-radius: 8px; 
+                        font-weight: 700;
+                        font-size: 13px;
+                        box-shadow: 0 0 20px rgba(79, 70, 229, 0.4);
+                        transition: all 0.2s ease;
+                    ">Go to Official Site</a>
+                </div>
+            `;
+            throw new Error("Domain lock triggered: unauthorized hostname mirror.");
+        }
+
         ConfigHistory.init();
         setupTabs();
         setupFlowToggles();
