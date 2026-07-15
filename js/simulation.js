@@ -100,6 +100,8 @@ class Particle {
         this.h = h;
         this.palette = palette;
         this.viewportScale = 1.0;
+        this.isBurst = false;
+        this.dead = false;
         this.reset(true);
     }
 
@@ -117,6 +119,7 @@ class Particle {
         
         this.life = initial ? Math.random() * 80 + 40 : Math.random() * 60 + 80;
         this.maxLife = this.life;
+        this.dead = false;
         
         // Cache random offset to avoid Math.random() in hot rendering loop
         this.randomSizeOffset = Math.random() - 0.5;
@@ -135,7 +138,7 @@ class Particle {
         return this.palette[Math.floor(Math.random() * this.palette.length)];
     }
 
-    update(settings, globalTime, mouse, customForces, shockwaves, vortices) {
+    update(settings, globalTime, mouse, customForces, shockwaves, vortices, dt = 1.0) {
         // Calculate viewport scale reference (based on 1600px desktop width)
         const scaleRef = Math.max(0.4, this.viewportScale || 1.0);
         
@@ -186,11 +189,12 @@ class Particle {
             }
         }
 
-        // Apply drag/friction
+        // Apply drag/friction using time-corrected exponential decay
         const drag = settings.drag !== undefined ? settings.drag : 0.90;
+        const dragFactor = Math.pow(drag, dt);
         // Add force directly to enable rapid acceleration and beautiful long trailing lines
-        this.vx = this.vx * drag + targetVx * 0.58;
-        this.vy = this.vy * drag + targetVy * 0.58;
+        this.vx = this.vx * dragFactor + targetVx * 0.58 * dt;
+        this.vy = this.vy * dragFactor + targetVy * 0.58 * dt;
 
         // Apply mouse interaction fields
         if (mouse && mouse.active && settings.mouseInfluence > 0.05) {
@@ -201,7 +205,7 @@ class Particle {
 
             if (distSq < radius * radius && distSq > 4) {
                 const dist = Math.sqrt(distSq);
-                const strength = (radius - dist) / radius * settings.mouseInfluence * scaleRef;
+                const strength = (radius - dist) / radius * settings.mouseInfluence * scaleRef * dt;
 
                 switch (settings.mouseMode) {
                     case "attract":
@@ -235,8 +239,8 @@ class Particle {
                     const forceFactor = (range - dist) / range * (force.life / force.maxLife);
                     
                     // Add painted velocity vectors onto particle direction
-                    this.vx += force.vx * forceFactor * 0.8 * scaleRef;
-                    this.vy += force.vy * forceFactor * 0.8 * scaleRef;
+                    this.vx += force.vx * forceFactor * 0.8 * scaleRef * dt;
+                    this.vy += force.vy * forceFactor * 0.8 * scaleRef * dt;
                 }
             }
         }
@@ -256,7 +260,7 @@ class Particle {
                         
                         if (distSq < minDist * minDist && distSq > 0.1) {
                             const dist = Math.sqrt(distSq);
-                            const force = (minDist - dist) / minDist * settings.interaction * 0.6 * scaleRef;
+                            const force = (minDist - dist) / minDist * settings.interaction * 0.6 * scaleRef * dt;
                             this.vx += (dx / dist) * force;
                             this.vy += (dy / dist) * force;
                         }
@@ -276,7 +280,7 @@ class Particle {
                 if (distSq < radius * radius && distSq > 4) {
                     const dist = Math.sqrt(distSq);
                     const lifeRatio = v.life / v.maxLife;
-                    const strength = (radius - dist) / radius * v.strength * lifeRatio * scaleRef;
+                    const strength = (radius - dist) / radius * v.strength * lifeRatio * scaleRef * dt;
                     
                     // Pull to center
                     this.vx -= (dx / dist) * strength * 0.45;
@@ -303,7 +307,7 @@ class Particle {
                     if (Math.abs(dist - sw.radius) < ringWidth) {
                         const distFromWave = 1.0 - Math.abs(dist - sw.radius) / ringWidth;
                         const lifeFactor = 1.0 - sw.radius / sw.maxRadius;
-                        const strength = distFromWave * lifeFactor * sw.force * scaleRef;
+                        const strength = distFromWave * lifeFactor * sw.force * scaleRef * dt;
                         
                         this.vx += (dx / dist) * strength * 0.65;
                         this.vy += (dy / dist) * strength * 0.65;
@@ -332,14 +336,14 @@ class Particle {
             this.color = `hsla(${hue}, 98%, 62%, 0.85)`;
         }
 
-        // Move position
+        // Move position using time-scaled velocity
         this.lastX = this.x;
         this.lastY = this.y;
         this.lastPerpX = this.perpX || 0;
         this.lastPerpY = this.perpY || 0;
         
-        this.x += this.vx;
-        this.y += this.vy;
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
 
         // Calculate new perpendicular unit vector based on current velocity heading
         const headingAngle = Math.atan2(this.vy, this.vx);
@@ -367,9 +371,13 @@ class Particle {
         }
 
         // Age
-        this.life--;
+        this.life -= dt;
         if (this.life <= 0) {
-            this.reset();
+            if (this.isBurst) {
+                this.dead = true;
+            } else {
+                this.reset();
+            }
         }
     }
 
@@ -381,7 +389,7 @@ class Particle {
         
         // Dynamic transparency fades based on age and particle preset styles
         const alpha = lifeRatio * 0.78;
-        const stretch = settings.stretch || 1.6;
+        const stretch = settings.stretch ?? 1.6;
         let shape = settings.particleShape || "ellipse";
         
         // Base sizes scaled proportionally to screen width (using cached randomSizeOffset to save CPU)
@@ -574,12 +582,12 @@ class Sparkle {
         this.color = color;
         this.size = Math.random() * 1.3 + 0.6;
     }
-    update() {
-        this.x += this.vx;
-        this.y += this.vy;
-        this.vx *= 0.93;
-        this.vy *= 0.93;
-        this.life--;
+    update(dt = 1.0) {
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+        this.vx *= Math.pow(0.93, dt);
+        this.vy *= Math.pow(0.93, dt);
+        this.life -= dt;
     }
     draw(ctx) {
         const alpha = Math.max(0, this.life / this.maxLife);
@@ -720,11 +728,13 @@ class FlowSimulation {
 
     triggerBurst(x, y, count = 10) {
         const maxLimit = this.settings.density * 1.5; // caps absolute overheads
-        if (this.particles.length > maxLimit) return;
+        if (this.particles.length >= maxLimit) return;
         
-        for (let i = 0; i < count; i++) {
+        const countToSpawn = Math.min(count, Math.max(0, maxLimit - this.particles.length));
+        for (let i = 0; i < countToSpawn; i++) {
             const p = new Particle(this.width, this.height, this.palette);
             p.viewportScale = this.viewportScale;
+            p.isBurst = true;
             p.x = x + (Math.random() - 0.5) * 8;
             p.y = y + (Math.random() - 0.5) * 8;
             
@@ -786,11 +796,12 @@ class FlowSimulation {
         const now = Date.now();
         const delta = Math.min((now - this.lastFrameTime) / 1000, 0.05); // cap at 50ms (20fps min)
         this.lastFrameTime = now;
+        const dt = Math.min(delta * 60, 2.0); // normalized step, 1.0 at 60 FPS
         this.globalTime += delta * 60; // normalized speed steps
 
         // Update painted custom force field lifetimes
         for (let i = this.customForces.length - 1; i >= 0; i--) {
-            this.customForces[i].life--;
+            this.customForces[i].life -= dt;
             if (this.customForces[i].life <= 0) {
                 this.customForces.splice(i, 1);
             }
@@ -799,7 +810,7 @@ class FlowSimulation {
         // Update click shockwaves
         for (let i = this.shockwaves.length - 1; i >= 0; i--) {
             const sw = this.shockwaves[i];
-            sw.radius += sw.speed;
+            sw.radius += sw.speed * dt;
             if (sw.radius >= sw.maxRadius) {
                 this.shockwaves.splice(i, 1);
             }
@@ -808,7 +819,7 @@ class FlowSimulation {
         // Update beat-reactive vortices
         for (let i = this.vortices.length - 1; i >= 0; i--) {
             const v = this.vortices[i];
-            v.life--;
+            v.life -= dt;
             if (v.life <= 0) {
                 this.vortices.splice(i, 1);
             }
@@ -830,9 +841,11 @@ class FlowSimulation {
             this.ctx.fillStyle = this.backgroundColor;
             this.ctx.fillRect(0, 0, this.width, this.height);
         } else {
-            // Fading trail effect
+            // Fading trail effect (time-corrected trail dissipation)
             this.ctx.fillStyle = this.backgroundColor;
-            this.ctx.globalAlpha = this.settings.dissipation;
+            // Approximate time-corrected alpha decay: alpha = 1 - (1 - dissipation)^dt
+            const dissipationFactor = 1.0 - Math.pow(1.0 - this.settings.dissipation, dt);
+            this.ctx.globalAlpha = Math.max(0.001, Math.min(1.0, dissipationFactor));
             this.ctx.fillRect(0, 0, this.width, this.height);
             this.ctx.globalAlpha = 1.0;
 
@@ -841,7 +854,7 @@ class FlowSimulation {
                 const wobbleAmount = this.settings.wobble * 0.03;
                 const wobbleVal = Math.sin(this.globalTime * 0.05) * wobbleAmount;
                 
-                this.globalRotation += (this.settings.rotationSpeed * 0.004) + wobbleVal * 0.002;
+                this.globalRotation += ((this.settings.rotationSpeed * 0.004) + wobbleVal * 0.002) * dt;
                 
                 const cx = this.width / 2;
                 const cy = this.height / 2;
@@ -863,14 +876,14 @@ class FlowSimulation {
             // Draw Core particles
             for (let i = 0; i < this.particles.length; i++) {
                 const p = this.particles[i];
-                p.update(this.settings, this.globalTime, this.mouse, this.customForces, this.shockwaves, this.vortices);
+                p.update(this.settings, this.globalTime, this.mouse, this.customForces, this.shockwaves, this.vortices, dt);
                 p.draw(this.ctx, this.settings);
             }
 
             // Update & Draw sparkles
             for (let i = this.sparkles.length - 1; i >= 0; i--) {
                 const s = this.sparkles[i];
-                s.update();
+                s.update(dt);
                 s.draw(this.ctx);
                 if (s.life <= 0) {
                     this.sparkles.splice(i, 1);
@@ -879,10 +892,16 @@ class FlowSimulation {
 
             // Clean up temporary burst particles that have completed their lifespan
             // keeping particle array aligned with target density.
+            for (let i = this.particles.length - 1; i >= 0; i--) {
+                if (this.particles[i].isBurst && this.particles[i].dead) {
+                    this.particles.splice(i, 1);
+                }
+            }
             const targetCount = this.settings.density;
             if (this.particles.length > targetCount) {
+                // If we are still over the target density limit, trim recycled particles
                 for (let i = this.particles.length - 1; i >= targetCount; i--) {
-                    if (this.particles[i].life <= 0) {
+                    if (this.particles[i].life <= 0 || !this.particles[i].isBurst) {
                         this.particles.splice(i, 1);
                     }
                 }

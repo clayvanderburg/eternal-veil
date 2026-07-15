@@ -1147,11 +1147,19 @@ document.addEventListener("DOMContentLoaded", () => {
             elements.bilateralVolumeVal.textContent = `${elements.bilateralVolumeSlider.value}%`;
             window.CosmicSynth.setBilateralVolume(val);
         };
+        elements.bilateralVolumeSlider.onchange = () => {
+            const val = parseInt(elements.bilateralVolumeSlider.value) / 100;
+            window.CosmicSynth.triggerBilateralVolumePreview(val);
+        };
 
         elements.asmrVolumeSlider.oninput = () => {
             const val = parseInt(elements.asmrVolumeSlider.value) / 100;
             elements.asmrVolumeVal.textContent = `${elements.asmrVolumeSlider.value}%`;
             window.CosmicSynth.setAsmrVolume(val);
+        };
+        elements.asmrVolumeSlider.onchange = () => {
+            const val = parseInt(elements.asmrVolumeSlider.value) / 100;
+            window.CosmicSynth.triggerAsmrVolumePreview(val);
         };
 
         // Bilateral and ASMR adjustments
@@ -1529,6 +1537,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 clientX = e.clientX;
                 clientY = e.clientY;
             }
+            if (is3DMode) {
+                // Scale from window coordinates to 2560x1440 simulation buffer coordinates
+                return {
+                    x: (clientX / window.innerWidth) * 2560,
+                    y: (clientY / window.innerHeight) * 1440
+                };
+            }
             return { x: clientX, y: clientY };
         };
 
@@ -1767,6 +1782,9 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.hudMode.textContent = sim.isSolidMode ? "SOLID" : "FLOW";
         
         toggleAutopilot(data.autopilotEnabled);
+        
+        // Reconcile loaded density target on live particles
+        sim.updateDensity();
     }
 
     // Sync Text values dynamically beside slider handles

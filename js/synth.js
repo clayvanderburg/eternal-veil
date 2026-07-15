@@ -367,16 +367,22 @@ class BinauralBeatEngine {
 
     setBilateralVolume(value) {
         this.bilateralVolume = value;
-        if (this.initialized && !this.isMuted && this.bilateralEnabled) {
-            // Trigger instant dong preview when adjusting the slider so the user hears the new volume immediately
-            this.triggerBilateralDong();
-        }
     }
 
     setAsmrVolume(value) {
         this.asmrVolume = value;
-        if (this.initialized && !this.isMuted && this.asmrEnabled) {
-            // Trigger instant ASMR preview when adjusting the slider so the user hears the new volume immediately
+    }
+
+    triggerBilateralVolumePreview(value) {
+        this.bilateralVolume = value;
+        if (this.initialized && !this.isMuted && this.bilateralEnabled && this.visualizerMode === "none") {
+            this.triggerBilateralDong();
+        }
+    }
+
+    triggerAsmrVolumePreview(value) {
+        this.asmrVolume = value;
+        if (this.initialized && !this.isMuted && this.asmrEnabled && this.visualizerMode === "none") {
             this.triggerAsmrTingle();
         }
     }
