@@ -52,7 +52,7 @@ class NativeFlowSimulation3D {
         this.scene.add(this.world);
 
         this.maxParticles = 14000;
-        this.trailSegments = 14;
+        this.trailSegments = 18;
         this.activeParticles = 7600;
         this.palette = ["#6366f1", "#a855f7", "#06b6d4", "#f472b6"];
 
@@ -92,7 +92,7 @@ class NativeFlowSimulation3D {
             uOrganic: { value: 0.85 },
             uVolumeRadius: { value: 250 },
             uDepth: { value: 1000 },
-            uTrailLength: { value: 0.42 },
+            uTrailLength: { value: 0.72 },
             uPointSize: { value: 9.5 },
             uBass: { value: 0 },
             uTreble: { value: 0 },
@@ -122,6 +122,7 @@ class NativeFlowSimulation3D {
             uniform float uDepth;
             uniform float uTrailLength;
             uniform float uPointSize;
+            ${isTrail ? "uniform float uTrailWidthScale;" : ""}
             uniform float uBass;
             uniform float uTreble;
             uniform float uBurst;
@@ -218,7 +219,7 @@ class NativeFlowSimulation3D {
                     float taper = pow(max(0.0, 1.0 - aTrail), 1.12);
                     // The first glow sample exactly matches the particle diameter;
                     // subsequent overlapping samples taper into a soft plasma tail.
-                    gl_PointSize = max(0.5, headDiameter * taper);
+                    gl_PointSize = max(0.5, headDiameter * taper * uTrailWidthScale);
                 ` : `
                     gl_Position = projectionMatrix * mvPosition;
                     float perspective = 300.0 / max(10.0, -mvPosition.z);
@@ -236,6 +237,7 @@ class NativeFlowSimulation3D {
         return `
             precision highp float;
             uniform float uTreble;
+            uniform float uPointSize;
             varying vec3 vColor;
             varying float vAlpha;
 
@@ -247,8 +249,10 @@ class NativeFlowSimulation3D {
                 float core = smoothstep(0.16, 0.0, r);
                 float halo = smoothstep(0.5, 0.04, r);
                 float sparkle = 1.0 + min(1.8, uTreble * 1.35);
-                vec3 color = vColor * (halo * 0.82 + core * 1.9) * sparkle;
-                float alpha = (halo * 0.56 + core * 0.86) * vAlpha;
+                float largeSizeBalance = mix(1.0, 0.42, smoothstep(12.0, 36.0, uPointSize));
+                vec3 color = vColor * (halo * 0.82 + core * 1.9)
+                    * sparkle * mix(1.0, 0.72, 1.0 - largeSizeBalance);
+                float alpha = (halo * 0.56 + core * 0.86) * vAlpha * largeSizeBalance;
                 gl_FragColor = vec4(color, alpha);
             }
         `;
@@ -257,7 +261,11 @@ class NativeFlowSimulation3D {
     createTrailFragmentShader() {
         return `
             precision highp float;
+            uniform float uTime;
             uniform float uTreble;
+            uniform float uPointSize;
+            uniform float uTrailOpacity;
+            uniform float uTrailCoreBoost;
             varying vec3 vColor;
             varying float vAlpha;
             varying float vTrailAmount;
@@ -267,11 +275,23 @@ class NativeFlowSimulation3D {
                 vec2 d = gl_PointCoord - vec2(0.5);
                 float radius = length(d);
                 if (radius > 0.5) discard;
-                float softEdge = smoothstep(0.5, 0.08, radius);
-                float core = smoothstep(0.18, 0.0, radius);
-                float shimmer = 0.78 + min(0.8, uTreble * 0.5);
-                vec3 glow = vColor * shimmer * (0.82 + core * 0.72);
-                gl_FragColor = vec4(glow, tail * softEdge * vAlpha * 0.23);
+                float halo = smoothstep(0.5, 0.04, radius);
+                float core = smoothstep(0.2, 0.0, radius);
+
+                // Bright packets travel backward through the tail, giving the
+                // stream visible internal motion even without external audio.
+                float energyWave = 0.72 + 0.28 * pow(
+                    0.5 + 0.5 * sin(uTime * 8.0 - vTrailAmount * 24.0),
+                    3.0
+                );
+                float shimmer = (0.95 + min(1.0, uTreble * 0.62)) * energyWave;
+                vec3 hotColor = mix(vColor, vec3(1.0), core * 0.08 * uTrailCoreBoost);
+                vec3 glow = hotColor * shimmer * (0.86 + core * 0.32 * uTrailCoreBoost);
+                // Large particles cover far more pixels. Temper only their energy,
+                // not their width, so max-size trails stay readable without whiteout.
+                float largeSizeBalance = mix(1.0, 0.18, smoothstep(12.0, 36.0, uPointSize));
+                float alpha = tail * halo * vAlpha * uTrailOpacity * largeSizeBalance;
+                gl_FragColor = vec4(glow, alpha);
             }
         `;
     }
@@ -348,8 +368,15 @@ class NativeFlowSimulation3D {
         this.trailGeometry.setAttribute("aScale", new THREE.BufferAttribute(trailScales, 1));
         this.trailGeometry.setAttribute("aTrail", new THREE.BufferAttribute(trailAmounts, 1));
 
-        this.trailMaterial = new THREE.ShaderMaterial({
-            uniforms: this.sharedUniforms,
+        const createTrailMaterial = (widthScale, opacity, coreBoost) => new THREE.ShaderMaterial({
+            // Preserve references to the shared animated uniforms while allowing
+            // each visual layer to own its width/brightness treatment.
+            uniforms: {
+                ...this.sharedUniforms,
+                uTrailWidthScale: { value: widthScale },
+                uTrailOpacity: { value: opacity },
+                uTrailCoreBoost: { value: coreBoost }
+            },
             vertexShader: this.createFlowVertexShader(true),
             fragmentShader: this.createTrailFragmentShader(),
             transparent: true,
@@ -358,7 +385,16 @@ class NativeFlowSimulation3D {
             depthWrite: false
         });
 
-        this.particleTrails = new THREE.Points(this.trailGeometry, this.trailMaterial);
+        // A broad chromatic atmosphere makes the trail readable at world scale;
+        // a second head-sized layer supplies the hot, energetic plasma spine.
+        this.trailHaloMaterial = createTrailMaterial(1.42, 0.1, 0.12);
+        this.trailCoreMaterial = createTrailMaterial(1.0, 0.42, 0.68);
+
+        this.particleTrailHalo = new THREE.Points(this.trailGeometry, this.trailHaloMaterial);
+        this.particleTrailHalo.frustumCulled = false;
+        this.world.add(this.particleTrailHalo);
+
+        this.particleTrails = new THREE.Points(this.trailGeometry, this.trailCoreMaterial);
         this.particleTrails.frustumCulled = false;
         this.world.add(this.particleTrails);
 
@@ -444,7 +480,7 @@ class NativeFlowSimulation3D {
         this.headGeometry.setDrawRange(0, this.activeParticles);
         // A minority of particles carry connected trails. Heads remain dense and
         // volumetric while the scene avoids collapsing into a uniform wire mesh.
-        const trailedParticles = Math.max(600, Math.floor(this.activeParticles * 0.28));
+        const trailedParticles = Math.max(700, Math.floor(this.activeParticles * 0.32));
         this.trailGeometry.setDrawRange(0, trailedParticles * this.trailSegments);
     }
 
@@ -507,9 +543,17 @@ class NativeFlowSimulation3D {
         const baseSize = Math.max(0.5, Math.min(7, s.baseSize ?? 2.8));
         const sizePosition = (baseSize - 0.5) / 6.5;
         this.sharedUniforms.uPointSize.value = 1.5 + Math.pow(sizePosition, 1.5) * 38.5;
+        // Larger particles need longer spatial separation between glow samples;
+        // otherwise a dramatic tail compresses into one fuzzy blob.
+        this.sharedUniforms.uTrailLength.value = 0.62 + sizePosition * 0.9;
 
         const density = Math.max(200, Math.min(4000, s.density ?? 1200));
-        const desiredCount = 3400 + ((density - 200) / 3800) * (this.maxParticles - 3400);
+        const baseCount = 3400 + ((density - 200) / 3800) * (this.maxParticles - 3400);
+        // Large sprites need spatial breathing room. Preserve their dramatic size
+        // while reducing overlap instead of allowing a max-size/max-density scene
+        // to collapse into a featureless white screen.
+        const crowdingScale = 1.0 - 0.65 * Math.pow(sizePosition, 1.7);
+        const desiredCount = 2200 + (baseCount - 2200) * crowdingScale;
         if (Math.abs(desiredCount - this.activeParticles) > 160) {
             this.setActiveParticleCount(desiredCount);
         }
@@ -644,7 +688,8 @@ class NativeFlowSimulation3D {
         this.headGeometry.dispose();
         this.trailGeometry.dispose();
         this.headMaterial.dispose();
-        this.trailMaterial.dispose();
+        this.trailHaloMaterial.dispose();
+        this.trailCoreMaterial.dispose();
         this.deepStars.geometry.dispose();
         this.deepStars.material.dispose();
         this.renderer.dispose();
