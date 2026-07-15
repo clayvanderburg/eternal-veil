@@ -31,7 +31,13 @@ global.document = {
     }
 };
 
+let mockTime = 1000;
+global.performance = {
+    now: () => mockTime
+};
+
 const FlowSimulation = require("../js/simulation.js");
+const RenderQuality = require("../js/render-quality.js");
 
 console.log("--------------------------------------------------");
 console.log("🧪 RUNNING STATE SCHEMA VALIDATOR TESTS...");
@@ -173,6 +179,24 @@ try {
     assert.strictEqual(sim.particles[0].x, oldX * 2, "X position should scale by factor of 2");
     assert.strictEqual(sim.particles[0].y, oldY * 2, "Y position should scale by factor of 2");
     console.log("✅ Passed: Resizing simulation cleanly scales particle positions and velocities (prevents jump/teleport bugs).");
+
+    // Test Case 8: Quality Profile Adaptive Downgrade Hysteresis
+    RenderQuality.currentProfileKey = "desktopHigh";
+    RenderQuality.lastTierChangeTime = 0;
+    
+    // Set simulated clock past cooldown boundary (cooldown is 5 seconds)
+    mockTime = 6000;
+    
+    // Feed 50 budget misses (desktopHigh flowHz is 60 -> target interval is 16.6ms + 4.0ms buffer = 20.6ms)
+    // We send frame latency values of 35.0ms (clear budget misses)
+    for (let i = 0; i < 50; i++) {
+        mockTime += 16.6;
+        RenderQuality.sampleFrame(35.0, 5.0, 12.0);
+    }
+    
+    // Verify it shifted quality tier to desktopBalanced
+    assert.strictEqual(RenderQuality.currentProfileKey, "desktopBalanced", "Adaptive controller should drop tier to desktopBalanced");
+    console.log("✅ Passed: RenderQuality adaptive controller triggers downgrade on sustained budget misses.");
 
     console.log("\n--------------------------------------------------");
     console.log("🎉 ALL TESTS PASSED SUCCESSFULLY!");

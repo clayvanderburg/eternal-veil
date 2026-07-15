@@ -1503,7 +1503,7 @@ kbd {
     bottom: 24px;
     right: 24px;
     width: 420px;
-    height: 280px;
+    height: 360px;
     background: rgba(10, 10, 15, 0.88);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
@@ -1554,6 +1554,18 @@ kbd {
 
 .console-close-btn:hover {
     color: #ff3333;
+}
+
+.console-perf-stats {
+    padding: 12px 14px;
+    background: rgba(18, 18, 28, 0.6);
+    border-bottom: 1px solid rgba(255, 50, 50, 0.15);
+    font-family: 'Fira Code', monospace;
+    font-size: 10.5px;
+    color: #a5b4fc;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 12px;
 }
 
 .console-body {

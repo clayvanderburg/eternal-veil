@@ -801,33 +801,64 @@ document.addEventListener("DOMContentLoaded", () => {
             showToast("WebGL 3D visualizer active! 🌌");
             CosmicLogger.info("Switched simulation engine from 2D Canvas to 3D WebGL projection at QHD Resolution.");
             
-            // Sync current synth settings to WebGL rendering loops
+            // WebGL rendering and physics tick step with decoupled flow scheduling & performance sampling
+            let lastFlowUpdateTime = 0;
+            let lastRenderTime = performance.now();
+            let lastFpsUpdate = performance.now();
+            
             sim3D.renderer.setAnimationLoop(() => {
                 if (is3DMode) {
+                    const now = performance.now();
+                    const frameDuration = now - lastRenderTime;
+                    lastRenderTime = now;
+
                     processMusicReactivity();
                     processMorphs();
-                    // Tick the 2D simulation so the CanvasTexture stays updated live
-                    sim.tick();
-                    sim3D.tick();
                     
+                    // Decoupled flow scheduler using RenderQuality settings
+                    const profile = window.RenderQuality.getProfile();
+                    const flowHz = profile.flowHz || 60;
+                    const flowInterval = 1000 / flowHz;
+                    
+                    let flowMs = 0;
+                    let flowTicked = false;
+                    
+                    const elapsed = now - lastFlowUpdateTime;
+                    if (elapsed >= flowInterval) {
+                        const flowStart = performance.now();
+                        sim.tick();
+                        const flowEnd = performance.now();
+                        flowMs = flowEnd - flowStart;
+                        
+                        // Mark texture for upload directly
+                        sim3D.texture.needsUpdate = true;
+                        
+                        lastFlowUpdateTime = now - (elapsed % flowInterval);
+                        flowTicked = true;
+                    }
+                    
+                    // Render WebGL/XR camera frame
+                    const threeStart = performance.now();
+                    sim3D.tick();
+                    const threeEnd = performance.now();
+                    const threeMs = threeEnd - threeStart;
+                    
+                    // Sample performance metrics (EWMA frame time and render times)
+                    if (flowTicked) {
+                        window.RenderQuality.sampleFrame(frameDuration, flowMs, threeMs);
+                    } else {
+                        window.RenderQuality.sampleFrame(frameDuration, undefined, threeMs);
+                    }
+                    
+                    // Update diagnostics FPS and console overlay stats
                     frameCount++;
-                    const now = Date.now();
-                    if (now - lastFpsTime >= 500) {
-                        const fps = Math.round((frameCount * 1000) / (now - lastFpsTime));
+                    if (now - lastFpsUpdate >= 500) {
+                        const fps = Math.round((frameCount * 1000) / (now - lastFpsUpdate));
                         elements.hudFps.textContent = fps;
-                        elements.hudParticles.textContent = sim.particles.length;
-                        
-                        if (fps < 32) {
-                            window.lowFpsTicks = (window.lowFpsTicks || 0) + 1;
-                            if (window.lowFpsTicks === 3) {
-                                CosmicLogger.warn(`Low FPS Warning: WebGL 3D rendering at ${fps} FPS. Try lowering flow speed.`);
-                            }
-                        } else {
-                            window.lowFpsTicks = 0;
-                        }
-                        
                         frameCount = 0;
-                        lastFpsTime = now;
+                        lastFpsUpdate = now;
+                        
+                        updatePerfDiagnosticConsole(fps);
                     }
                     
                     updateHudWaveform();
@@ -876,6 +907,33 @@ document.addEventListener("DOMContentLoaded", () => {
                 bar.style.opacity = 0.2;
             });
         }
+    }
+
+    // Update real-time performance metrics in the system diagnostics console
+    function updatePerfDiagnosticConsole(fps) {
+        const perfPanel = document.getElementById("console-perf-stats");
+        if (!perfPanel || perfPanel.parentNode.classList.contains("hidden")) return;
+        
+        const profile = window.RenderQuality.getProfile();
+        const rq = window.RenderQuality;
+        
+        // WebXR Target Info
+        let xrInfo = "2D Canvas";
+        if (is3DMode) {
+            xrInfo = (sim3D && sim3D.renderer.xr.isPresenting) ? "WebXR (VR)" : "Desktop 3D";
+        }
+        
+        perfPanel.innerHTML = `
+            <div>Engine Mode: <strong>${xrInfo}</strong></div>
+            <div>FPS (Render): <strong>${fps}</strong></div>
+            <div>Avg Latency: <strong>${rq.averageFrameInterval.toFixed(1)} ms</strong></div>
+            <div>Flow Backing: <strong>${sim.width}x${sim.height}</strong></div>
+            <div>Flow Target: <strong>${profile.flowHz} Hz</strong></div>
+            <div>Quality Tier: <strong>${rq.currentProfileKey}</strong></div>
+            <div>Particles: <strong>${sim.particles.length}</strong></div>
+            <div>Sim CPU: <strong>${rq.flowMsAvg.toFixed(1)} ms</strong></div>
+            <div>Render CPU: <strong>${rq.canvasDrawMsAvg.toFixed(1)} ms</strong></div>
+        `;
     }
 
     // Setup Drawer navigation tabs
@@ -2124,6 +2182,8 @@ document.addEventListener("DOMContentLoaded", () => {
             const fps = Math.round((frameCount * 1000) / (now - lastFpsTime));
             elements.hudFps.textContent = fps;
             elements.hudParticles.textContent = sim.particles.length;
+            
+            updatePerfDiagnosticConsole(fps);
             
             // Track low performance runs (FPS < 32 for 3 consecutive readings = 1.5 seconds)
             if (fps < 32) {
