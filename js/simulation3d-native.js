@@ -74,6 +74,17 @@ class NativeFlowSimulation3D {
         this.shockStrength = 0;
         this.shockRadius = 0;
         this.xrControllers = [];
+        this.isPaused = false;
+        this.vrPanelGroup = null;
+        this.vrPanelMesh = null;
+        this.vrPanelCanvas = null;
+        this.vrPanelTexture = null;
+        this.vrPanelButtons = [];
+        this.vrPanelHoverAction = null;
+        this.vrPanelStateHash = "";
+        this.vrPanelRefreshAt = 0;
+        this.xrRaycaster = new THREE.Raycaster();
+        this.xrRayRotation = new THREE.Matrix4();
 
         this.sharedUniforms = this.createSharedUniforms();
         this.initParticleField();
@@ -97,6 +108,212 @@ class NativeFlowSimulation3D {
         material.blendSrcAlpha = THREE.OneFactor;
         material.blendDstAlpha = THREE.OneMinusSrcAlphaFactor;
         return material;
+    }
+
+    getVRControlState() {
+        if (typeof window.onNativeVRControl === "function") {
+            return window.onNativeVRControl("getState") || {};
+        }
+        const s = this.settings || {};
+        return {
+            autopilot: true,
+            paused: this.isPaused,
+            size: s.baseSize ?? 2.8,
+            speed: s.speed ?? 1,
+            density: s.density ?? 1200
+        };
+    }
+
+    initVRPanel() {
+        if (this.vrPanelGroup) {
+            this.vrPanelGroup.visible = true;
+            this.drawVRPanel();
+            return;
+        }
+
+        this.vrPanelCanvas = document.createElement("canvas");
+        this.vrPanelCanvas.width = 1024;
+        this.vrPanelCanvas.height = 1024;
+        this.vrPanelTexture = new THREE.CanvasTexture(this.vrPanelCanvas);
+        this.vrPanelTexture.minFilter = THREE.LinearFilter;
+        this.vrPanelTexture.magFilter = THREE.LinearFilter;
+
+        const geometry = new THREE.PlaneGeometry(0.92, 0.92);
+        const material = new THREE.MeshBasicMaterial({
+            map: this.vrPanelTexture,
+            transparent: true,
+            depthTest: false,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+            toneMapped: false
+        });
+        this.vrPanelMesh = new THREE.Mesh(geometry, material);
+        this.vrPanelMesh.renderOrder = 1000;
+
+        this.vrPanelGroup = new THREE.Group();
+        this.vrPanelGroup.position.set(-0.58, 1.42, -1.48);
+        this.vrPanelGroup.add(this.vrPanelMesh);
+        this.vrPanelGroup.lookAt(0, 1.42, 0);
+        this.scene.add(this.vrPanelGroup);
+
+        this.vrPanelButtons = [
+            { action: "togglePause", x: 56, y: 170, w: 438, h: 104 },
+            { action: "toggleAutopilot", x: 530, y: 170, w: 438, h: 104 },
+            { action: "sizeDown", x: 650, y: 320, w: 132, h: 102 },
+            { action: "sizeUp", x: 818, y: 320, w: 132, h: 102 },
+            { action: "speedDown", x: 650, y: 454, w: 132, h: 102 },
+            { action: "speedUp", x: 818, y: 454, w: 132, h: 102 },
+            { action: "densityDown", x: 650, y: 588, w: 132, h: 102 },
+            { action: "densityUp", x: 818, y: 588, w: 132, h: 102 },
+            { action: "hideMenu", x: 56, y: 748, w: 912, h: 92 },
+            { action: "exitToSettings", x: 56, y: 864, w: 912, h: 108 }
+        ];
+        this.drawVRPanel();
+    }
+
+    drawVRPanel(hoverAction = this.vrPanelHoverAction) {
+        if (!this.vrPanelCanvas || !this.vrPanelTexture) return;
+        const ctx = this.vrPanelCanvas.getContext("2d");
+        const state = this.getVRControlState();
+        const roundedRect = (x, y, w, h, radius) => {
+            const r = Math.min(radius, w / 2, h / 2);
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.lineTo(x + w - r, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+            ctx.lineTo(x + w, y + h - r);
+            ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            ctx.lineTo(x + r, y + h);
+            ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+            ctx.lineTo(x, y + r);
+            ctx.quadraticCurveTo(x, y, x + r, y);
+            ctx.closePath();
+        };
+        const button = (rect, label, accent = "#60a5fa") => {
+            const hovered = hoverAction === rect.action;
+            ctx.fillStyle = hovered ? accent : "rgba(25, 33, 57, 0.96)";
+            ctx.strokeStyle = hovered ? "#ffffff" : accent;
+            ctx.lineWidth = hovered ? 5 : 3;
+            roundedRect(rect.x, rect.y, rect.w, rect.h, 22);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = hovered ? "#07101f" : "#f8fafc";
+            ctx.font = "700 31px system-ui, sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(label, rect.x + rect.w / 2, rect.y + rect.h / 2 + 1);
+        };
+
+        ctx.clearRect(0, 0, 1024, 1024);
+        ctx.fillStyle = "rgba(3, 7, 18, 0.94)";
+        roundedRect(12, 12, 1000, 1000, 38);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(103, 232, 249, 0.72)";
+        ctx.lineWidth = 5;
+        ctx.stroke();
+
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#e0f2fe";
+        ctx.font = "800 42px system-ui, sans-serif";
+        ctx.fillText("ETERNAL VEIL  //  VR", 58, 70);
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "500 23px system-ui, sans-serif";
+        ctx.fillText("Aim with either controller • Trigger selects • Grip hides/shows", 58, 116);
+
+        button(this.vrPanelButtons[0], state.paused ? "RESUME" : "PAUSE", "#a78bfa");
+        button(
+            this.vrPanelButtons[1],
+            `AUTOPILOT  ${state.autopilot ? "ON" : "OFF"}`,
+            state.autopilot ? "#34d399" : "#64748b"
+        );
+
+        const drawSettingRow = (y, label, value, downAction, upAction) => {
+            ctx.fillStyle = "#cbd5e1";
+            ctx.font = "650 31px system-ui, sans-serif";
+            ctx.textAlign = "left";
+            ctx.fillText(label, 66, y + 38);
+            ctx.fillStyle = "#67e8f9";
+            ctx.font = "800 39px system-ui, sans-serif";
+            ctx.fillText(value, 360, y + 39);
+            button(this.vrPanelButtons.find(b => b.action === downAction), "−", "#38bdf8");
+            button(this.vrPanelButtons.find(b => b.action === upAction), "+", "#38bdf8");
+        };
+        drawSettingRow(320, "PARTICLE SIZE", Number(state.size || 0).toFixed(1), "sizeDown", "sizeUp");
+        drawSettingRow(454, "FLOW SPEED", Number(state.speed || 0).toFixed(2), "speedDown", "speedUp");
+        drawSettingRow(588, "PARTICLES", String(Math.round(state.density || 0)), "densityDown", "densityUp");
+
+        button(this.vrPanelButtons.find(b => b.action === "hideMenu"), "HIDE MENU  •  GRIP TO REOPEN", "#64748b");
+        button(this.vrPanelButtons.find(b => b.action === "exitToSettings"), "EXIT VR  →  2D SETTINGS", "#fb7185");
+
+        this.vrPanelTexture.needsUpdate = true;
+        this.vrPanelStateHash = JSON.stringify(state);
+    }
+
+    setVRPanelVisible(visible) {
+        if (!this.vrPanelGroup) this.initVRPanel();
+        this.vrPanelGroup.visible = visible;
+        this.vrPanelHoverAction = null;
+        if (visible) this.drawVRPanel();
+    }
+
+    getVRPanelHit(controller) {
+        if (!this.vrPanelMesh || !this.vrPanelGroup.visible) return null;
+        controller.updateMatrixWorld(true);
+        this.xrRayRotation.identity().extractRotation(controller.matrixWorld);
+        this.xrRaycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+        this.xrRaycaster.ray.direction.set(0, 0, -1).applyMatrix4(this.xrRayRotation).normalize();
+        const intersection = this.xrRaycaster.intersectObject(this.vrPanelMesh, false)[0];
+        if (!intersection || !intersection.uv) return null;
+        const x = intersection.uv.x * this.vrPanelCanvas.width;
+        const y = (1 - intersection.uv.y) * this.vrPanelCanvas.height;
+        const control = this.vrPanelButtons.find(b =>
+            x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h
+        );
+        return control ? { action: control.action, distance: intersection.distance } : null;
+    }
+
+    updateVRPanelInteraction() {
+        if (!this.vrPanelGroup || !this.vrPanelGroup.visible) return;
+        let nextHover = null;
+        for (const controller of this.xrControllers) {
+            const hit = this.getVRPanelHit(controller);
+            controller.userData.vrPanelHit = hit;
+            const ray = controller.userData.pointerRay;
+            if (ray) {
+                ray.scale.z = hit ? Math.max(0.15, hit.distance) : 18;
+                ray.material.opacity = hit ? 1 : 0.72;
+            }
+            if (!nextHover && hit) nextHover = hit.action;
+        }
+
+        const now = this.elapsed;
+        const stateHash = JSON.stringify(this.getVRControlState());
+        if (nextHover !== this.vrPanelHoverAction || stateHash !== this.vrPanelStateHash || now >= this.vrPanelRefreshAt) {
+            this.vrPanelHoverAction = nextHover;
+            this.vrPanelRefreshAt = now + 0.5;
+            this.drawVRPanel(nextHover);
+        }
+    }
+
+    activateVRControl(action) {
+        if (!action) return false;
+        if (action === "hideMenu") {
+            this.setVRPanelVisible(false);
+            return true;
+        }
+        if (action === "exitToSettings") {
+            const session = this.renderer.xr.getSession ? this.renderer.xr.getSession() : null;
+            if (session) session.end();
+            return true;
+        }
+        if (typeof window.onNativeVRControl === "function") {
+            window.onNativeVRControl(action);
+            const state = this.getVRControlState();
+            this.isPaused = Boolean(state.paused);
+            this.drawVRPanel(action);
+            return true;
+        }
+        return false;
     }
 
     createSharedUniforms() {
@@ -782,7 +999,8 @@ class NativeFlowSimulation3D {
     }
 
     tick() {
-        const delta = Math.min(this.clock.getDelta(), 0.05);
+        const frameDelta = Math.min(this.clock.getDelta(), 0.05);
+        const delta = this.isPaused ? 0 : frameDelta;
         this.elapsed += delta;
         this.updateFromSettings();
 
@@ -811,6 +1029,7 @@ class NativeFlowSimulation3D {
             // Keep the volume stable in world space for VR comfort.
             this.world.rotation.x *= 0.94;
             this.world.rotation.y *= 0.94;
+            this.updateVRPanelInteraction();
         }
 
         this.deepStars.rotation.y = this.elapsed * 0.003;
@@ -833,11 +1052,18 @@ class NativeFlowSimulation3D {
             });
             const ray = new THREE.Line(geometry, material);
             ray.scale.z = 18;
+            ray.renderOrder = 1001;
             controller.add(ray);
+            controller.userData.pointerRay = ray;
             controller.addEventListener("selectstart", () => {
+                const hit = this.getVRPanelHit(controller);
+                if (hit && this.activateVRControl(hit.action)) return;
                 this.triggerBurst();
                 this.triggerVortex(0, 0, 300, 12, 45);
                 this.triggerShockwave(0, 0, 48, 9);
+            });
+            controller.addEventListener("squeezestart", () => {
+                this.setVRPanelVisible(!this.vrPanelGroup || !this.vrPanelGroup.visible);
             });
             this.scene.add(controller);
             this.xrControllers.push(controller);
@@ -855,6 +1081,8 @@ class NativeFlowSimulation3D {
             });
             await this.renderer.xr.setSession(session);
             this.initXRControllers();
+            this.initVRPanel();
+            this.setVRPanelVisible(true);
             CosmicLogger.info("Immersive WebXR session started inside the Native Cosmic Flow Field.");
             if (typeof window.onVRSessionStart === "function") window.onVRSessionStart();
 
@@ -862,6 +1090,7 @@ class NativeFlowSimulation3D {
                 CosmicLogger.info("Native Cosmic Flow WebXR session ended.");
                 const enterVrBtn = document.getElementById("enter-vr-btn");
                 if (enterVrBtn) enterVrBtn.classList.remove("highlight");
+                if (this.vrPanelGroup) this.vrPanelGroup.visible = false;
                 if (typeof window.onVRSessionEnd === "function") window.onVRSessionEnd();
             }, { once: true });
             return true;
@@ -888,6 +1117,12 @@ class NativeFlowSimulation3D {
         this.nebulaMaterial.dispose();
         this.deepStars.geometry.dispose();
         this.deepStars.material.dispose();
+        if (this.vrPanelMesh) {
+            this.vrPanelMesh.geometry.dispose();
+            this.vrPanelMesh.material.dispose();
+        }
+        if (this.vrPanelTexture) this.vrPanelTexture.dispose();
+        if (this.vrPanelGroup) this.scene.remove(this.vrPanelGroup);
         this.renderer.dispose();
     }
 }
