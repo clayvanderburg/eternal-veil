@@ -55,7 +55,7 @@ class NativeFlowSimulation3D {
         // Dense enough that the glow samples overlap into a continuous comet tail
         // instead of reading as a string of separate pearls.
         this.trailSegments = 52;
-        this.activeParticles = 7600;
+        this.activeParticles = 5600;
         this.palette = ["#6366f1", "#a855f7", "#06b6d4", "#f472b6"];
 
         this.clock = new THREE.Clock();
@@ -84,6 +84,21 @@ class NativeFlowSimulation3D {
         window.nativeSim3DInstance = this;
     }
 
+    useBoundedGlowBlending(material) {
+        // Screen-style blending keeps luminous overlaps bright, but unlike pure
+        // additive blending it asymptotically approaches white instead of piling
+        // unlimited energy into a blinding, featureless hotspot. It is also
+        // order-independent, which is important for unsorted 3D particles.
+        material.blending = THREE.CustomBlending;
+        material.blendEquation = THREE.AddEquation;
+        material.blendSrc = THREE.OneFactor;
+        material.blendDst = THREE.OneMinusSrcColorFactor;
+        material.blendEquationAlpha = THREE.AddEquation;
+        material.blendSrcAlpha = THREE.OneFactor;
+        material.blendDstAlpha = THREE.OneMinusSrcAlphaFactor;
+        return material;
+    }
+
     createSharedUniforms() {
         const colors = new Array(6).fill(0).map((_, i) =>
             new THREE.Color(this.palette[i % this.palette.length])
@@ -103,6 +118,7 @@ class NativeFlowSimulation3D {
             uVortex: { value: 0 },
             uShock: { value: 0 },
             uShockRadius: { value: 0 },
+            uGlowEnergy: { value: 0.78 },
             uPalette: { value: colors }
         };
     }
@@ -247,6 +263,7 @@ class NativeFlowSimulation3D {
             precision highp float;
             uniform float uTreble;
             uniform float uPointSize;
+            uniform float uGlowEnergy;
             varying vec3 vColor;
             varying float vAlpha;
             varying float vRenderedSize;
@@ -264,8 +281,9 @@ class NativeFlowSimulation3D {
                 float largeSizeBalance = min(settingBalance, heroBalance);
                 vec3 color = vColor * (halo * 0.82 + core * 1.9)
                     * sparkle * mix(1.0, 0.72, 1.0 - largeSizeBalance);
-                float alpha = (halo * 0.56 + core * 0.86) * vAlpha * largeSizeBalance;
-                gl_FragColor = vec4(color, alpha);
+                float alpha = (halo * 0.56 + core * 0.86) * vAlpha
+                    * largeSizeBalance * uGlowEnergy;
+                gl_FragColor = vec4(color * alpha, alpha);
             }
         `;
     }
@@ -278,6 +296,7 @@ class NativeFlowSimulation3D {
             uniform float uPointSize;
             uniform float uTrailOpacity;
             uniform float uTrailCoreBoost;
+            uniform float uGlowEnergy;
             varying vec3 vColor;
             varying float vAlpha;
             varying float vTrailAmount;
@@ -305,8 +324,9 @@ class NativeFlowSimulation3D {
                 float settingBalance = mix(1.0, 0.18, smoothstep(12.0, 36.0, uPointSize));
                 float heroBalance = mix(1.0, 0.1, smoothstep(90.0, 432.0, vRenderedSize));
                 float largeSizeBalance = min(settingBalance, heroBalance);
-                float alpha = tail * halo * vAlpha * uTrailOpacity * largeSizeBalance;
-                gl_FragColor = vec4(glow, alpha);
+                float alpha = tail * halo * vAlpha * uTrailOpacity
+                    * largeSizeBalance * uGlowEnergy;
+                gl_FragColor = vec4(glow * alpha, alpha);
             }
         `;
     }
@@ -347,10 +367,10 @@ class NativeFlowSimulation3D {
             vertexShader: this.createFlowVertexShader(false),
             fragmentShader: this.createHeadFragmentShader(),
             transparent: true,
-            blending: THREE.AdditiveBlending,
             depthTest: true,
             depthWrite: false
         });
+        this.useBoundedGlowBlending(this.headMaterial);
 
         this.particleHeads = new THREE.Points(this.headGeometry, this.headMaterial);
         this.particleHeads.frustumCulled = false;
@@ -392,7 +412,7 @@ class NativeFlowSimulation3D {
         this.trailGeometry.setAttribute("aHero", new THREE.BufferAttribute(trailHeroes, 1));
         this.trailGeometry.setAttribute("aTrail", new THREE.BufferAttribute(trailAmounts, 1));
 
-        const createTrailMaterial = (widthScale, opacity, coreBoost) => new THREE.ShaderMaterial({
+        const createTrailMaterial = (widthScale, opacity, coreBoost) => this.useBoundedGlowBlending(new THREE.ShaderMaterial({
             // Preserve references to the shared animated uniforms while allowing
             // each visual layer to own its width/brightness treatment.
             uniforms: {
@@ -404,10 +424,9 @@ class NativeFlowSimulation3D {
             vertexShader: this.createFlowVertexShader(true),
             fragmentShader: this.createTrailFragmentShader(),
             transparent: true,
-            blending: THREE.AdditiveBlending,
             depthTest: true,
             depthWrite: false
-        });
+        }));
 
         // A broad chromatic atmosphere makes the trail readable at world scale;
         // a second head-sized layer supplies the hot, energetic plasma spine.
@@ -427,7 +446,7 @@ class NativeFlowSimulation3D {
     }
 
     initNebulaClouds() {
-        const cloudCount = 46;
+        const cloudCount = 72;
         const verticesPerCloud = 6;
         const vertexCount = cloudCount * verticesPerCloud;
         const corners = new Float32Array(vertexCount * 3);
@@ -510,12 +529,12 @@ class NativeFlowSimulation3D {
                     );
 
                     vec4 mvCenter = modelViewMatrix * vec4(center, 1.0);
-                    float cloudSize = mix(85.0, 430.0, aScale) * (1.0 + min(0.22, uBass * 0.12));
+                    float cloudSize = mix(125.0, 610.0, aScale) * (1.0 + min(0.24, uBass * 0.13));
                     vec4 mvPosition = mvCenter;
                     mvPosition.xy += position.xy * cloudSize;
                     gl_Position = projectionMatrix * mvPosition;
 
-                    float breathe = pow(0.5 + 0.5 * sin(uTime * 0.115 + phase), 2.6);
+                    float breathe = pow(0.5 + 0.5 * sin(uTime * 0.105 + phase), 2.4);
                     float nearFade = smoothstep(130.0, 320.0, abs(mvCenter.z));
                     float farFade = smoothstep(920.0, 250.0, abs(mvCenter.z));
                     vAlpha = breathe * nearFade * farFade;
@@ -547,17 +566,17 @@ class NativeFlowSimulation3D {
                     float density = (body * 0.62 + lobeA * 0.24 + lobeB * 0.2)
                         * mix(0.58, 1.0, filaments);
                     float edge = smoothstep(1.0, 0.22, r);
-                    float alpha = density * edge * vAlpha * 0.14;
+                    float alpha = density * edge * vAlpha * 0.15;
                     vec3 color = vColor * (0.64 + density * 0.58);
-                    gl_FragColor = vec4(color, alpha);
+                    gl_FragColor = vec4(color * alpha, alpha);
                 }
             `,
             transparent: true,
-            blending: THREE.AdditiveBlending,
             depthTest: true,
             depthWrite: false,
             side: THREE.DoubleSide
         });
+        this.useBoundedGlowBlending(this.nebulaMaterial);
 
         this.nebulaClouds = new THREE.Mesh(this.nebulaGeometry, this.nebulaMaterial);
         this.nebulaClouds.frustumCulled = false;
@@ -644,7 +663,7 @@ class NativeFlowSimulation3D {
         this.headGeometry.setDrawRange(0, this.activeParticles);
         // A minority of particles carry connected trails. Heads remain dense and
         // volumetric while the scene avoids collapsing into a uniform wire mesh.
-        const trailedParticles = Math.max(700, Math.floor(this.activeParticles * 0.32));
+        const trailedParticles = Math.max(620, Math.floor(this.activeParticles * 0.28));
         this.trailGeometry.setDrawRange(0, trailedParticles * this.trailSegments);
     }
 
@@ -697,7 +716,10 @@ class NativeFlowSimulation3D {
 
     updateFromSettings() {
         const s = this.settings || {};
-        this.sharedUniforms.uSpeed.value = Math.max(0.05, Math.min(4, s.speed ?? 1));
+        const requestedSpeed = Math.max(0.05, Math.min(4, s.speed ?? 1));
+        // Preserve the control's range while biasing native 3D toward a calmer,
+        // more readable drift. Fast presets still accelerate, just less violently.
+        this.sharedUniforms.uSpeed.value = requestedSpeed * 0.62;
         this.sharedUniforms.uTurbulence.value = Math.max(0, Math.min(2.4, s.turbulence ?? 0.65));
         this.sharedUniforms.uOrganic.value = Math.max(0, Math.min(2, s.flowOrganic ?? 0.85));
         // The flat renderer's 0.5–7 size range was too compressed in a world-scale
@@ -712,12 +734,20 @@ class NativeFlowSimulation3D {
         this.sharedUniforms.uTrailLength.value = 0.62 + sizePosition * 0.9;
 
         const density = Math.max(200, Math.min(4000, s.density ?? 1200));
-        const baseCount = 3400 + ((density - 200) / 3800) * (this.maxParticles - 3400);
+        const densityPosition = (density - 200) / 3800;
+        const baseCount = 2600 + densityPosition * (10500 - 2600);
         // Large sprites need spatial breathing room. Preserve their dramatic size
         // while reducing overlap instead of allowing a max-size/max-density scene
         // to collapse into a featureless white screen.
         const crowdingScale = 1.0 - 0.65 * Math.pow(sizePosition, 1.7);
-        const desiredCount = 2200 + (baseCount - 2200) * crowdingScale;
+        const desiredCount = 1900 + (baseCount - 1900) * crowdingScale;
+        // Dynamically budget glow energy as sprites get larger and more numerous.
+        // This keeps contrast in the busiest presets before bounded blending has
+        // to do all of the highlight protection by itself.
+        this.sharedUniforms.uGlowEnergy.value = Math.max(
+            0.46,
+            0.94 - densityPosition * 0.28 - sizePosition * 0.2
+        );
         if (Math.abs(desiredCount - this.activeParticles) > 160) {
             this.setActiveParticleCount(desiredCount);
         }
