@@ -52,7 +52,7 @@ class NativeFlowSimulation3D {
         this.scene.add(this.world);
 
         this.maxParticles = 14000;
-        this.trailSegments = 5;
+        this.trailSegments = 14;
         this.activeParticles = 7600;
         this.palette = ["#6366f1", "#a855f7", "#06b6d4", "#f472b6"];
 
@@ -210,8 +210,17 @@ class NativeFlowSimulation3D {
                 vTrailAmount = trailAmount;
                 vColor = paletteColor(aPaletteIndex);
 
-                gl_Position = projectionMatrix * mvPosition;
-                ${isTrail ? "" : `
+                ${isTrail ? `
+                    gl_Position = projectionMatrix * mvPosition;
+                    float perspective = 300.0 / max(10.0, -mvPosition.z);
+                    float pulse = 1.0 + min(2.4, uBass * 1.8);
+                    float headDiameter = clamp(uPointSize * aScale * perspective * pulse, 1.0, 144.0);
+                    float taper = pow(max(0.0, 1.0 - aTrail), 1.12);
+                    // The first glow sample exactly matches the particle diameter;
+                    // subsequent overlapping samples taper into a soft plasma tail.
+                    gl_PointSize = max(0.5, headDiameter * taper);
+                ` : `
+                    gl_Position = projectionMatrix * mvPosition;
                     float perspective = 300.0 / max(10.0, -mvPosition.z);
                     float pulse = 1.0 + min(2.4, uBass * 1.8);
                     // Allow the size control to produce everything from fine dust
@@ -255,8 +264,14 @@ class NativeFlowSimulation3D {
 
             void main() {
                 float tail = pow(1.0 - vTrailAmount, 1.45);
+                vec2 d = gl_PointCoord - vec2(0.5);
+                float radius = length(d);
+                if (radius > 0.5) discard;
+                float softEdge = smoothstep(0.5, 0.08, radius);
+                float core = smoothstep(0.18, 0.0, radius);
                 float shimmer = 0.78 + min(0.8, uTreble * 0.5);
-                gl_FragColor = vec4(vColor * shimmer * 1.18, tail * vAlpha * 0.42);
+                vec3 glow = vColor * shimmer * (0.82 + core * 0.72);
+                gl_FragColor = vec4(glow, tail * softEdge * vAlpha * 0.23);
             }
         `;
     }
@@ -300,7 +315,7 @@ class NativeFlowSimulation3D {
         this.particleHeads.frustumCulled = false;
         this.world.add(this.particleHeads);
 
-        const trailVertexCount = count * this.trailSegments * 2;
+        const trailVertexCount = count * this.trailSegments;
         const trailPositions = new Float32Array(trailVertexCount * 3);
         const trailSeeds = new Float32Array(trailVertexCount * 3);
         const trailPhases = new Float32Array(trailVertexCount);
@@ -312,18 +327,16 @@ class NativeFlowSimulation3D {
         for (let i = 0; i < count; i++) {
             const i3 = i * 3;
             for (let s = 0; s < this.trailSegments; s++) {
-                for (let endpoint = 0; endpoint < 2; endpoint++) {
-                    const amount = (s + endpoint) / this.trailSegments;
-                    const v3 = v * 3;
-                    trailSeeds[v3] = seeds[i3];
-                    trailSeeds[v3 + 1] = seeds[i3 + 1];
-                    trailSeeds[v3 + 2] = seeds[i3 + 2];
-                    trailPhases[v] = phases[i];
-                    trailPaletteIndices[v] = paletteIndices[i];
-                    trailScales[v] = scales[i];
-                    trailAmounts[v] = amount;
-                    v++;
-                }
+                const amount = s / (this.trailSegments - 1);
+                const v3 = v * 3;
+                trailSeeds[v3] = seeds[i3];
+                trailSeeds[v3 + 1] = seeds[i3 + 1];
+                trailSeeds[v3 + 2] = seeds[i3 + 2];
+                trailPhases[v] = phases[i];
+                trailPaletteIndices[v] = paletteIndices[i];
+                trailScales[v] = scales[i];
+                trailAmounts[v] = amount;
+                v++;
             }
         }
 
@@ -345,7 +358,7 @@ class NativeFlowSimulation3D {
             depthWrite: false
         });
 
-        this.particleTrails = new THREE.LineSegments(this.trailGeometry, this.trailMaterial);
+        this.particleTrails = new THREE.Points(this.trailGeometry, this.trailMaterial);
         this.particleTrails.frustumCulled = false;
         this.world.add(this.particleTrails);
 
@@ -432,7 +445,7 @@ class NativeFlowSimulation3D {
         // A minority of particles carry connected trails. Heads remain dense and
         // volumetric while the scene avoids collapsing into a uniform wire mesh.
         const trailedParticles = Math.max(600, Math.floor(this.activeParticles * 0.28));
-        this.trailGeometry.setDrawRange(0, trailedParticles * this.trailSegments * 2);
+        this.trailGeometry.setDrawRange(0, trailedParticles * this.trailSegments);
     }
 
     setThreeColor(target, source, fallback = "#ffffff") {
@@ -524,10 +537,10 @@ class NativeFlowSimulation3D {
         const h = window.innerHeight;
         this.camera.aspect = w / h;
         this.camera.updateProjectionMatrix();
-        this.renderer.setSize(w, h);
         if (!this.renderer.xr.isPresenting) {
             this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
         }
+        this.renderer.setSize(w, h);
     }
 
     tick() {
