@@ -223,12 +223,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // WebXR VR session callbacks to resize the canvas dynamically
         window.onVRSessionStart = () => {
+            if (sim3D && sim3D.usesFlowTexture === false) {
+                CosmicLogger.info("WebXR VR Session active in native volumetric particle mode.");
+                return;
+            }
             const profile = window.RenderQuality.getProfile("vrBalanced");
             CosmicLogger.info(`WebXR VR Session active. Resizing simulation backing texture to: ${profile.width}x${profile.height}`);
             sim.resize(profile.width, profile.height, 1.0);
         };
 
         window.onVRSessionEnd = () => {
+            if (sim3D && sim3D.usesFlowTexture === false) {
+                CosmicLogger.info("WebXR VR Session ended. Native volumetric field remains active in desktop 3D.");
+                return;
+            }
             const profile = window.RenderQuality.getProfile("desktopHigh");
             CosmicLogger.info(`WebXR VR Session ended. Restoring desktop-3D backing texture to: ${profile.width}x${profile.height}`);
             sim.resize(profile.width, profile.height, 1.0);
@@ -768,26 +776,36 @@ document.addEventListener("DOMContentLoaded", () => {
         is3DMode = nextState;
         
         if (is3DMode) {
-            // Scale the 2D canvas buffer to aspect-correct desktop high resolution (1920x1080) for sharp projections
-            const profile = window.RenderQuality.getProfile("desktopHigh");
-            sim.resize(profile.width, profile.height, 1.0);
-
             if (!sim3D) {
-                CosmicLogger.info("Initializing 3D WebGL Simulation Engine using Three.js...");
-                sim3D = new FlowSimulation3D("webgl-canvas");
+                CosmicLogger.info("Initializing native volumetric 3D particle engine using Three.js...");
+                try {
+                    const RendererClass = window.NativeFlowSimulation3D || window.FlowSimulation3D;
+                    sim3D = new RendererClass("webgl-canvas");
+                } catch (error) {
+                    CosmicLogger.warn("Native 3D initialization failed; falling back to Parallax Flow Dome. " + error.message);
+                    sim3D = new FlowSimulation3D("webgl-canvas");
+                }
+                window.sim3D = sim3D;
                 window.addEventListener("resize", () => {
                     if (sim3D) sim3D.resize();
                 });
             }
+
+            // The dome renderer needs a hidden 2D texture; native particles do not.
+            if (sim3D.usesFlowTexture !== false) {
+                const profile = window.RenderQuality.getProfile("desktopHigh");
+                sim.resize(profile.width, profile.height, 1.0);
+            }
             
             sim3D.settings = sim.settings;
+            sim3D.backgroundColor = sim.backgroundColor;
             sim3D.updatePalette([...sim.palette]);
             
             elements.canvas2D.classList.add("hidden");
             elements.webglCanvas.classList.remove("hidden");
             
             elements.webgl3DToggleBtn.classList.add("highlight");
-            elements.hudMode.textContent = "3D FLOW";
+            elements.hudMode.textContent = sim3D.usesFlowTexture === false ? "NATIVE 3D" : "3D FLOW";
             
             if (navigator.xr) {
                 navigator.xr.isSessionSupported('immersive-vr').then(supported => {
@@ -798,8 +816,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 });
             }
             
-            showToast("WebGL 3D visualizer active! 🌌");
-            CosmicLogger.info("Switched simulation engine from 2D Canvas to 3D WebGL projection at QHD Resolution.");
+            showToast(sim3D.usesFlowTexture === false
+                ? "Native 3D cosmic flow active!"
+                : "WebGL 3D visualizer active!");
+            CosmicLogger.info(sim3D.usesFlowTexture === false
+                ? "Switched from 2D Canvas to native GPU-driven volumetric particles."
+                : "Switched simulation engine from 2D Canvas to 3D WebGL projection.");
             
             // WebGL rendering and physics tick step with decoupled flow scheduling & performance sampling
             let lastFlowUpdateTime = 0;
@@ -824,14 +846,14 @@ document.addEventListener("DOMContentLoaded", () => {
                     let flowTicked = false;
                     
                     const elapsed = now - lastFlowUpdateTime;
-                    if (elapsed >= flowInterval) {
+                    if (sim3D.usesFlowTexture !== false && elapsed >= flowInterval) {
                         const flowStart = performance.now();
                         sim.tick();
                         const flowEnd = performance.now();
                         flowMs = flowEnd - flowStart;
                         
                         // Mark texture for upload directly
-                        sim3D.texture.needsUpdate = true;
+                        if (sim3D.texture) sim3D.texture.needsUpdate = true;
                         
                         lastFlowUpdateTime = now - (elapsed % flowInterval);
                         flowTicked = true;
@@ -844,10 +866,19 @@ document.addEventListener("DOMContentLoaded", () => {
                     const threeMs = threeEnd - threeStart;
                     
                     // Sample performance metrics (EWMA frame time and render times)
-                    if (flowTicked) {
-                        window.RenderQuality.sampleFrame(frameDuration, flowMs, threeMs);
+                    if (sim3D.usesFlowTexture !== false) {
+                        if (flowTicked) {
+                            window.RenderQuality.sampleFrame(frameDuration, flowMs, threeMs);
+                        } else {
+                            window.RenderQuality.sampleFrame(frameDuration, undefined, threeMs);
+                        }
                     } else {
-                        window.RenderQuality.sampleFrame(frameDuration, undefined, threeMs);
+                        // Native 3D has no hidden 2D texture to resize or throttle.
+                        window.RenderQuality.averageFrameInterval =
+                            window.RenderQuality.averageFrameInterval * 0.95 + frameDuration * 0.05;
+                        window.RenderQuality.canvasDrawMsAvg =
+                            window.RenderQuality.canvasDrawMsAvg * 0.95 + threeMs * 0.05;
+                        window.RenderQuality.flowMsAvg = 0;
                     }
                     
                     // Update diagnostics FPS and console overlay stats
@@ -855,6 +886,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (now - lastFpsUpdate >= 500) {
                         const fps = Math.round((frameCount * 1000) / (now - lastFpsUpdate));
                         elements.hudFps.textContent = fps;
+                        if (sim3D.usesFlowTexture === false && sim3D.activeParticles) {
+                            elements.hudParticles.textContent = sim3D.activeParticles;
+                        }
                         frameCount = 0;
                         lastFpsUpdate = now;
                         
