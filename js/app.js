@@ -63,6 +63,242 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let selected3DStyle = load3DStyle();
 
+    // --- COSMIC CONFIGURATION HISTORY ENGINE ---
+    const ConfigHistory = {
+        states: [],
+        index: -1,
+        maxSize: 50,
+        
+        init() {
+            try {
+                const saved = localStorage.getItem("eternalVeilHistory");
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (Array.isArray(parsed)) {
+                        this.states = parsed;
+                        this.index = this.states.length - 1;
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to load configuration history", e);
+            }
+        },
+        
+        save() {
+            try {
+                localStorage.setItem("eternalVeilHistory", JSON.stringify(this.states));
+            } catch (e) {
+                console.error("Failed to save configuration history", e);
+            }
+        },
+        
+        push(state) {
+            // If we are in the middle of history (went back) and push a new config,
+            // truncate all forward history (browser history style)
+            if (this.index < this.states.length - 1) {
+                this.states = this.states.slice(0, this.index + 1);
+            }
+            
+            // Check if the state is identical to current to avoid duplicate history states
+            if (this.states.length > 0) {
+                const current = this.states[this.index];
+                if (current && JSON.stringify(current.settings) === JSON.stringify(state.settings) && 
+                    JSON.stringify(current.palette) === JSON.stringify(state.palette) && 
+                    current.backgroundColor === state.backgroundColor && 
+                    current.isSolidMode === state.isSolidMode) {
+                    return;
+                }
+            }
+            
+            this.states.push(state);
+            if (this.states.length > this.maxSize) {
+                this.states.shift();
+            }
+            this.index = this.states.length - 1;
+            this.save();
+            this.updateButtons();
+        },
+        
+        back() {
+            if (this.index > 0) {
+                this.index--;
+                this.updateButtons();
+                return this.states[this.index];
+            }
+            return null;
+        },
+        
+        forward() {
+            if (this.index < this.states.length - 1) {
+                this.index++;
+                this.updateButtons();
+                return this.states[this.index];
+            }
+            return null;
+        },
+        
+        updateButtons() {
+            const prevBtn = document.getElementById("history-prev-btn");
+            const nextBtn = document.getElementById("history-next-btn");
+            if (prevBtn) {
+                prevBtn.disabled = this.index <= 0;
+                prevBtn.classList.toggle("disabled", this.index <= 0);
+            }
+            if (nextBtn) {
+                nextBtn.disabled = this.index >= this.states.length - 1;
+                nextBtn.classList.toggle("disabled", this.index >= this.states.length - 1);
+            }
+        }
+    };
+
+    function captureHistoryState() {
+        if (!sim) return;
+        const state = {
+            settings: { ...sim.settings },
+            palette: [...sim.palette],
+            backgroundColor: sim.backgroundColor,
+            isSolidMode: sim.isSolidMode
+        };
+        ConfigHistory.push(state);
+    }
+
+    let historyDebounceTimer = null;
+    function triggerHistoryCaptureDebounced() {
+        clearTimeout(historyDebounceTimer);
+        historyDebounceTimer = setTimeout(() => {
+            captureHistoryState();
+        }, 1000);
+    }
+
+    function syncAllSlidersToSettings() {
+        const sliderMap = {
+            speed: "speed-slider",
+            turbulence: "turbulence-slider",
+            density: "density-slider",
+            flowOrganic: "curl-slider",
+            dissipation: "dissipation-slider",
+            zoom: "zoom-slider",
+            baseSize: "size-slider",
+            sizeVariation: "size-var-slider",
+            stretch: "stretch-slider",
+            interaction: "interaction-slider",
+            mouseInfluence: "mouse-influence-slider",
+            rotationSpeed: "rotation-slider",
+            wobble: "wobble-slider",
+            kaleidoscopeSegments: "kaleido-segments-slider"
+        };
+        Object.keys(sliderMap).forEach(key => {
+            const slider = document.getElementById(sliderMap[key]);
+            if (slider && sim.settings[key] !== undefined) {
+                slider.value = sim.settings[key];
+            }
+        });
+        updateSliderTextDisplays();
+    }
+
+    function applyHistoryState(state) {
+        if (!state) return;
+        
+        Object.keys(state.settings).forEach(key => {
+            const val = state.settings[key];
+            if (typeof val === "number") {
+                startMorph(key, val);
+            } else {
+                sim.settings[key] = val;
+            }
+        });
+        
+        elements.kaleidoscopeToggle.checked = state.settings.kaleidoscopeEnabled;
+        if (state.settings.kaleidoscopeEnabled) {
+            elements.kaleidoscopeSettings.classList.remove("hidden");
+        } else {
+            elements.kaleidoscopeSettings.classList.add("hidden");
+        }
+        elements.psychedelicToggle.checked = state.settings.psychedelicMode;
+        elements.morphingBgToggle.checked = state.settings.morphingBg;
+        elements.spinningKaleidoToggle.checked = state.settings.spinningKaleido;
+        elements.particleShapeSelect.value = state.settings.particleShape || "ellipse";
+        
+        syncAllSlidersToSettings();
+        
+        updateActivePalette([...state.palette]);
+        renderSwatches();
+        
+        sim.backgroundColor = state.backgroundColor;
+        if (elements.bgColorPicker) {
+            elements.bgColorPicker.value = state.backgroundColor;
+            elements.bgHexVal.textContent = state.backgroundColor.toUpperCase();
+        }
+        
+        sim.isSolidMode = state.isSolidMode;
+        elements.solidModeToggle.checked = state.isSolidMode;
+        
+        modulateSynth();
+        
+        document.querySelectorAll(".preset-card").forEach(c => c.classList.remove("active"));
+        lastPresetKey = null;
+    }
+
+    function applyRandomConfig() {
+        const rnd = (min, max) => min + Math.random() * (max - min);
+        const rndInt = (min, max) => Math.floor(rnd(min, max + 1));
+        
+        const randomSettings = {
+            speed: rnd(0.2, 5.0),
+            turbulence: rnd(0.0, 3.5),
+            density: rndInt(600, 3500),
+            flowOrganic: rnd(0.0, 1.8),
+            dissipation: rnd(0.004, 0.05),
+            zoom: rnd(0.4, 4.5),
+            baseSize: rnd(0.6, 9.0),
+            sizeVariation: rnd(0.2, 5.0),
+            stretch: rnd(0.0, 5.0),
+            interaction: rnd(0.0, 3.5),
+            mouseInfluence: rnd(0.2, 4.0),
+            rotationSpeed: rnd(0.0, 0.6),
+            wobble: rnd(0.0, 0.8),
+            kaleidoscopeEnabled: Math.random() > 0.6,
+            kaleidoscopeSegments: rndInt(3, 10),
+            psychedelicMode: Math.random() > 0.8,
+            morphingBg: Math.random() > 0.7,
+            spinningKaleido: Math.random() > 0.7,
+            particleShape: ["ellipse", "drop", "ring", "aquatic", "nebula", "brush", "cluster"][Math.floor(Math.random() * 7)]
+        };
+
+        const randomPalette = generateHarmoniousPalette();
+        
+        Object.keys(randomSettings).forEach(key => {
+            if (typeof randomSettings[key] === "number") {
+                startMorph(key, randomSettings[key]);
+            } else {
+                sim.settings[key] = randomSettings[key];
+            }
+        });
+        
+        elements.kaleidoscopeToggle.checked = randomSettings.kaleidoscopeEnabled;
+        if (randomSettings.kaleidoscopeEnabled) {
+            elements.kaleidoscopeSettings.classList.remove("hidden");
+        } else {
+            elements.kaleidoscopeSettings.classList.add("hidden");
+        }
+        elements.psychedelicToggle.checked = randomSettings.psychedelicMode;
+        elements.morphingBgToggle.checked = randomSettings.morphingBg;
+        elements.spinningKaleidoToggle.checked = randomSettings.spinningKaleido;
+        elements.particleShapeSelect.value = randomSettings.particleShape;
+        
+        updateActivePalette(randomPalette);
+        renderSwatches();
+        modulateSynth();
+        
+        document.querySelectorAll(".preset-card").forEach(c => c.classList.remove("active"));
+        lastPresetKey = null;
+        
+        captureHistoryState();
+        
+        showToast("New cosmic configuration generated! 🎲");
+        CosmicLogger.info("Generated new custom randomized settings.");
+    }
+
     // Fading UI inactivity timers & headphones warning variables
     let uiFadeTimeout = null;
     let isMouseOverUI = false;
@@ -207,6 +443,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- INITIALIZATION ---
     function initialize() {
         CosmicLogger.info("ETERNAL VEIL initializing...");
+        ConfigHistory.init();
         setupTabs();
         setupFlowToggles();
         buildPresetCards();
@@ -229,6 +466,7 @@ document.addEventListener("DOMContentLoaded", () => {
             randomizeAllParameters();
             CosmicLogger.info("Autopilot enabled and parameters randomized on launch.");
         }
+        captureHistoryState();
         
         setupEventListeners();
         setupInteractionEvents();
@@ -413,6 +651,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         showToast(`Preset shifted to: ${p.name}`);
         CosmicLogger.info(`Preset shifted to: ${p.name.toUpperCase()}.`);
+        captureHistoryState();
     }
 
     function turnOffPsychedelicMode() {
@@ -1113,6 +1352,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Setup input slider events and map them directly to simulation settings
     function setupEventListeners() {
+        // Config History Navigation
+        const prevBtn = document.getElementById("history-prev-btn");
+        const nextBtn = document.getElementById("history-next-btn");
+        const randBtn = document.getElementById("history-rand-btn");
+        
+        if (prevBtn) {
+            prevBtn.onclick = () => {
+                const prevState = ConfigHistory.back();
+                if (prevState) applyHistoryState(prevState);
+            };
+        }
+        if (nextBtn) {
+            nextBtn.onclick = () => {
+                const nextState = ConfigHistory.forward();
+                if (nextState) applyHistoryState(nextState);
+            };
+        }
+        if (randBtn) {
+            randBtn.onclick = () => {
+                applyRandomConfig();
+            };
+        }
+
         // Toggle Sidebar panel
         elements.menuToggleBtn.onclick = () => togglePanel();
         elements.closePanelBtn.onclick = () => togglePanel(false);
@@ -1640,6 +1902,20 @@ document.addEventListener("DOMContentLoaded", () => {
                         CosmicLogger.info("Diagnostic Console visibility toggled.");
                     }
                     break;
+                case "arrowleft":
+                    e.preventDefault();
+                    const prevState = ConfigHistory.back();
+                    if (prevState) applyHistoryState(prevState);
+                    break;
+                case "arrowright":
+                    e.preventDefault();
+                    const nextState = ConfigHistory.forward();
+                    if (nextState) applyHistoryState(nextState);
+                    break;
+                case "g":
+                    e.preventDefault();
+                    applyRandomConfig();
+                    break;
                 case "3":
                     e.preventDefault();
                     toggle3DMode();
@@ -1754,6 +2030,7 @@ document.addEventListener("DOMContentLoaded", () => {
             };
             const key = inputToKeyMap[id];
             if (key) setOptionToManual(key);
+            triggerHistoryCaptureDebounced();
         });
 
         elements.controlPanel.addEventListener("change", (e) => {
@@ -1767,6 +2044,7 @@ document.addEventListener("DOMContentLoaded", () => {
             };
             const key = inputToKeyMap[id];
             if (key) setOptionToManual(key);
+            triggerHistoryCaptureDebounced();
         });
 
         // Dismiss autopilot help tooltip when clicked anywhere on the screen
