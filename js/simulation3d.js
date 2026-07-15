@@ -61,8 +61,8 @@ class FlowSimulation3D {
         this.texture.wrapT = THREE.ClampToEdgeWrapping;
         
         // Subdivided sphere geometry template
-        const geoTemplate1 = new THREE.SphereGeometry(420, 64, 64); // Inner Dome (large)
-        const geoTemplate2 = new THREE.SphereGeometry(460, 64, 64); // Outer Dome (nested layer)
+        this.geoTemplate1 = new THREE.SphereGeometry(420, 64, 64); // Inner Dome (large)
+        this.geoTemplate2 = new THREE.SphereGeometry(460, 64, 64); // Outer Dome (nested layer)
         
         // Custom Shader Material that morphs, tiles, centers, and dissolves seams
         const shaderDefinition = {
@@ -130,7 +130,7 @@ class FlowSimulation3D {
         material1.uniforms.radius.value = 420.0;
         material1.uniforms.opacity.value = 1.0;
         this.material1 = material1;
-        this.domeMesh1 = new THREE.Mesh(geoTemplate1, this.material1);
+        this.domeMesh1 = new THREE.Mesh(this.geoTemplate1, this.material1);
         this.scene.add(this.domeMesh1);
 
         // Create Dome 2: Outer Layer (rotated slightly for parallax slide)
@@ -139,7 +139,7 @@ class FlowSimulation3D {
         material2.uniforms.radius.value = 460.0;
         material2.uniforms.opacity.value = 0.45; // softer overlay
         this.material2 = material2;
-        this.domeMesh2 = new THREE.Mesh(geoTemplate2, this.material2);
+        this.domeMesh2 = new THREE.Mesh(this.geoTemplate2, this.material2);
         this.domeMesh2.rotation.y = Math.PI / 4.0; // initial rotation offset
         this.scene.add(this.domeMesh2);
     }
@@ -168,20 +168,38 @@ class FlowSimulation3D {
             this.isPointerDown = false;
         };
 
-        this.canvas.addEventListener('mousedown', e => handleDown(e.clientX, e.clientY));
-        window.addEventListener('mousemove', e => handleMove(e.clientX, e.clientY));
-        window.addEventListener('mouseup', handleUp);
-
-        this.canvas.addEventListener('touchstart', e => {
+        this._onMouseDown = e => handleDown(e.clientX, e.clientY);
+        this._onMouseMove = e => handleMove(e.clientX, e.clientY);
+        this._onMouseUp = handleUp;
+        this._onTouchStart = e => {
             if (e.touches.length === 1) handleDown(e.touches[0].clientX, e.touches[0].clientY);
-        });
-        window.addEventListener('touchmove', e => {
+        };
+        this._onTouchMove = e => {
             if (e.touches.length === 1) handleMove(e.touches[0].clientX, e.touches[0].clientY);
-        });
-        window.addEventListener('touchend', handleUp);
+        };
+        this._onTouchEnd = handleUp;
+
+        this.canvas.addEventListener('mousedown', this._onMouseDown);
+        window.addEventListener('mousemove', this._onMouseMove);
+        window.addEventListener('mouseup', this._onMouseUp);
+
+        this.canvas.addEventListener('touchstart', this._onTouchStart, { passive: true });
+        window.addEventListener('touchmove', this._onTouchMove, { passive: true });
+        window.addEventListener('touchend', this._onTouchEnd);
     }
 
-    updatePalette(newPalette) {}
+    updatePalette(newPalette) {
+        if (!Array.isArray(newPalette) || newPalette.length === 0) return;
+        // Parse background color if available
+        const bg = this.backgroundColor || "#050507";
+        if (this.renderer) {
+            try {
+                this.scene.background = new THREE.Color(bg);
+            } catch (_) {
+                this.scene.background = new THREE.Color("#050507");
+            }
+        }
+    }
     triggerBurst(x, y, count) {}
     triggerShockwave(x, y, force, speed) {}
     triggerVortex(x, y, radius, strength, life) {}
@@ -192,6 +210,25 @@ class FlowSimulation3D {
         this.camera.aspect = w / h;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(w, h);
+    }
+
+    dispose() {
+        this.renderer.setAnimationLoop(null);
+        
+        this.canvas.removeEventListener('mousedown', this._onMouseDown);
+        window.removeEventListener('mousemove', this._onMouseMove);
+        window.removeEventListener('mouseup', this._onMouseUp);
+        this.canvas.removeEventListener('touchstart', this._onTouchStart);
+        window.removeEventListener('touchmove', this._onTouchMove);
+        window.removeEventListener('touchend', this._onTouchEnd);
+        
+        if (this.geoTemplate1) this.geoTemplate1.dispose();
+        if (this.geoTemplate2) this.geoTemplate2.dispose();
+        if (this.material1) this.material1.dispose();
+        if (this.material2) this.material2.dispose();
+        if (this.texture) this.texture.dispose();
+        
+        this.renderer.dispose();
     }
 
     tick() {

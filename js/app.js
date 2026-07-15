@@ -52,6 +52,17 @@ document.addEventListener("DOMContentLoaded", () => {
     let is3DMode = false;
     let sim3D = null;
 
+    function load3DStyle() {
+        const saved = localStorage.getItem("eternalVeil3DStyle");
+        return (saved === "dome" || saved === "native") ? saved : "native";
+    }
+
+    function save3DStyle(style) {
+        localStorage.setItem("eternalVeil3DStyle", style);
+    }
+
+    let selected3DStyle = load3DStyle();
+
     // Fading UI inactivity timers & headphones warning variables
     let uiFadeTimeout = null;
     let isMouseOverUI = false;
@@ -156,6 +167,7 @@ document.addEventListener("DOMContentLoaded", () => {
         spinningKaleidoToggle: document.getElementById("spinning-kaleido-toggle"),
         shockwavesToggle: document.getElementById("shockwaves-toggle"),
         particleShapeSelect: document.getElementById("particle-shape-select"),
+        webglStyleSelect: document.getElementById("webgl-style-select"),
         
         // Fading & binaural elements
         hud: document.getElementById("hud"),
@@ -223,6 +235,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // WebXR VR session callbacks to resize the canvas dynamically
         window.onVRSessionStart = () => {
+            if (elements.webglStyleSelect) elements.webglStyleSelect.disabled = true;
             if (sim3D && sim3D.usesFlowTexture === false) {
                 CosmicLogger.info("WebXR VR Session active in native volumetric particle mode.");
                 return;
@@ -233,6 +246,7 @@ document.addEventListener("DOMContentLoaded", () => {
         };
 
         window.onVRSessionEnd = () => {
+            if (elements.webglStyleSelect) elements.webglStyleSelect.disabled = false;
             if (sim3D && sim3D.usesFlowTexture === false) {
                 CosmicLogger.info("WebXR VR Session ended. Native volumetric field remains active in desktop 3D.");
                 return;
@@ -777,12 +791,18 @@ document.addEventListener("DOMContentLoaded", () => {
         
         if (is3DMode) {
             if (!sim3D) {
-                CosmicLogger.info("Initializing native volumetric 3D particle engine using Three.js...");
+                CosmicLogger.info(`Initializing 3D renderer style: ${selected3DStyle.toUpperCase()} using Three.js...`);
                 try {
-                    const RendererClass = window.NativeFlowSimulation3D || window.FlowSimulation3D;
-                    sim3D = new RendererClass("webgl-canvas");
+                    if (selected3DStyle === "dome") {
+                        sim3D = new FlowSimulation3D("webgl-canvas");
+                    } else {
+                        sim3D = new NativeFlowSimulation3D("webgl-canvas");
+                    }
                 } catch (error) {
-                    CosmicLogger.warn("Native 3D initialization failed; falling back to Parallax Flow Dome. " + error.message);
+                    CosmicLogger.warn("3D initialization failed; falling back to Parallax Flow Dome. " + error.message);
+                    selected3DStyle = "dome";
+                    save3DStyle("dome");
+                    if (elements.webglStyleSelect) elements.webglStyleSelect.value = "dome";
                     sim3D = new FlowSimulation3D("webgl-canvas");
                 }
                 window.sim3D = sim3D;
@@ -823,81 +843,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 ? "Switched from 2D Canvas to native GPU-driven volumetric particles."
                 : "Switched simulation engine from 2D Canvas to 3D WebGL projection.");
             
-            // WebGL rendering and physics tick step with decoupled flow scheduling & performance sampling
-            let lastFlowUpdateTime = 0;
-            let lastRenderTime = performance.now();
-            let lastFpsUpdate = performance.now();
-            
-            sim3D.renderer.setAnimationLoop(() => {
-                if (is3DMode) {
-                    const now = performance.now();
-                    const frameDuration = now - lastRenderTime;
-                    lastRenderTime = now;
-
-                    processMusicReactivity();
-                    processMorphs();
-                    
-                    // Decoupled flow scheduler using RenderQuality settings
-                    const profile = window.RenderQuality.getProfile();
-                    const flowHz = profile.flowHz || 60;
-                    const flowInterval = 1000 / flowHz;
-                    
-                    let flowMs = 0;
-                    let flowTicked = false;
-                    
-                    const elapsed = now - lastFlowUpdateTime;
-                    if (sim3D.usesFlowTexture !== false && elapsed >= flowInterval) {
-                        const flowStart = performance.now();
-                        sim.tick();
-                        const flowEnd = performance.now();
-                        flowMs = flowEnd - flowStart;
-                        
-                        // Mark texture for upload directly
-                        if (sim3D.texture) sim3D.texture.needsUpdate = true;
-                        
-                        lastFlowUpdateTime = now - (elapsed % flowInterval);
-                        flowTicked = true;
-                    }
-                    
-                    // Render WebGL/XR camera frame
-                    const threeStart = performance.now();
-                    sim3D.tick();
-                    const threeEnd = performance.now();
-                    const threeMs = threeEnd - threeStart;
-                    
-                    // Sample performance metrics (EWMA frame time and render times)
-                    if (sim3D.usesFlowTexture !== false) {
-                        if (flowTicked) {
-                            window.RenderQuality.sampleFrame(frameDuration, flowMs, threeMs);
-                        } else {
-                            window.RenderQuality.sampleFrame(frameDuration, undefined, threeMs);
-                        }
-                    } else {
-                        // Native 3D has no hidden 2D texture to resize or throttle.
-                        window.RenderQuality.averageFrameInterval =
-                            window.RenderQuality.averageFrameInterval * 0.95 + frameDuration * 0.05;
-                        window.RenderQuality.canvasDrawMsAvg =
-                            window.RenderQuality.canvasDrawMsAvg * 0.95 + threeMs * 0.05;
-                        window.RenderQuality.flowMsAvg = 0;
-                    }
-                    
-                    // Update diagnostics FPS and console overlay stats
-                    frameCount++;
-                    if (now - lastFpsUpdate >= 500) {
-                        const fps = Math.round((frameCount * 1000) / (now - lastFpsUpdate));
-                        elements.hudFps.textContent = fps;
-                        if (sim3D.usesFlowTexture === false && sim3D.activeParticles) {
-                            elements.hudParticles.textContent = sim3D.activeParticles;
-                        }
-                        frameCount = 0;
-                        lastFpsUpdate = now;
-                        
-                        updatePerfDiagnosticConsole(fps);
-                    }
-                    
-                    updateHudWaveform();
-                }
-            });
+            // Start the Three.js loop
+            restart3DLoop();
             
         } else {
             if (sim3D) {
@@ -919,6 +866,151 @@ document.addEventListener("DOMContentLoaded", () => {
             
             requestAnimationFrame(tickLoop);
         }
+    }
+
+    // Handles live hot-swapping between Native 3D Volumetric and Parallax Dome styles
+    function change3DStyle(newStyle) {
+        if (newStyle === selected3DStyle) return;
+        
+        // Safety lock: do not allow style changes during WebXR presentations
+        if (sim3D && sim3D.renderer.xr.isPresenting) {
+            CosmicLogger.warn("Cannot switch 3D styles during an active WebXR VR session.");
+            showToast("Exit VR first to switch 3D styles.");
+            if (elements.webglStyleSelect) elements.webglStyleSelect.value = selected3DStyle;
+            return;
+        }
+
+        selected3DStyle = newStyle;
+        save3DStyle(newStyle);
+        
+        if (is3DMode) {
+            CosmicLogger.info(`Hot-swapping active 3D renderer style to: ${newStyle.toUpperCase()}`);
+            
+            // 1. Shut down and clean up active renderer
+            if (sim3D) {
+                sim3D.dispose();
+                sim3D = null;
+                window.sim3D = null;
+            }
+            
+            // 2. Instantiate newly selected renderer style
+            try {
+                if (selected3DStyle === "dome") {
+                    sim3D = new FlowSimulation3D("webgl-canvas");
+                } else {
+                    sim3D = new NativeFlowSimulation3D("webgl-canvas");
+                }
+            } catch (err) {
+                CosmicLogger.error("Failed to hot-swap 3D renderer. Rolling back to Dome. " + err.message);
+                selected3DStyle = "dome";
+                save3DStyle("dome");
+                if (elements.webglStyleSelect) elements.webglStyleSelect.value = "dome";
+                sim3D = new FlowSimulation3D("webgl-canvas");
+            }
+            window.sim3D = sim3D;
+            
+            // 3. Toggle hidden 2D buffer resizing depending on engine style needs
+            if (sim3D.usesFlowTexture !== false) {
+                const profile = window.RenderQuality.getProfile("desktopHigh");
+                sim.resize(profile.width, profile.height, 1.0);
+            }
+            
+            // 4. Propagate active configurations
+            sim3D.settings = sim.settings;
+            sim3D.backgroundColor = sim.backgroundColor;
+            sim3D.updatePalette([...sim.palette]);
+            
+            // 5. Restart WebGL render pipeline
+            restart3DLoop();
+            
+            // 6. Refresh indicators and HUD values
+            elements.hudMode.textContent = sim3D.usesFlowTexture === false ? "NATIVE 3D" : "3D FLOW";
+            showToast(selected3DStyle === "native" ? "Switched to Volumetric GPU particles" : "Switched to Parallax Flow Dome");
+        }
+    }
+
+    // Configures and starts the Three.js render loop for the active 3D engine style
+    function restart3DLoop() {
+        if (!sim3D) return;
+        
+        let lastFlowUpdateTime = 0;
+        let lastRenderTime = performance.now();
+        let lastFpsUpdate = performance.now();
+        
+        sim3D.renderer.setAnimationLoop(() => {
+            if (is3DMode && sim3D) {
+                const now = performance.now();
+                const frameDuration = now - lastRenderTime;
+                lastRenderTime = now;
+
+                processMusicReactivity();
+                processMorphs();
+                
+                // Track music pulse and treble intensity in both renderers
+                const audioValues = window.audioReactivityValues || { bass: 0, mid: 0, treble: 0, volume: 0 };
+                sim3D.sizePulse = audioValues.bass * (sim.settings.zoom ?? 1.0);
+                sim3D.trebleIntensity = audioValues.treble;
+                
+                // Decoupled flow scheduler (only runs if dome style is active)
+                const profile = window.RenderQuality.getProfile();
+                const flowHz = profile.flowHz || 60;
+                const flowInterval = 1000 / flowHz;
+                
+                let flowMs = 0;
+                let flowTicked = false;
+                
+                const elapsed = now - lastFlowUpdateTime;
+                if (sim3D.usesFlowTexture !== false && elapsed >= flowInterval) {
+                    const flowStart = performance.now();
+                    sim.tick();
+                    const flowEnd = performance.now();
+                    flowMs = flowEnd - flowStart;
+                    
+                    if (sim3D.texture) sim3D.texture.needsUpdate = true;
+                    
+                    lastFlowUpdateTime = now - (elapsed % flowInterval);
+                    flowTicked = true;
+                }
+                
+                // Tick and render WebGL dome/camera perspective
+                const threeStart = performance.now();
+                sim3D.tick();
+                const threeEnd = performance.now();
+                const threeMs = threeEnd - threeStart;
+                
+                // Accumulate timing samples
+                if (sim3D.usesFlowTexture !== false) {
+                    if (flowTicked) {
+                        window.RenderQuality.sampleFrame(frameDuration, flowMs, threeMs);
+                    } else {
+                        window.RenderQuality.sampleFrame(frameDuration, undefined, threeMs);
+                    }
+                } else {
+                    // Volumetric Native mode doesn't compute 2D canvas flows
+                    window.RenderQuality.averageFrameInterval =
+                        window.RenderQuality.averageFrameInterval * 0.95 + frameDuration * 0.05;
+                    window.RenderQuality.canvasDrawMsAvg =
+                        window.RenderQuality.canvasDrawMsAvg * 0.95 + threeMs * 0.05;
+                    window.RenderQuality.flowMsAvg = 0;
+                }
+                
+                // Diagnostics and diagnostics console updater
+                frameCount++;
+                if (now - lastFpsUpdate >= 500) {
+                    const fps = Math.round((frameCount * 1000) / (now - lastFpsUpdate));
+                    elements.hudFps.textContent = fps;
+                    if (sim3D.usesFlowTexture === false && sim3D.activeParticles) {
+                        elements.hudParticles.textContent = sim3D.activeParticles;
+                    }
+                    frameCount = 0;
+                    lastFpsUpdate = now;
+                    
+                    updatePerfDiagnosticConsole(fps);
+                }
+                
+                updateHudWaveform();
+            }
+        });
     }
 
     // Update floating HUD waveform visualizer bar scales
@@ -1196,6 +1288,12 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.particleShapeSelect.onchange = () => {
             sim.settings.particleShape = elements.particleShapeSelect.value;
         };
+        if (elements.webglStyleSelect) {
+            elements.webglStyleSelect.value = selected3DStyle;
+            elements.webglStyleSelect.onchange = () => {
+                change3DStyle(elements.webglStyleSelect.value);
+            };
+        }
 
         // Media Exports
         elements.captureSnapshotBtn.onclick = () => exporter.captureSnapshot();
