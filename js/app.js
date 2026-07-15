@@ -539,64 +539,6 @@ document.addEventListener("DOMContentLoaded", () => {
             CosmicLogger.info(`WebXR VR Session ended. Restoring desktop-3D backing texture to: ${profile.width}x${profile.height}`);
             sim.resize(profile.width, profile.height, 1.0);
         };
-
-        // Native VR uses a lightweight in-headset canvas panel instead of trying
-        // to project the full desktop drawer into WebXR. Keep this bridge small
-        // and explicit so controller actions use the same settings/state logic as
-        // desktop controls and remain synchronized after leaving the headset.
-        window.onNativeVRControl = action => {
-            const state = () => ({
-                autopilot: isAutopilot,
-                paused: Boolean(sim.isPaused),
-                size: sim.settings.baseSize,
-                speed: sim.settings.speed,
-                density: sim.settings.density
-            });
-            if (action === "getState") return state();
-
-            const adjust = (key, delta, min, max, slider, integer = false) => {
-                delete activeTransitions[key];
-                setOptionToManual(key);
-                let next = Math.max(min, Math.min(max, Number(sim.settings[key]) + delta));
-                if (integer) next = Math.round(next);
-                updateActiveSetting(key, next);
-                if (slider) slider.value = String(next);
-                if (key === "density") sim.updateDensity();
-                updateSliderTextDisplays();
-            };
-
-            switch (action) {
-                case "togglePause":
-                    togglePause();
-                    break;
-                case "toggleAutopilot":
-                    toggleAutopilot(!isAutopilot);
-                    break;
-                case "sizeDown":
-                    adjust("baseSize", -0.5, 0.5, 7, elements.sizeSlider);
-                    break;
-                case "sizeUp":
-                    adjust("baseSize", 0.5, 0.5, 7, elements.sizeSlider);
-                    break;
-                case "speedDown":
-                    adjust("speed", -0.25, 0.1, 4, elements.speedSlider);
-                    break;
-                case "speedUp":
-                    adjust("speed", 0.25, 0.1, 4, elements.speedSlider);
-                    break;
-                case "densityDown":
-                    adjust("density", -250, 200, 4000, elements.densitySlider, true);
-                    break;
-                case "densityUp":
-                    adjust("density", 250, 200, 4000, elements.densitySlider, true);
-                    break;
-            }
-
-            if (sim3D && sim3D.usesFlowTexture === false) {
-                sim3D.isPaused = Boolean(sim.isPaused);
-            }
-            return state();
-        };
         
         // Native VR uses a lightweight in-headset canvas panel instead of trying
         // to project the full desktop drawer into WebXR. Keep this bridge small
