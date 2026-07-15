@@ -1057,7 +1057,8 @@ document.addEventListener("DOMContentLoaded", () => {
             autopilotColorTimer = setInterval(() => {
                 if (isFlowEnabled("colors")) {
                     const palette = generateHarmoniousPalette();
-                    startPaletteMorph(palette, Math.max(14000, colorInterval * 0.42));
+                    const paletteDuration = Math.max(4500, Math.min(12000, colorInterval * 0.45));
+                    startPaletteMorph(palette, paletteDuration);
                     modulateSynth();
                 }
             }, colorInterval);
@@ -1078,8 +1079,11 @@ document.addEventListener("DOMContentLoaded", () => {
         // deliberately extreme limits: Autopilot should feel alive, not alarming.
         const roll = Math.random();
         const mode = roll < 0.74 ? "drift" : (roll < 0.96 ? "scenic" : "surge");
-        const patternSeconds = parseInt(elements.autoPatternSlider.value, 10) || 38;
-        const baseDuration = Math.max(12000, Math.min(30000, patternSeconds * 680));
+        const patternSeconds = parseInt(elements.autoPatternSlider.value, 10) || 20;
+        // Keep transitions smooth without reducing how often the scene discovers
+        // something new. At the 5-second minimum, a morph completes before the
+        // next one; at the 20-second default, it glides for about 11 seconds.
+        const baseDuration = Math.max(3200, Math.min(12000, patternSeconds * 550));
         const fields = {
             speed: [0.15, 2.4, 0.42, 0.05, 4.0],
             turbulence: [0.08, 1.65, 0.28, 0.0, 3.0],

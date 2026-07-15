@@ -414,9 +414,14 @@ function hslToHex(h, s, l) {
 function parseColorToHex(colorStr) {
     if (colorStr.startsWith('#')) return colorStr;
     if (colorStr.startsWith('hsl')) {
-        const matches = colorStr.match(/\d+/g);
-        if (matches && matches.length >= 3) {
-            return hslToHex(parseInt(matches[0]), parseInt(matches[1]), parseInt(matches[2]));
+        // Preserve decimal/negative hues. The old digit-only parser split a hue
+        // such as 123.45 into two fields, often reading 100% as lightness and
+        // silently turning a generated palette color pure white.
+        const match = colorStr.trim().match(
+            /^hsla?\(\s*([-+\d.]+)(?:deg)?\s*[, ]\s*([-+\d.]+)%\s*[, ]\s*([-+\d.]+)%/i
+        );
+        if (match) {
+            return hslToHex(Number(match[1]), Number(match[2]), Number(match[3]));
         }
     }
     return "#ffffff";
