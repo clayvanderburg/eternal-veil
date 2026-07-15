@@ -593,6 +593,29 @@ class NativeFlowSimulation3D {
         this.particleHeads.frustumCulled = false;
         this.world.add(this.particleHeads);
 
+        // Write only the tiny luminous core to depth. Transparent halos remain
+        // soft, while close particles can now occlude distant clouds and tails—
+        // a strong binocular depth cue that does not add visual busyness.
+        this.depthCoreMaterial = new THREE.ShaderMaterial({
+            uniforms: this.sharedUniforms,
+            vertexShader: this.createFlowVertexShader(false),
+            fragmentShader: `
+                precision highp float;
+                void main() {
+                    if (length(gl_PointCoord - vec2(0.5)) > 0.115) discard;
+                    gl_FragColor = vec4(1.0);
+                }
+            `,
+            transparent: false,
+            depthTest: true,
+            depthWrite: true,
+            colorWrite: false
+        });
+        this.particleDepthCores = new THREE.Points(this.headGeometry, this.depthCoreMaterial);
+        this.particleDepthCores.frustumCulled = false;
+        this.particleDepthCores.renderOrder = -2;
+        this.world.add(this.particleDepthCores);
+
         const trailVertexCount = count * this.trailSegments;
         const trailPositions = new Float32Array(trailVertexCount * 3);
         const trailSeeds = new Float32Array(trailVertexCount * 3);
@@ -664,13 +687,15 @@ class NativeFlowSimulation3D {
 
     initNebulaClouds() {
         const cloudCount = 72;
+        const layersPerCloud = 3;
         const verticesPerCloud = 6;
-        const vertexCount = cloudCount * verticesPerCloud;
+        const vertexCount = cloudCount * layersPerCloud * verticesPerCloud;
         const corners = new Float32Array(vertexCount * 3);
         const seeds = new Float32Array(vertexCount * 3);
         const phases = new Float32Array(vertexCount);
         const scales = new Float32Array(vertexCount);
         const paletteIndices = new Float32Array(vertexCount);
+        const layers = new Float32Array(vertexCount);
         const cornerPattern = [
             [-1, -1], [1, -1], [-1, 1],
             [1, -1], [1, 1], [-1, 1]
@@ -683,17 +708,20 @@ class NativeFlowSimulation3D {
             // Most clouds are substantial; a few become world-sized nebula banks.
             const scale = Math.pow(Math.random(), 0.58);
             const paletteIndex = Math.floor(Math.random() * 6);
-            for (let c = 0; c < verticesPerCloud; c++, v++) {
-                const v3 = v * 3;
-                corners[v3] = cornerPattern[c][0];
-                corners[v3 + 1] = cornerPattern[c][1];
-                corners[v3 + 2] = 0;
-                seeds[v3] = seed[0];
-                seeds[v3 + 1] = seed[1];
-                seeds[v3 + 2] = seed[2];
-                phases[v] = phase;
-                scales[v] = scale;
-                paletteIndices[v] = paletteIndex;
+            for (let layer = 0; layer < layersPerCloud; layer++) {
+                for (let c = 0; c < verticesPerCloud; c++, v++) {
+                    const v3 = v * 3;
+                    corners[v3] = cornerPattern[c][0];
+                    corners[v3 + 1] = cornerPattern[c][1];
+                    corners[v3 + 2] = 0;
+                    seeds[v3] = seed[0];
+                    seeds[v3 + 1] = seed[1];
+                    seeds[v3 + 2] = seed[2];
+                    phases[v] = phase;
+                    scales[v] = scale;
+                    paletteIndices[v] = paletteIndex;
+                    layers[v] = layer;
+                }
             }
         }
 
@@ -703,6 +731,7 @@ class NativeFlowSimulation3D {
         this.nebulaGeometry.setAttribute("aPhase", new THREE.BufferAttribute(phases, 1));
         this.nebulaGeometry.setAttribute("aScale", new THREE.BufferAttribute(scales, 1));
         this.nebulaGeometry.setAttribute("aPaletteIndex", new THREE.BufferAttribute(paletteIndices, 1));
+        this.nebulaGeometry.setAttribute("aLayer", new THREE.BufferAttribute(layers, 1));
 
         this.nebulaMaterial = new THREE.ShaderMaterial({
             uniforms: this.sharedUniforms,
@@ -712,6 +741,7 @@ class NativeFlowSimulation3D {
                 attribute float aPhase;
                 attribute float aScale;
                 attribute float aPaletteIndex;
+                attribute float aLayer;
                 uniform float uTime;
                 uniform float uBass;
                 uniform vec3 uPalette[6];
@@ -745,8 +775,18 @@ class NativeFlowSimulation3D {
                         z
                     );
 
+                    // Three related sheets occupy different physical depths. In
+                    // stereo they resolve as a soft cloud bank instead of one card.
+                    float layerOffset = aLayer - 1.0;
+                    float layerPhase = phase + aLayer * 2.17;
+                    center.z += layerOffset * mix(52.0, 126.0, aScale);
+                    center.xy += vec2(cos(layerPhase), sin(layerPhase * 1.31))
+                        * layerOffset * mix(18.0, 54.0, aScale);
+
                     vec4 mvCenter = modelViewMatrix * vec4(center, 1.0);
-                    float cloudSize = mix(125.0, 610.0, aScale) * (1.0 + min(0.24, uBass * 0.13));
+                    float layerScale = mix(0.86, 1.12, fract(aScale * 3.73 + aLayer * 0.37));
+                    float cloudSize = mix(135.0, 680.0, aScale) * layerScale
+                        * (1.0 + min(0.24, uBass * 0.13));
                     vec4 mvPosition = mvCenter;
                     mvPosition.xy += position.xy * cloudSize;
                     gl_Position = projectionMatrix * mvPosition;
@@ -783,7 +823,9 @@ class NativeFlowSimulation3D {
                     float density = (body * 0.62 + lobeA * 0.24 + lobeB * 0.2)
                         * mix(0.58, 1.0, filaments);
                     float edge = smoothstep(1.0, 0.22, r);
-                    float alpha = density * edge * vAlpha * 0.15;
+                    // Each sheet is lighter than the old single card; together
+                    // they are slightly more visible while preserving highlights.
+                    float alpha = density * edge * vAlpha * 0.072;
                     vec3 color = vColor * (0.64 + density * 0.58);
                     gl_FragColor = vec4(color * alpha, alpha);
                 }
@@ -850,8 +892,7 @@ class NativeFlowSimulation3D {
         };
         const onUp = () => {
             if (this.isPointerDown && !this.pointerMoved) {
-                this.triggerBurst(0, 0, 35);
-                this.triggerShockwave(0, 0, 45, 9);
+                this.triggerGentleRipple();
             }
             this.isPointerDown = false;
         };
@@ -934,9 +975,29 @@ class NativeFlowSimulation3D {
     updateFromSettings() {
         const s = this.settings || {};
         const requestedSpeed = Math.max(0.0, Math.min(8.0, s.speed ?? 1.0));
+        const inXR = this.renderer.xr.isPresenting;
         // Preserve the control's range while biasing native 3D toward a calmer,
         // more readable drift. Fast presets still accelerate, just less violently.
-        this.sharedUniforms.uSpeed.value = requestedSpeed * 0.62;
+        const targetSpeed = requestedSpeed * (inXR ? 0.42 : 0.58);
+        this.sharedUniforms.uSpeed.value = THREE.MathUtils.lerp(
+            this.sharedUniforms.uSpeed.value,
+            targetSpeed,
+            0.045
+        );
+        // A larger headset-only volume gives each eye more spatial separation
+        // and more time to track fly-bys without changing the desktop composition.
+        const targetDepth = inXR ? 1450 : 1050;
+        const targetRadius = inXR ? 320 : 260;
+        this.sharedUniforms.uDepth.value = THREE.MathUtils.lerp(
+            this.sharedUniforms.uDepth.value,
+            targetDepth,
+            0.035
+        );
+        this.sharedUniforms.uVolumeRadius.value = THREE.MathUtils.lerp(
+            this.sharedUniforms.uVolumeRadius.value,
+            targetRadius,
+            0.035
+        );
         this.sharedUniforms.uTurbulence.value = Math.max(0.0, Math.min(5.0, s.turbulence ?? 0.65));
         this.sharedUniforms.uOrganic.value = Math.max(0.0, Math.min(2.0, s.flowOrganic ?? 0.85));
         // The flat renderer's 0.1–14 size range was too compressed in a world-scale
@@ -985,6 +1046,13 @@ class NativeFlowSimulation3D {
     triggerShockwave(_x, _y, force = 55) {
         this.shockStrength = Math.min(2.8, this.shockStrength + force / 45);
         this.shockRadius = 20;
+    }
+
+    triggerGentleRipple() {
+        this.burstStrength = Math.min(1.25, this.burstStrength + 0.2);
+        this.vortexStrength = Math.min(0.9, this.vortexStrength + 0.1);
+        this.shockStrength = Math.min(1.0, this.shockStrength + 0.18);
+        this.shockRadius = 38;
     }
 
     resize() {
@@ -1058,9 +1126,7 @@ class NativeFlowSimulation3D {
             controller.addEventListener("selectstart", () => {
                 const hit = this.getVRPanelHit(controller);
                 if (hit && this.activateVRControl(hit.action)) return;
-                this.triggerBurst();
-                this.triggerVortex(0, 0, 300, 12, 45);
-                this.triggerShockwave(0, 0, 48, 9);
+                this.triggerGentleRipple();
             });
             controller.addEventListener("squeezestart", () => {
                 this.setVRPanelVisible(!this.vrPanelGroup || !this.vrPanelGroup.visible);
@@ -1111,6 +1177,7 @@ class NativeFlowSimulation3D {
         this.headGeometry.dispose();
         this.trailGeometry.dispose();
         this.headMaterial.dispose();
+        this.depthCoreMaterial.dispose();
         this.trailHaloMaterial.dispose();
         this.trailCoreMaterial.dispose();
         this.nebulaGeometry.dispose();

@@ -43,6 +43,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // Active UI transitions for smooth parameter morphing
     const activeTransitions = {};
+    let activePaletteTransition = null;
     let autopilotTimer = null;
     let autopilotColorTimer = null;
     let isAutopilot = true;
@@ -242,34 +243,41 @@ document.addEventListener("DOMContentLoaded", () => {
     function applyRandomConfig() {
         const rnd = (min, max) => min + Math.random() * (max - min);
         const rndInt = (min, max) => Math.floor(rnd(min, max + 1));
+        const occasionallyChange = (current, chance, enabledChance) =>
+            Math.random() < chance ? Math.random() < enabledChance : current;
+        const zenShapes = ["ellipse", "ellipse", "drop", "ring", "nebula", "aquatic"];
+        const nextShape = Math.random() < 0.24
+            ? zenShapes[Math.floor(Math.random() * zenShapes.length)]
+            : sim.settings.particleShape;
         
         const randomSettings = {
-            speed: rnd(0.2, 5.0),
-            turbulence: rnd(0.0, 3.5),
-            density: rndInt(600, 3500),
-            flowOrganic: rnd(0.0, 1.8),
-            dissipation: rnd(0.004, 0.05),
-            zoom: rnd(0.4, 4.5),
-            baseSize: rnd(0.6, 9.0),
-            sizeVariation: rnd(0.2, 5.0),
-            stretch: rnd(0.0, 5.0),
-            interaction: rnd(0.0, 3.5),
-            mouseInfluence: rnd(0.2, 4.0),
-            rotationSpeed: rnd(0.0, 0.6),
-            wobble: rnd(0.0, 0.8),
-            kaleidoscopeEnabled: Math.random() > 0.6,
-            kaleidoscopeSegments: rndInt(3, 10),
-            psychedelicMode: Math.random() > 0.8,
-            morphingBg: Math.random() > 0.7,
-            spinningKaleido: Math.random() > 0.7,
-            particleShape: ["ellipse", "drop", "ring", "aquatic", "nebula", "brush", "cluster"][Math.floor(Math.random() * 7)]
+            speed: rnd(0.2, 2.8),
+            turbulence: rnd(0.08, 1.9),
+            density: rndInt(650, 3300),
+            flowOrganic: rnd(0.3, 1.5),
+            dissipation: rnd(0.006, 0.05),
+            zoom: rnd(0.55, 3.5),
+            baseSize: rnd(0.7, 7.8),
+            sizeVariation: rnd(0.2, 3.8),
+            stretch: rnd(0.1, 3.6),
+            interaction: rnd(0.05, 2.2),
+            mouseInfluence: rnd(0.2, 3.0),
+            rotationSpeed: rnd(0.0, 0.36),
+            wobble: rnd(0.04, 0.7),
+            kaleidoscopeEnabled: occasionallyChange(sim.settings.kaleidoscopeEnabled, 0.12, 0.18),
+            kaleidoscopeSegments: rndInt(4, 9),
+            psychedelicMode: occasionallyChange(sim.settings.psychedelicMode, 0.07, 0.06),
+            morphingBg: occasionallyChange(sim.settings.morphingBg, 0.12, 0.24),
+            spinningKaleido: occasionallyChange(sim.settings.spinningKaleido, 0.07, 0.08),
+            particleShape: nextShape
         };
 
         const randomPalette = generateHarmoniousPalette();
+        const duration = rnd(8000, 12000);
         
         Object.keys(randomSettings).forEach(key => {
             if (typeof randomSettings[key] === "number") {
-                startMorph(key, randomSettings[key]);
+                startMorph(key, randomSettings[key], duration * rnd(0.88, 1.12));
             } else {
                 sim.settings[key] = randomSettings[key];
             }
@@ -286,8 +294,7 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.spinningKaleidoToggle.checked = randomSettings.spinningKaleido;
         elements.particleShapeSelect.value = randomSettings.particleShape;
         
-        updateActivePalette(randomPalette);
-        renderSwatches();
+        startPaletteMorph(randomPalette, duration * 1.25);
         modulateSynth();
         
         document.querySelectorAll(".preset-card").forEach(c => c.classList.remove("active"));
@@ -445,9 +452,10 @@ document.addEventListener("DOMContentLoaded", () => {
         CosmicLogger.info("ETERNAL VEIL initializing...");
         
         // --- DOMAIN LOCK PROTECTOR ---
-        const allowedHosts = ["localhost", "127.0.0.1"];
-        const hostname = window.location.hostname;
-        const isAllowed = allowedHosts.includes(hostname) || hostname.endsWith("netlify.app");
+        const allowedHosts = ["localhost", "127.0.0.1", "eternal-veil.netlify.app"];
+        const hostname = window.location.hostname.toLowerCase();
+        const isCanonicalPreview = hostname.endsWith("--eternal-veil.netlify.app");
+        const isAllowed = allowedHosts.includes(hostname) || isCanonicalPreview;
         if (!isAllowed) {
             document.body.innerHTML = `
                 <div style="
@@ -607,7 +615,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // --- SMOOTH MORPH TRANSITIONS ---
-    function startMorph(key, targetValue, duration = 1800) {
+    function startMorph(key, targetValue, duration = 5200) {
         const current = sim.settings[key];
         if (current === undefined || Math.abs(current - targetValue) < 0.0001) return;
         
@@ -616,6 +624,23 @@ document.addEventListener("DOMContentLoaded", () => {
             to: targetValue,
             start: Date.now(),
             duration: duration
+        };
+    }
+
+    function startPaletteMorph(targetPalette, duration = 12000) {
+        if (!Array.isArray(targetPalette) || targetPalette.length === 0) return;
+        const count = Math.max(sim.palette.length, targetPalette.length);
+        const normalize = palette => Array.from({ length: count }, (_, index) => {
+            const hex = parseColorToHex(palette[index % palette.length]);
+            return hexToHsl(hex) || { h: 0, s: 0, l: 100 };
+        });
+
+        activePaletteTransition = {
+            from: normalize(sim.palette),
+            to: normalize(targetPalette),
+            start: Date.now(),
+            duration,
+            lastPaint: 0
         };
     }
 
@@ -628,8 +653,9 @@ document.addEventListener("DOMContentLoaded", () => {
             const elapsed = now - transition.start;
             const progress = Math.min(elapsed / transition.duration, 1.0);
             
-            // Cubic Ease-Out curve
-            const eased = 1.0 - Math.pow(1.0 - progress, 3.0);
+            // Smootherstep eases gently at both ends, so changes drift instead of lurching.
+            const eased = progress * progress * progress
+                * (progress * (progress * 6.0 - 15.0) + 10.0);
             const val = transition.from + (transition.to - transition.from) * eased;
             
             updateActiveSetting(key, val);
@@ -652,6 +678,31 @@ document.addEventListener("DOMContentLoaded", () => {
             
             if (progress >= 1.0) {
                 delete activeTransitions[key];
+            }
+        }
+
+        if (activePaletteTransition) {
+            const transition = activePaletteTransition;
+            const progress = Math.min((now - transition.start) / transition.duration, 1.0);
+            const eased = progress * progress * progress
+                * (progress * (progress * 6.0 - 15.0) + 10.0);
+
+            if (now - transition.lastPaint >= 50 || progress >= 1.0) {
+                const palette = transition.from.map((from, index) => {
+                    const to = transition.to[index];
+                    const hueDelta = ((to.h - from.h + 540) % 360) - 180;
+                    const h = (from.h + hueDelta * eased + 360) % 360;
+                    const s = from.s + (to.s - from.s) * eased;
+                    const l = from.l + (to.l - from.l) * eased;
+                    return hslToHex(h, s, l);
+                });
+                updateActivePalette(palette);
+                transition.lastPaint = now;
+            }
+
+            if (progress >= 1.0) {
+                activePaletteTransition = null;
+                renderSwatches();
             }
         }
         
@@ -704,9 +755,8 @@ document.addEventListener("DOMContentLoaded", () => {
         startMorph("rotationSpeed", p.rotationSpeed);
         startMorph("wobble", p.wobble);
         
-        // Set colors and bg immediately
-        updateActivePalette([...p.colors]);
-        renderSwatches();
+        // Colors travel the same gentle path instead of snapping to the preset.
+        startPaletteMorph([...p.colors], 7000);
 
         // Apply custom flags for Psychedelic Drives if defined, else reset to default states
         const psychOn = p.psychedelicMode === true;
@@ -997,7 +1047,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const patternInterval = parseInt(elements.autoPatternSlider.value) * 1000;
         const colorInterval = parseInt(elements.autoColorSlider.value) * 1000;
         
-        // 1. Shift patterns by randomizing all sliders to their extreme possibilities
+        // 1. Drift through mostly local, contemplative changes.
         autopilotTimer = setInterval(() => {
             randomizeAllParameters();
         }, patternInterval);
@@ -1007,8 +1057,7 @@ document.addEventListener("DOMContentLoaded", () => {
             autopilotColorTimer = setInterval(() => {
                 if (isFlowEnabled("colors")) {
                     const palette = generateHarmoniousPalette();
-                    updateActivePalette(palette);
-                    renderSwatches();
+                    startPaletteMorph(palette, Math.max(14000, colorInterval * 0.42));
                     modulateSynth();
                 }
             }, colorInterval);
@@ -1023,68 +1072,92 @@ document.addEventListener("DOMContentLoaded", () => {
     function randomizeAllParameters() {
         const rnd = (min, max) => min + Math.random() * (max - min);
         const rndInt = (min, max) => Math.floor(rnd(min, max + 1));
-        
-        // Randomize all available sliders over their absolute full ranges (matching HTML inputs)
-        if (isFlowEnabled("speed")) startMorph("speed", rnd(0.0, 8.0));
-        if (isFlowEnabled("turbulence")) startMorph("turbulence", rnd(0.0, 5.0));
-        if (isFlowEnabled("density")) startMorph("density", rndInt(100, 8000));
-        if (isFlowEnabled("flowOrganic")) startMorph("flowOrganic", rnd(0.0, 2.0));
-        if (isFlowEnabled("dissipation")) startMorph("dissipation", rnd(0.001, 0.12));
-        if (isFlowEnabled("zoom")) startMorph("zoom", rnd(0.1, 7.0));
-        if (isFlowEnabled("baseSize")) startMorph("baseSize", rnd(0.1, 14.0));
-        if (isFlowEnabled("sizeVariation")) startMorph("sizeVariation", rnd(0.0, 7.0));
-        if (isFlowEnabled("stretch")) startMorph("stretch", rnd(0.0, 8.0));
-        if (isFlowEnabled("interaction")) startMorph("interaction", rnd(0.0, 5.0));
-        if (isFlowEnabled("mouseInfluence")) startMorph("mouseInfluence", rnd(0.0, 6.0));
-        if (isFlowEnabled("rotationSpeed")) startMorph("rotationSpeed", rnd(0.0, 1.2));
-        if (isFlowEnabled("wobble")) startMorph("wobble", rnd(0.0, 1.5));
-        
-        // Kaleidoscope Segments & Toggle
+
+        // Most cycles are a nearby drift, some are a scenic shift, and only a
+        // tiny minority are a controlled surge. Even surges stay below the UI's
+        // deliberately extreme limits: Autopilot should feel alive, not alarming.
+        const roll = Math.random();
+        const mode = roll < 0.74 ? "drift" : (roll < 0.96 ? "scenic" : "surge");
+        const patternSeconds = parseInt(elements.autoPatternSlider.value, 10) || 38;
+        const baseDuration = Math.max(12000, Math.min(30000, patternSeconds * 680));
+        const fields = {
+            speed: [0.15, 2.4, 0.42, 0.05, 4.0],
+            turbulence: [0.08, 1.65, 0.28, 0.0, 3.0],
+            density: [650, 3000, 430, 350, 5000, true],
+            flowOrganic: [0.35, 1.45, 0.2, 0.1, 1.8],
+            dissipation: [0.006, 0.045, 0.006, 0.003, 0.075],
+            zoom: [0.65, 3.2, 0.48, 0.35, 4.8],
+            baseSize: [0.8, 7.2, 1.0, 0.4, 10.5],
+            sizeVariation: [0.25, 3.4, 0.55, 0.0, 5.2],
+            stretch: [0.15, 3.2, 0.52, 0.0, 5.0],
+            interaction: [0.1, 2.0, 0.32, 0.0, 3.2],
+            mouseInfluence: [0.25, 2.8, 0.45, 0.0, 4.0],
+            rotationSpeed: [0.0, 0.32, 0.055, 0.0, 0.58],
+            wobble: [0.05, 0.62, 0.1, 0.0, 0.95]
+        };
+
+        Object.entries(fields).forEach(([key, field]) => {
+            if (!isFlowEnabled(key)) return;
+            const [zenMin, zenMax, localStep, surgeMin, surgeMax, integer] = field;
+            const current = Number(sim.settings[key] ?? zenMin);
+            let target;
+            if (mode === "drift") {
+                target = Math.max(zenMin, Math.min(zenMax, current + rnd(-localStep, localStep)));
+            } else if (mode === "scenic") {
+                target = rnd(zenMin, zenMax);
+            } else {
+                target = rnd(surgeMin, surgeMax);
+            }
+            if (integer) target = Math.round(target);
+            startMorph(key, target, baseDuration * rnd(0.78, 1.12));
+        });
+
+        // Rare state changes prevent every cycle from flipping the scene's identity.
         const nextKaleidoEnabledFlow = isFlowEnabled("kaleidoscopeEnabled");
         const nextKaleidoSegmentsFlow = isFlowEnabled("kaleidoscopeSegments");
-        
+
         let currentKaleidoEnabled = sim.settings.kaleidoscopeEnabled;
-        if (nextKaleidoEnabledFlow) {
-            currentKaleidoEnabled = Math.random() > 0.5;
+        if (nextKaleidoEnabledFlow && Math.random() < 0.08) {
+            currentKaleidoEnabled = Math.random() < 0.18;
             elements.kaleidoscopeToggle.checked = currentKaleidoEnabled;
             sim.settings.kaleidoscopeEnabled = currentKaleidoEnabled;
         }
-        
+
         if (currentKaleidoEnabled) {
             elements.kaleidoscopeSettings.classList.remove("hidden");
             if (nextKaleidoSegmentsFlow) {
-                startMorph("kaleidoscopeSegments", rndInt(3, 12));
+                startMorph("kaleidoscopeSegments", rndInt(4, 9), baseDuration);
             }
         } else {
             elements.kaleidoscopeSettings.classList.add("hidden");
         }
-        
-        // Drag physics morph
-        startMorph("drag", rnd(0.85, 0.95));
 
-        // Randomize Psychedelic drives in Autopilot
-        if (isFlowEnabled("psychedelicMode")) {
-            const psychOn = Math.random() > 0.75;
+        startMorph("drag", rnd(0.89, 0.945), baseDuration);
+
+        if (isFlowEnabled("psychedelicMode") && Math.random() < 0.06) {
+            const psychOn = Math.random() < 0.12;
             sim.settings.psychedelicMode = psychOn;
             elements.psychedelicToggle.checked = psychOn;
         }
 
-        if (isFlowEnabled("morphingBg")) {
-            const morphBgOn = Math.random() > 0.75;
+        if (isFlowEnabled("morphingBg") && Math.random() < 0.1) {
+            const morphBgOn = Math.random() < 0.28;
             sim.settings.morphingBg = morphBgOn;
             elements.morphingBgToggle.checked = morphBgOn;
         }
 
-        if (isFlowEnabled("spinningKaleido")) {
-            const spinKaleidoOn = Math.random() > 0.65;
+        if (isFlowEnabled("spinningKaleido") && Math.random() < 0.06) {
+            const spinKaleidoOn = Math.random() < 0.12;
             sim.settings.spinningKaleido = spinKaleidoOn;
             elements.spinningKaleidoToggle.checked = spinKaleidoOn;
         }
 
-        if (isFlowEnabled("particleShape")) {
-            const shapes = ["ellipse", "drop", "ring", "aquatic", "nebula", "brush", "cluster"];
+        if (isFlowEnabled("particleShape") && Math.random() < 0.16) {
             const randVal = Math.random();
-            const shapeChosen = randVal < 0.35 ? "ellipse" : (randVal < 0.50 ? "drop" : (randVal < 0.65 ? "ring" : (randVal < 0.77 ? "aquatic" : (randVal < 0.88 ? "nebula" : (randVal < 0.95 ? "brush" : "cluster")))));
+            const shapeChosen = randVal < 0.38 ? "ellipse"
+                : (randVal < 0.62 ? "drop"
+                    : (randVal < 0.82 ? "ring"
+                        : (randVal < 0.94 ? "nebula" : "aquatic")));
             sim.settings.particleShape = shapeChosen;
             elements.particleShapeSelect.value = shapeChosen;
         }
