@@ -72,42 +72,48 @@ const UrlStateSync = {
             
             const state = JSON.parse(json);
             
-            // Map keys back to settings structure
-            return {
+            // Map keys back to settings structure and pass through StateSchema sanitizer
+            const rawObj = {
+                v: state.v ?? 1,
                 settings: {
-                    speed: state.s ?? 1.0,
-                    turbulence: state.t ?? 0.65,
-                    density: state.d ?? 1200,
-                    flowOrganic: state.o ?? 0.85,
-                    dissipation: state.dp ?? 0.012,
-                    zoom: state.z ?? 1.0,
-                    baseSize: state.sz ?? 2.8,
-                    sizeVariation: state.sv ?? 1.4,
-                    stretch: state.st ?? 1.6,
-                    interaction: state.in ?? 0.7,
-                    mouseInfluence: state.mi ?? 0.8,
-                    mouseMode: state.mm ?? "burst",
+                    speed: state.s,
+                    turbulence: state.t,
+                    density: state.d,
+                    flowOrganic: state.o,
+                    dissipation: state.dp,
+                    zoom: state.z,
+                    baseSize: state.sz,
+                    sizeVariation: state.sv,
+                    stretch: state.st,
+                    interaction: state.in,
+                    mouseInfluence: state.mi,
+                    mouseMode: state.mm,
                     kaleidoscopeEnabled: state.ke === 1,
-                    kaleidoscopeSegments: state.ks ?? 6,
-                    rotationSpeed: state.rs ?? 0.0,
-                    wobble: state.wb ?? 0.0,
+                    kaleidoscopeSegments: state.ks,
+                    rotationSpeed: state.rs,
+                    wobble: state.wb,
                     
                     // Psychedelic Drives
                     psychedelicMode: state.pm === 1,
                     morphingBg: state.mb === 1,
                     spinningKaleido: state.sk === 1,
-                    particleShape: state.ps ?? "ellipse",
+                    particleShape: state.ps,
                     shockwavesEnabled: state.se !== 0, // default to true
 
                     // Audio additions
                     bilateralEnabled: state.be === 1,
                     asmrEnabled: state.ae === 1
                 },
-                palette: state.p ?? ["#6366f1"],
-                backgroundColor: state.bg ?? "#050507",
+                palette: state.p,
+                backgroundColor: state.bg,
                 isSolidMode: state.sm === 1,
                 autopilotEnabled: state.ap === 1
             };
+
+            if (window.StateSchema) {
+                return window.StateSchema.sanitize(rawObj);
+            }
+            return rawObj;
         } catch (e) {
             console.error("[UrlSync] Parsing state from URL hash failed:", e);
             return null;
