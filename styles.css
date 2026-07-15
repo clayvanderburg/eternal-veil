@@ -1259,6 +1259,9 @@ kbd {
     justify-content: center;
     transition: opacity 0.8s cubic-bezier(0.25, 1, 0.5, 1), visibility 0.8s;
     cursor: pointer;
+    overflow-y: auto;
+    padding: 20px 0;
+    box-sizing: border-box;
 }
 
 .splash-overlay.fade-out {
