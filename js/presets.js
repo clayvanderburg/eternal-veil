@@ -141,9 +141,9 @@ const StylePresets = {
     },
     hypno: {
         name: "Hypnotic Spiral",
-        desc: "Mandala quadrants with rotating reflection axes, neon ring tracers, and rainbow cycles.",
-        speed: 1.30,
-        turbulence: 0.35,
+        desc: "Six luminous arms breathe, rotate, and carry bright travelers through a deep spiral.",
+        speed: 0.78,
+        turbulence: 0.12,
         curl: 0.98,
         density: 1600,
         dissipation: 0.007,
@@ -152,17 +152,16 @@ const StylePresets = {
         sizeVar: 0.9,
         stretch: 2.2,
         interaction: 1.2,
-        rotationSpeed: 0.18,
-        wobble: 0.60,
-        colors: ["#ff007f", "#39ff14", "#00ffff", "#ffff00", "#a855f7", "#ec4899"],
+        rotationSpeed: 0.10,
+        wobble: 0.28,
+        colors: ["#7c3aed", "#c084fc", "#22d3ee", "#f0abfc", "#818cf8", "#ecfeff"],
         
         // Custom flags for new Psychedelic Drives
-        psychedelicMode: true,
-        morphingBg: true,
-        spinningKaleido: true,
-        particleShape: "ring",
-        kaleidoscopeEnabled: true,
-        kaleidoscopeSegments: 8,
+        psychedelicMode: false,
+        morphingBg: false,
+        spinningKaleido: false,
+        particleShape: "spiral",
+        kaleidoscopeEnabled: false,
         
         // Custom audio extensions
         bilateralEnabled: true,
@@ -552,12 +551,17 @@ const CuratedPalettes = [
     ["#a855f7", "#ec4899", "#ff007f", "#39ff14", "#00ffff", "#ffff00"] // Hyper-Neon Extreme
 ];
 
-function generateHarmoniousPalette() {
+function generateHarmoniousPalette(personality = "alive") {
     const baseHue = Math.floor(Math.random() * 360);
     const mode = Math.random();
     
     let palette = [];
-    if (mode < 0.3) {
+    if (personality === "serene") {
+        const spread = 14 + Math.floor(Math.random() * 13);
+        palette = [-2, -1, 0, 1, 2].map((step, index) =>
+            `hsl(${(baseHue + step * spread + 360) % 360}, ${58 + index * 4}%, ${42 + index * 6}%)`
+        );
+    } else if (mode < (personality === "wild" ? 0.22 : 0.4)) {
         // Analogous (Harmonious neighbors)
         palette = [
             `hsl(${baseHue}, 95%, 55%)`,
@@ -566,7 +570,7 @@ function generateHarmoniousPalette() {
             `hsl(${(baseHue - 20 + 360) % 360}, 90%, 50%)`,
             `hsl(${(baseHue - 40 + 360) % 360}, 80%, 45%)`
         ];
-    } else if (mode < 0.6) {
+    } else if (mode < (personality === "wild" ? 0.48 : 0.72)) {
         // Complementary / Split Complementary
         const compHue = (baseHue + 180) % 360;
         palette = [
@@ -576,7 +580,7 @@ function generateHarmoniousPalette() {
             `hsl(${compHue}, 90%, 55%)`,
             `hsl(${(compHue + 20) % 360}, 80%, 65%)`
         ];
-    } else if (mode < 0.8) {
+    } else if (mode < (personality === "wild" ? 0.72 : 1.0)) {
         // Triadic (highly contrasting)
         const hue2 = (baseHue + 120) % 360;
         const hue3 = (baseHue + 240) % 360;

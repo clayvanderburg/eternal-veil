@@ -268,6 +268,13 @@ class Particle {
             const radius = Math.min(this.w, this.h) * (0.08 + this.effectRole * 0.40);
             this.x = this.w * 0.5 + Math.cos(angle) * radius;
             this.y = this.h * 0.52 + Math.sin(angle) * radius;
+        } else if (shape === "spiral") {
+            const arm = Math.floor(this.effectLane * 6);
+            const progress = (this.effectRole + globalTime * 0.0007) % 1;
+            const radius = Math.min(this.w, this.h) * (0.035 + progress * 0.47);
+            const angle = arm * Math.PI / 3 + progress * Math.PI * 5.2 + globalTime * 0.003;
+            this.x = this.w * 0.5 + Math.cos(angle) * radius;
+            this.y = this.h * 0.5 + Math.sin(angle) * radius;
         } else if (shape.startsWith("pipes")) {
             const phase = this.effectPhase / (Math.PI * 2);
             const threshold = shape === "pipesTight" ? 0.985 : shape === "pipesCathedral" ? 0.94 : shape === "pipesShrine" ? 0.972 : 0.965;
@@ -296,7 +303,7 @@ class Particle {
         const flowFreq = 0.007 / zoom;
         const organic = settings.flowOrganic ?? 0.85;
         const turb = settings.turbulence ?? 0.65;
-        const authoredShapes = ["ocean", "aurora", "orbitals", "lotus", "pipes", "pipesTight", "pipesCathedral", "pipesShrine"];
+        const authoredShapes = ["ocean", "aurora", "orbitals", "lotus", "spiral", "pipes", "pipesTight", "pipesCathedral", "pipesShrine"];
         if (authoredShapes.includes(settings.particleShape)) {
             if (this.activeEffectShape !== settings.particleShape) {
                 this.configureAuthoredEffect(settings.particleShape, globalTime);
@@ -372,6 +379,18 @@ class Particle {
             const targetY = this.h * 0.52 + Math.sin(petalAngle) * radius;
             targetVx = (targetX - this.x) * 0.032;
             targetVy = (targetY - this.y) * 0.032;
+        } else if (settings.particleShape === "spiral") {
+            const arm = Math.floor(this.effectLane * 6);
+            const travelerSpeed = 0.00055 + speed * 0.00034;
+            const progress = (this.effectRole + globalTime * travelerSpeed) % 1;
+            const breathe = 0.95 + Math.sin(globalTime * 0.007 + arm) * 0.05;
+            const radius = Math.min(this.w, this.h) * (0.035 + progress * 0.47) * breathe;
+            const angle = arm * Math.PI / 3 + progress * Math.PI * 5.2
+                + globalTime * (0.0022 + (settings.rotationSpeed || 0) * 0.018);
+            const targetX = this.w * 0.5 + Math.cos(angle) * radius;
+            const targetY = this.h * 0.5 + Math.sin(angle) * radius;
+            targetVx = (targetX - this.x) * 0.08;
+            targetVy = (targetY - this.y) * 0.08;
         }
         
         // Inject Aquatic Flow split velocity physics overrides
@@ -745,6 +764,33 @@ class Particle {
                 ctx.beginPath();
                 ctx.ellipse(this.x, this.y, drawSize * 1.8, drawSize * 0.42, angle, 0, Math.PI * 2);
                 ctx.fill();
+            }
+            return true;
+        }
+
+        if (shape === "spiral") {
+            const hero = this.effectRole > 0.992;
+            if (hero) {
+                this.drawLitOrb(ctx, drawSize * (4.5 + this.effectLane * 5.5), drawAlpha * 0.9, settings);
+            } else {
+                ctx.strokeStyle = this.color;
+                ctx.lineCap = "round";
+                ctx.globalAlpha = drawAlpha * 0.16;
+                ctx.lineWidth = Math.max(2, drawSize * 2.8);
+                ctx.beginPath();
+                ctx.moveTo(this.lastX, this.lastY);
+                ctx.lineTo(this.x, this.y);
+                ctx.stroke();
+                ctx.globalAlpha = drawAlpha * 0.88;
+                ctx.lineWidth = Math.max(0.65, drawSize * 0.46);
+                ctx.stroke();
+                if (this.effectRole > 0.96) {
+                    ctx.globalAlpha = drawAlpha * 0.7;
+                    ctx.lineWidth = Math.max(0.8, drawSize * 0.25);
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, drawSize * 1.4, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
             }
             return true;
         }

@@ -30,34 +30,34 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     
     <!-- Custom Style Sheet -->
-    <link rel="stylesheet" href="styles.css?v=90375e6">
+    <link rel="stylesheet" href="styles.css?v=foundation-batch-1">
 </head>
 <body>
     <!-- Entry Splash Screen Overlay -->
     <div id="splash-screen" class="splash-overlay">
         <div class="splash-card">
             <h1 class="splash-title">ETERNAL VEIL</h1>
-            <span class="splash-subtitle">COSMIC FLOW GENERATOR</span>
+            <span class="splash-subtitle">IMMERSIVE GENERATIVE SANCTUARY</span>
             
             <p class="splash-text">
-                An interactive mathematical sandbox designed for focus, relaxation, and mindfulness. 
-                Fluid vectors and particle trails drift autonomously, responding to your touch.
+                Living visual worlds for relaxation, music, ambient spaces, creative play, and VR.
             </p>
             
-            <div class="splash-warning">
-                <span class="warning-headphones">🎧</span>
-                <p><strong>Headphones highly recommended.</strong> The simulation generates real-time binaural beats that resonate with your brainwaves to shift cognitive states.</p>
+            <div class="splash-warning splash-safety-warning">
+                <span class="warning-headphones">⚠️</span>
+                <p><strong>Visual comfort notice.</strong> Eternal Veil can include bright colors, flashing effects, repetitive patterns, and motion. Use Comfort Mode if you are sensitive to visual stimulation, migraines, motion, or photosensitive seizures.</p>
             </div>
             
             <div class="splash-features" style="margin-top: 15px; text-align: left; font-size: 10.5px; opacity: 0.85; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px; line-height: 1.4;">
-                <p style="margin: 0 0 4px 0; font-weight: 600; color: var(--text-accent); letter-spacing: 0.5px; text-transform: uppercase; font-size: 9px;">AUTOPILOT CO-PILOT</p>
-                <p style="margin: 0; color: var(--text-muted);">Autopilot slowly morphs parameters over time. Click the segment buttons in the drawer to toggle settings between <strong>MAN</strong> (frozen at your current setting) and <strong>FLOW</strong> (autonomous drifting). Dragging any slider automatically locks it to Manual control.</p>
+                <p style="margin: 0 0 4px 0; font-weight: 600; color: var(--text-accent); letter-spacing: 0.5px; text-transform: uppercase; font-size: 9px;">OPTIONAL SPATIAL AUDIO</p>
+                <p style="margin: 0; color: var(--text-muted);">Binaural and ambient audio may support a relaxing atmosphere for some listeners. Headphones are recommended for the intended stereo effect. Keep volume comfortable. Eternal Veil is an artistic experience, not medical treatment.</p>
             </div>
             
-            <div class="splash-cta" style="margin-top: 20px;">
-                <span class="cta-pulse"></span>
-                <span>Click anywhere to enter the void</span>
+            <div class="splash-entry-actions">
+                <button class="btn btn-primary" id="enter-standard-btn">ENTER THE VEIL</button>
+                <button class="btn btn-secondary" id="enter-comfort-btn">ENTER IN COMFORT MODE</button>
             </div>
+            <p class="splash-preference-note">Comfort settings can be changed later in the console.</p>
         </div>
     </div>
 
@@ -72,32 +72,11 @@
         <span class="prompt-icon">🎧</span> Wear headphones for full binaural effect
     </div>
     
-    <!-- Spotify Overlay Announcement for New Track (Centred bottom/middle) -->
-    <div id="spotify-track-overlay" class="spotify-track-overlay hidden">
-        <div class="spotify-overlay-card">
-            <div class="spotify-overlay-icon">🎧</div>
-            <div class="spotify-overlay-details">
-                <div class="spotify-overlay-sync-badge">SPOTIFY SYNC</div>
-                <div id="spotify-overlay-title" class="spotify-overlay-title">Unknown Track</div>
-                <div id="spotify-overlay-artist" class="spotify-overlay-artist">Unknown Artist</div>
-                <div id="spotify-overlay-album" class="spotify-overlay-album">Unknown Album</div>
-            </div>
-        </div>
-    </div>
-
     <!-- HUD Overlay (Top-Left) -->
     <header class="hud-container" id="hud">
         <div class="logo-area">
             <h1 class="logo-title">ETERNAL VEIL</h1>
             <span class="logo-subtitle">COSMIC FLOW GENERATOR</span>
-            <!-- Spotify Live Track Widget inside HUD -->
-            <div id="spotify-hud-info" class="spotify-hud-info hidden">
-                <span class="hud-spotify-icon">🟢</span>
-                <div class="hud-spotify-text">
-                    <div id="spotify-hud-title" class="hud-track-title">-</div>
-                    <div id="spotify-hud-artist" class="hud-track-artist">-</div>
-                </div>
-            </div>
         </div>
         
         <!-- Live Diagnostic Details -->
@@ -262,7 +241,27 @@
                     </label>
                 </div>
 
+                <div class="control-row comfort-control">
+                    <div class="control-row-info">
+                        <span class="setting-label">Comfort Mode</span>
+                        <p class="setting-desc">Caps motion and brightness and prevents flashing effects.</p>
+                    </div>
+                    <label class="switch small">
+                        <input type="checkbox" id="comfort-mode-toggle">
+                        <span class="switch-slider"></span>
+                    </label>
+                </div>
+
                 <div class="setting-sub-group hidden" id="autopilot-settings">
+                    <div class="flow-personality-control">
+                        <span class="setting-label-header">FLOW PERSONALITY</span>
+                        <div class="personality-segments" role="group" aria-label="Flow personality">
+                            <button class="personality-btn" data-personality="serene">Serene</button>
+                            <button class="personality-btn" data-personality="alive">Alive</button>
+                            <button class="personality-btn" data-personality="wild">Wild</button>
+                        </div>
+                        <p class="setting-desc" id="flow-personality-description">Gentle motion, harmonious colors, and smaller changes.</p>
+                    </div>
                     <div class="control-row">
                         <div class="control-row-info">
                             <span class="setting-label">Randomize Colors</span>
@@ -647,6 +646,7 @@
                             <option value="aurora">Aurora Cathedral (Light Curtains)</option>
                             <option value="orbitals">Celestial Orrery (Orbital Rings)</option>
                             <option value="lotus">Lotus Pulse (Radial Petals)</option>
+                            <option value="spiral">Hypnotic Spiral (Authored Arms)</option>
                             <option value="pipes">Neon Conduits (90° Pipe Network)</option>
                             <option value="pipesTight">Circuit City (Dense Micro-Conduits)</option>
                             <option value="pipesCathedral">Conduit Cathedral (Monumental Frames)</option>
@@ -759,7 +759,7 @@
                 <!-- Music Reactivity Visualizer -->
                 <div class="setting-group border-top">
                     <span class="setting-label-header">MUSIC VISUALIZER (BETA)</span>
-                    <p class="setting-desc">Synchronize ETERNAL VEIL with music! You can capture ambient room sound, upload a track, or hook directly into your device's audio output (like Spotify, YouTube, or system sounds).</p>
+                    <p class="setting-desc">React to music from a microphone, an uploaded track, or captured device/tab audio. Analysis happens locally in this browser and is not uploaded by Eternal Veil.</p>
                     
                     <div class="visualizer-modes-row" style="display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap;">
                         <button class="btn btn-secondary flex-1" id="mic-react-btn" style="font-size: 10px; padding: 6px; flex: 1 1 30%;">🎙️ Mic</button>
@@ -877,59 +877,6 @@
         </div>
     </div>
 
-    <!-- New Features Announcement Modal Overlay -->
-    <div class="modal-overlay hidden" id="new-features-modal">
-        <div class="modal-card features-card" style="max-width: 480px; border-color: var(--accent-color);">
-            <div class="modal-header">
-                <h3 style="color: var(--text-accent); letter-spacing: 1.5px; font-weight: 800; font-family: var(--font-secondary);">🚀 NEW COSMIC UPGRADES!</h3>
-                <button class="modal-close-btn" id="features-close-btn">&times;</button>
-            </div>
-            <div class="modal-body" style="padding-top: 5px; line-height: 1.55;">
-                <p style="margin: 0 0 16px 0; font-size: 12.5px; color: var(--text-primary); text-align: center; opacity: 0.9;">
-                    We have just deployed massive visual updates to ETERNAL VEIL. Prepare to be fully immersed:
-                </p>
-                
-                <div style="display: flex; flex-direction: column; gap: 14px; margin-bottom: 22px;">
-                    <div style="display: flex; gap: 12px; align-items: flex-start;">
-                        <span style="font-size: 20px; line-height: 1;">🌌</span>
-                        <div>
-                            <strong style="color: var(--text-primary); font-size: 11.5px; display: block; margin-bottom: 2px;">3D WebGL Projection Mode</strong>
-                            <span style="font-size: 10.5px; color: var(--text-muted);">Step inside the simulator. Press key <strong>3</strong> or click the 3D action button to project particle streams in volumetric 3D coordinates.</span>
-                        </div>
-                    </div>
-                    
-                    <div style="display: flex; gap: 12px; align-items: flex-start;">
-                        <span style="font-size: 20px; line-height: 1;">🥽</span>
-                        <div>
-                            <strong style="color: var(--text-primary); font-size: 11.5px; display: block; margin-bottom: 2px;">WebXR Stereoscopic VR Support</strong>
-                            <span style="font-size: 10.5px; color: var(--text-muted);">Have a VR Headset (Meta Quest, etc.)? Enter 3D mode and click the <strong>VR</strong> button to stand right inside the swirling particle storm.</span>
-                        </div>
-                    </div>
-                    
-                    <div style="display: flex; gap: 12px; align-items: flex-start;">
-                        <span style="font-size: 20px; line-height: 1;">💥</span>
-                        <div>
-                            <strong style="color: var(--text-primary); font-size: 11.5px; display: block; margin-bottom: 2px;">Sub-woofer Screen Pulsing</strong>
-                            <span style="font-size: 10.5px; color: var(--text-muted);">The viewport physically bounces, borders bloom with ambient glows, and trails twist into whirlpools on heavy drum beats.</span>
-                        </div>
-                    </div>
-                    
-                    <div style="display: flex; gap: 12px; align-items: flex-start;">
-                        <span style="font-size: 20px; line-height: 1;">☄️</span>
-                        <div>
-                            <strong style="color: var(--text-primary); font-size: 11.5px; display: block; margin-bottom: 2px;">Treble Sparkles & Trails</strong>
-                            <span style="font-size: 10.5px; color: var(--text-muted);">Melodic frequencies and snare hits now cause flow particles to fizz off glowing shooting star sparkles behind them.</span>
-                        </div>
-                    </div>
-                </div>
-
-                <button class="btn btn-primary" id="features-dismiss-btn" style="width: 100%; padding: 12px; font-weight: 700; font-size: 12px; letter-spacing: 1px;">
-                    ENTER THE VOID
-                </button>
-            </div>
-        </div>
-    </div>
-
     <!-- Active Toast notifications -->
     <div class="toast-notification toast-hidden" id="toast-notify">System ready. Hover edge or press M for controls.</div>
 
@@ -953,16 +900,16 @@
     <!-- Core Javascript Scripts -->
     <!-- Load Three.js from Cloudflare CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="js/state-schema.js?v=conduit-family-1"></script>
+    <script src="js/state-schema.js?v=foundation-batch-1"></script>
     <script src="js/render-quality.js?v=90375e6"></script>
     <script src="js/color-theory.js?v=Paletton-1"></script>
-    <script src="js/presets.js?v=conduit-family-1"></script>
-    <script src="js/synth.js?v=device-audio-quick-2"></script>
+    <script src="js/presets.js?v=foundation-batch-1"></script>
+    <script src="js/synth.js?v=foundation-batch-1"></script>
     <script src="js/exporter.js?v=90375e6"></script>
     <script src="js/url-sync.js?v=90375e6"></script>
-    <script src="js/simulation.js?v=conduit-family-1"></script>
+    <script src="js/simulation.js?v=foundation-batch-1"></script>
     <script src="js/simulation3d.js?v=90375e6"></script>
-    <script src="js/simulation3d-native.js?v=conduit-family-1"></script>
-    <script src="js/app.js?v=conduit-family-1"></script>
+    <script src="js/simulation3d-native.js?v=foundation-batch-1"></script>
+    <script src="js/app.js?v=foundation-batch-1"></script>
 </body>
 </html>

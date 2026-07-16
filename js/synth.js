@@ -659,7 +659,7 @@ class BinauralBeatEngine {
             // Create a clean audio-only MediaStream for the AudioContext source
             const cleanStream = new MediaStream([audioTracks[0]]);
             this.systemSource = this.ctx.createMediaStreamSource(cleanStream);
-            // Route ONLY to analyser silently (user is already hearing Spotify directly!)
+            // Route only to the analyser; the captured source already handles playback.
             this.systemSource.connect(this.musicAnalyser);
             this.visualizerMode = "system";
             

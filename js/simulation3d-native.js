@@ -533,7 +533,7 @@ class NativeFlowSimulation3D {
                         sin(angle) * radial,
                         seededZ * 0.23 + sin(radial * 0.042 + t * 0.31 + petal) * 28.0
                     );
-                } else if (uEffectMode > 4.5) {
+                } else if (uEffectMode > 4.5 && uEffectMode < 8.5) {
                     // Conduit family: every variation follows true 3D Manhattan
                     // segments, while lane count, scale, and placement create
                     // dense circuitry, monumental frames, or nested shrines.
@@ -598,6 +598,24 @@ class NativeFlowSimulation3D {
                     pipeCenter *= mix(1.0, 0.58, isTight);
                     pipeCenter *= mix(1.0, 0.34, isCathedral);
                     result = pipeCenter + pipePoint;
+                } else if (uEffectMode > 8.5) {
+                    // Hypnotic Spiral: six coherent arms turn through a deep,
+                    // gently tilted volume. Every trail sample follows the same
+                    // parametric curve, producing ribbons instead of bead chains.
+                    float arm = floor(aPhase * 6.0);
+                    float progress = fract((aSeed.x * 0.5 + 0.5) + t * (0.028 + abs(aSeed.y) * 0.012));
+                    float breath = 0.94 + 0.06 * sin(t * 0.18 + arm);
+                    float radial = (18.0 + progress * uVolumeRadius * 0.92) * breath;
+                    float angle = arm * (PI * 2.0 / 6.0) + progress * PI * 5.4 + t * 0.10;
+                    float depthWave = sin(angle * 0.72 + arm * 1.3) * (34.0 + progress * 70.0);
+                    vec3 spiralPoint = vec3(
+                        cos(angle) * radial,
+                        sin(angle) * radial,
+                        depthWave + aSeed.z * (28.0 + progress * 65.0)
+                    );
+                    float tilt = 0.22 + sin(t * 0.035) * 0.04;
+                    spiralPoint.yz = mat2(cos(tilt), -sin(tilt), sin(tilt), cos(tilt)) * spiralPoint.yz;
+                    result = spiralPoint;
                 } else {
                     // A small subset passes very close to the viewer for genuine depth/fly-bys.
                 float seedRadius = 0.035 + pow(abs(aSeed.x), 1.08) * 0.965;
@@ -672,11 +690,13 @@ class NativeFlowSimulation3D {
                     vEffectClass = effectRole > 0.992 ? 2.0 : 4.0;
                 } else if (uEffectMode > 3.5 && uEffectMode < 4.5) {
                     vEffectClass = effectRole > 0.994 ? 2.0 : 5.0;
-                } else if (uEffectMode > 4.5) {
+                } else if (uEffectMode > 4.5 && uEffectMode < 8.5) {
                     vEffectClass = effectRole < 0.965 ? 6.0 : (effectRole < 0.997 ? 7.0 : 8.0);
+                } else if (uEffectMode > 8.5) {
+                    vEffectClass = effectRole > 0.992 ? 2.0 : 4.0;
                 }
 
-                if (uEffectMode > 4.5 && effectRole >= 0.965) {
+                if (uEffectMode > 4.5 && uEffectMode < 8.5 && effectRole >= 0.965) {
                     vAlpha *= ${isTrail ? "0.0" : "1.0"};
                 }
 
@@ -1298,7 +1318,7 @@ class NativeFlowSimulation3D {
         );
         this.sharedUniforms.uTurbulence.value = Math.max(0.0, Math.min(5.0, s.turbulence ?? 0.65));
         this.sharedUniforms.uOrganic.value = Math.max(0.0, Math.min(2.0, s.flowOrganic ?? 0.85));
-        const effectModes = { ocean: 1, aurora: 2, orbitals: 3, lotus: 4, pipes: 5, pipesTight: 6, pipesCathedral: 7, pipesShrine: 8 };
+        const effectModes = { ocean: 1, aurora: 2, orbitals: 3, lotus: 4, pipes: 5, pipesTight: 6, pipesCathedral: 7, pipesShrine: 8, spiral: 9 };
         this.sharedUniforms.uEffectMode.value = effectModes[s.particleShape] || 0;
         const lightingStyles = { glow: 0, reactive: 1, pearl: 2 };
         this.sharedUniforms.uLightingStyle.value = lightingStyles[s.particleLighting] || 0;

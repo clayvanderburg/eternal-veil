@@ -48,6 +48,18 @@ document.addEventListener("DOMContentLoaded", () => {
     let autopilotColorTimer = null;
     let isAutopilot = true;
     let lastPresetKey = null;
+    const validFlowPersonalities = ["serene", "alive", "wild"];
+    let flowPersonality = localStorage.getItem("eternalVeilFlowPersonality") || "serene";
+    if (!validFlowPersonalities.includes(flowPersonality)) flowPersonality = "serene";
+    let isComfortMode = localStorage.getItem("eternalVeilComfortMode") === "true";
+    let activePresetLocks = [];
+    let favoritePresetKeys = new Set();
+    try {
+        const savedFavorites = JSON.parse(localStorage.getItem("eternalVeilFavoritePresets") || "[]");
+        if (Array.isArray(savedFavorites)) favoritePresetKeys = new Set(savedFavorites);
+    } catch (error) {
+        console.warn("Could not load preset favorites", error);
+    }
     
     // 3D/VR Mode States
     let is3DMode = false;
@@ -242,8 +254,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         modulateSynth();
         
-        document.querySelectorAll(".preset-card").forEach(c => c.classList.remove("active"));
-        lastPresetKey = null;
+        releaseActivePreset({ announce: false });
     }
 
     function applyRandomConfig() {
@@ -253,7 +264,7 @@ document.addEventListener("DOMContentLoaded", () => {
             Math.random() < chance ? Math.random() < enabledChance : current;
         const zenShapes = [
             "ellipse", "ellipse", "drop", "ring", "nebula", "aquatic",
-            "ocean", "aurora", "orbitals", "lotus"
+            "ocean", "aurora", "orbitals", "lotus", "spiral"
         ];
         const nextShape = Math.random() < 0.24
             ? zenShapes[Math.floor(Math.random() * zenShapes.length)]
@@ -285,8 +296,20 @@ document.addEventListener("DOMContentLoaded", () => {
             particleShape: nextShape,
             particleLighting: nextLighting
         };
+        if (isComfortMode) {
+            randomSettings.speed = Math.min(randomSettings.speed, 1.35);
+            randomSettings.turbulence = Math.min(randomSettings.turbulence, 0.85);
+            randomSettings.density = Math.min(randomSettings.density, 2200);
+            randomSettings.baseSize = Math.min(randomSettings.baseSize, 7);
+            randomSettings.stretch = Math.min(randomSettings.stretch, 3);
+            randomSettings.rotationSpeed = Math.min(randomSettings.rotationSpeed, 0.18);
+            randomSettings.wobble = Math.min(randomSettings.wobble, 0.38);
+            randomSettings.psychedelicMode = false;
+            randomSettings.morphingBg = false;
+            randomSettings.spinningKaleido = false;
+        }
 
-        const randomPalette = generateHarmoniousPalette();
+        const randomPalette = generateHarmoniousPalette(flowPersonality);
         const duration = rnd(8000, 12000);
         
         Object.keys(randomSettings).forEach(key => {
@@ -312,8 +335,7 @@ document.addEventListener("DOMContentLoaded", () => {
         startPaletteMorph(randomPalette, duration * 1.25);
         modulateSynth();
         
-        document.querySelectorAll(".preset-card").forEach(c => c.classList.remove("active"));
-        lastPresetKey = null;
+        releaseActivePreset({ announce: false });
         
         captureHistoryState();
         
@@ -370,6 +392,9 @@ document.addEventListener("DOMContentLoaded", () => {
         autoPatternVal: document.getElementById("auto-pattern-val"),
         autoColorSlider: document.getElementById("auto-color-slider"),
         autoColorVal: document.getElementById("auto-color-val"),
+        comfortModeToggle: document.getElementById("comfort-mode-toggle"),
+        personalityButtons: document.querySelectorAll(".personality-btn"),
+        flowPersonalityDescription: document.getElementById("flow-personality-description"),
         
         // Sliders & Controls
         speedSlider: document.getElementById("speed-slider"),
@@ -462,698 +487,11 @@ document.addEventListener("DOMContentLoaded", () => {
         webglCanvas: document.getElementById("webgl-canvas"),
         canvas2D: document.getElementById("canvas"),
         
-        // Spotify Sync Elements
-        spotifyClientIdInput: document.getElementById("spotify-client-id-input"),
-        spotifyConnectBtn: document.getElementById("spotify-connect-btn"),
-        spotifyStatusContainer: document.getElementById("spotify-status-container"),
-        spotifyTrackName: document.getElementById("spotify-track-name"),
-        spotifyArtistName: document.getElementById("spotify-artist-name"),
-        spotifySyncTempo: document.getElementById("spotify-sync-tempo"),
-        spotifyStatusLed: document.getElementById("spotify-status-led"),
         musicReactQuickBtn: document.getElementById("music-react-quick-btn"),
-        spotifyModal: document.getElementById("spotify-modal"),
-        spotifyModalCloseBtn: document.getElementById("spotify-modal-close-btn"),
-        spotifyModalClientId: document.getElementById("spotify-modal-client-id"),
-        spotifyModalSubmitBtn: document.getElementById("spotify-modal-submit-btn"),
-        
-        // Spotify Overlay & HUD Info DOM bindings
-        spotifyTrackOverlay: document.getElementById("spotify-track-overlay"),
-        spotifyOverlayTitle: document.getElementById("spotify-overlay-title"),
-        spotifyOverlayArtist: document.getElementById("spotify-overlay-artist"),
-        spotifyOverlayAlbum: document.getElementById("spotify-overlay-album"),
-        spotifyHudInfo: document.getElementById("spotify-hud-info"),
-        spotifyHudTitle: document.getElementById("spotify-hud-title"),
-        spotifyHudArtist: document.getElementById("spotify-hud-artist")
+        enterStandardBtn: document.getElementById("enter-standard-btn"),
+        enterComfortBtn: document.getElementById("enter-comfort-btn")
     };
 
-    // --- SPOTIFY SYNC ENGINE ---
-    const SpotifySyncEngine = {
-        // Hardcoded app Client ID — users log in with their own Spotify account
-        clientId: "14ba7e82514945efa75a866cc7c3f223",
-        accessToken: null,
-        playbackInterval: null,
-        currentlyPlayingTrackId: null,
-        audioAnalysis: null,
-        trackInfo: null,
-        
-        // Progress tracking parameters
-        lastFetchProgressMs: 0,
-        lastFetchLocalTime: 0,
-        isPlaying: false,
-        
-        // Beat tracking variables for tickLoop
-        lastBeatIndex: -1,
-        
-        async init() {
-            // Handle PKCE callback from Spotify (awaits token exchange if code is in URL)
-            await this.handlePKCECallback();
-
-            // Restore session token if still valid
-            this.accessToken = sessionStorage.getItem("spotify_access_token") || null;
-            const tokenExpiresAt = Number(sessionStorage.getItem("spotify_access_token_expires_at") || 0);
-            if (this.accessToken && Date.now() < tokenExpiresAt) {
-                this.onConnected();
-            } else {
-                this.onDisconnected();
-            }
-
-            // Tab 4 panel button
-            elements.spotifyConnectBtn.addEventListener("click", () => {
-                if (this.accessToken) { this.disconnect(); } else { this.connect(); }
-            });
-
-            // Top-right quick button
-            elements.spotifyQuickBtn.addEventListener("click", () => {
-                if (this.accessToken) { this.disconnect(); } else { this.connect(); }
-            });
-
-            // Modal connect / close
-            elements.spotifyModalSubmitBtn.addEventListener("click", () => {
-                elements.spotifyModal.classList.add("hidden");
-                this.connect();
-            });
-            elements.spotifyModalCloseBtn.addEventListener("click", () => {
-                elements.spotifyModal.classList.add("hidden");
-            });
-
-        },
-
-        // --- PKCE HELPERS ---
-        generateCodeVerifier() {
-            const array = new Uint8Array(64);
-            window.crypto.getRandomValues(array);
-            return btoa(String.fromCharCode(...array))
-                .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-        },
-
-        async generateCodeChallenge(verifier) {
-            const data = new TextEncoder().encode(verifier);
-            const digest = await window.crypto.subtle.digest("SHA-256", data);
-            return btoa(String.fromCharCode(...new Uint8Array(digest)))
-                .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-        },
-
-        async connect() {
-            // Save current simulator state parameters so redirect reload does not wipe config settings
-            const currentState = {
-                settings: { ...sim.settings },
-                palette: [...sim.palette],
-                backgroundColor: sim.backgroundColor,
-                isSolidMode: sim.isSolidMode,
-                isAutopilot: isAutopilot
-            };
-            sessionStorage.setItem("spotify_pre_auth_state", JSON.stringify(currentState));
-
-            const verifier = this.generateCodeVerifier();
-            const challenge = await this.generateCodeChallenge(verifier);
-            sessionStorage.setItem("spotify_pkce_verifier", verifier);
-
-            const scopes = "user-read-currently-playing user-read-playback-state";
-            const redirectUri = "https://eternal-veil.netlify.app";
-            const params = new URLSearchParams({
-                client_id: this.clientId,
-                response_type: "code",
-                redirect_uri: redirectUri,
-                scope: scopes,
-                code_challenge_method: "S256",
-                code_challenge: challenge,
-            });
-            window.location.href = "https://accounts.spotify.com/authorize?" + params.toString();
-        },
-
-        async handlePKCECallback() {
-            const params = new URLSearchParams(window.location.search);
-            const code = params.get("code");
-            if (!code) return;
-
-            // Clean the URL immediately so the code can't be reused or leaked
-            window.history.replaceState({}, "", window.location.pathname);
-
-            const verifier = sessionStorage.getItem("spotify_pkce_verifier");
-            if (!verifier) return;
-
-            try {
-                const redirectUri = "https://eternal-veil.netlify.app";
-                const body = new URLSearchParams({
-                    client_id: this.clientId,
-                    grant_type: "authorization_code",
-                    code,
-                    redirect_uri: redirectUri,
-                    code_verifier: verifier,
-                });
-
-                const res = await fetch("https://accounts.spotify.com/api/token", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                    body: body.toString(),
-                });
-
-                if (!res.ok) {
-                    const err = await res.json().catch(() => ({}));
-                    console.error("[SpotifySync] Token exchange failed:", err);
-                    showToast("Spotify login failed. Please try again.");
-                    return;
-                }
-
-                const data = await res.json();
-                this.accessToken = data.access_token;
-                const expiresAt = Date.now() + (data.expires_in * 1000);
-                sessionStorage.setItem("spotify_access_token", this.accessToken);
-                sessionStorage.setItem("spotify_access_token_expires_at", String(expiresAt));
-                if (data.refresh_token) {
-                    sessionStorage.setItem("spotify_refresh_token", data.refresh_token);
-                }
-                sessionStorage.removeItem("spotify_pkce_verifier");
-
-                // Retrieve and restore pre-auth state Character-for-Character
-                const savedStateStr = sessionStorage.getItem("spotify_pre_auth_state");
-                if (savedStateStr) {
-                    try {
-                        const savedState = JSON.parse(savedStateStr);
-                        applyLoadedState(savedState);
-                        sessionStorage.removeItem("spotify_pre_auth_state");
-                        CosmicLogger.info("Successfully restored pre-auth cosmic state parameters.");
-                    } catch (err) {
-                        console.error("Failed to restore pre-auth state:", err);
-                    }
-                }
-
-                showToast("Connected to Spotify! ✓");
-            } catch (e) {
-                console.error("[SpotifySync] PKCE token exchange error:", e);
-                showToast("Spotify login error. Check console for details.");
-            }
-        },
-
-        disconnect() {
-            this.accessToken = null;
-            sessionStorage.removeItem("spotify_access_token");
-            sessionStorage.removeItem("spotify_access_token_expires_at");
-            sessionStorage.removeItem("spotify_refresh_token");
-            sessionStorage.removeItem("spotify_pkce_verifier");
-            this.onDisconnected();
-            showToast("Disconnected from Spotify.");
-        },
-
-        
-        onConnected() {
-            if (elements.spotifyConnectBtn) {
-                elements.spotifyConnectBtn.textContent = "Disconnect Spotify";
-                elements.spotifyConnectBtn.style.background = "rgba(239, 68, 68, 0.15)";
-                elements.spotifyConnectBtn.style.borderColor = "rgba(239, 68, 68, 0.4)";
-                elements.spotifyConnectBtn.style.color = "#ef4444";
-            }
-            if (elements.spotifyStatusContainer) {
-                elements.spotifyStatusContainer.style.display = "block";
-            }
-            if (elements.spotifyStatusLed) {
-                elements.spotifyStatusLed.classList.add("pulse-green-active");
-            }
-            
-            // Highlight quick header button
-            if (elements.spotifyQuickBtn) {
-                elements.spotifyQuickBtn.style.background = "#1ed760";
-                elements.spotifyQuickBtn.style.color = "#000000";
-                elements.spotifyQuickBtn.style.borderColor = "#1ed760";
-                elements.spotifyQuickBtn.classList.add("pulse-green-active");
-                elements.spotifyQuickBtn.setAttribute("data-tooltip", "Spotify Sync Active (Click to Disconnect)");
-            }
-            
-            // Mute all local synthesizers (binaural drone, ASMR, chimes) to avoid clashing
-            window.CosmicSynth.setMute(true);
-            window.CosmicSynth.stopMusicReactivity();
-            
-            // Graphically set the top-right audio icon to active playing state (since Spotify is playing)
-            const muteIcon = elements.audioToggleBtn.querySelector(".audio-muted-icon");
-            const playIcon = elements.audioToggleBtn.querySelector(".audio-playing-icon");
-            if (muteIcon) muteIcon.classList.add("hide");
-            if (playIcon) playIcon.classList.remove("hide");
-            elements.audioToggleBtn.classList.add("highlight");
-            if (elements.soundEnableToggle) elements.soundEnableToggle.checked = true;
-            if (elements.audioSettingsSliders) elements.audioSettingsSliders.classList.add("disabled-element");
-
-            // Start polling playback state
-            this.startPolling();
-        },
-        
-        onDisconnected() {
-            if (elements.spotifyConnectBtn) {
-                elements.spotifyConnectBtn.textContent = "Connect Spotify";
-                elements.spotifyConnectBtn.style.background = "rgba(30, 215, 96, 0.15)";
-                elements.spotifyConnectBtn.style.borderColor = "rgba(30, 215, 96, 0.4)";
-                elements.spotifyConnectBtn.style.color = "#1ed760";
-            }
-            if (elements.spotifyStatusContainer) {
-                elements.spotifyStatusContainer.style.display = "none";
-            }
-            if (elements.spotifyStatusLed) {
-                elements.spotifyStatusLed.classList.remove("pulse-green-active");
-            }
-            
-            // Hide HUD track widget
-            if (elements.spotifyHudInfo) {
-                elements.spotifyHudInfo.classList.add("hidden");
-            }
-            
-            // Reset quick header button
-            if (elements.spotifyQuickBtn) {
-                elements.spotifyQuickBtn.style.background = "rgba(30, 215, 96, 0.05)";
-                elements.spotifyQuickBtn.style.color = "#1ed760";
-                elements.spotifyQuickBtn.style.borderColor = "rgba(30, 215, 96, 0.4)";
-                elements.spotifyQuickBtn.classList.remove("pulse-green-active");
-                elements.spotifyQuickBtn.setAttribute("data-tooltip", "Connect Spotify Playback Sync");
-            }
-
-            // Restore normal audio control state (start muted by default)
-            window.CosmicSynth.setMute(true);
-            const muteIcon = elements.audioToggleBtn.querySelector(".audio-muted-icon");
-            const playIcon = elements.audioToggleBtn.querySelector(".audio-playing-icon");
-            if (muteIcon) muteIcon.classList.remove("hide");
-            if (playIcon) playIcon.classList.add("hide");
-            elements.audioToggleBtn.classList.remove("highlight");
-            if (elements.soundEnableToggle) elements.soundEnableToggle.checked = false;
-            if (elements.audioSettingsSliders) elements.audioSettingsSliders.classList.remove("disabled-element");
-            
-            this.stopPolling();
-            this.currentlyPlayingTrackId = null;
-            this.audioAnalysis = null;
-            this.trackInfo = null;
-        },
-        
-        startPolling() {
-            this.stopPolling();
-            this.pollPlayback(); // Instant first check
-            this.playbackInterval = setInterval(() => this.pollPlayback(), 2000);
-        },
-        
-        stopPolling() {
-            if (this.playbackInterval) {
-                clearInterval(this.playbackInterval);
-                this.playbackInterval = null;
-            }
-        },
-        
-        async pollPlayback() {
-            if (!this.accessToken) return;
-            
-            try {
-                const headers = { "Authorization": `Bearer ${this.accessToken}` };
-                const urls = [
-                    "https://api.spotify.com/v1/me/player/currently-playing?additional_types=track,episode",
-                    "https://api.spotify.com/v1/me/player?additional_types=track,episode",
-                    "https://api.spotify.com/v1/me/player/queue"
-                ];
-                let data = null;
-
-                for (const url of urls) {
-                    const response = await fetch(url, { headers });
-
-                    if (response.status === 401) {
-                        this.disconnect();
-                        showToast("Spotify session expired. Please connect again.");
-                        return;
-                    }
-
-                    if (response.status === 403) {
-                        const errorBody = await response.json().catch(() => ({}));
-                        const message = errorBody?.error?.message || "Playback access denied";
-                        if (elements.spotifyTrackName) elements.spotifyTrackName.textContent = "Spotify access denied";
-                        if (elements.spotifyArtistName) elements.spotifyArtistName.textContent = "Check Premium and app access";
-                        if (elements.spotifySyncTempo) elements.spotifySyncTempo.textContent = `Spotify 403 • ${message}`;
-                        this.isPlaying = false;
-                        CosmicLogger.warn(`[SpotifySync] Playback API denied access: ${message}`);
-                        return;
-                    }
-
-                    if (response.status === 429) {
-                        if (elements.spotifyTrackName) elements.spotifyTrackName.textContent = "Spotify rate limited";
-                        if (elements.spotifyArtistName) elements.spotifyArtistName.textContent = "Waiting before retry";
-                        if (elements.spotifySyncTempo) elements.spotifySyncTempo.textContent = "Spotify 429 • Retrying...";
-                        this.isPlaying = false;
-                        return;
-                    }
-
-                    if (response.ok && response.status !== 204) {
-                        const candidate = await response.json().catch(() => null);
-                        if (candidate?.item || candidate?.currently_playing) {
-                            data = candidate;
-                            break;
-                        }
-                    } else if (!response.ok && response.status !== 204 && response.status !== 404) {
-                        const errorText = await response.text().catch(() => "");
-                        CosmicLogger.warn(`[SpotifySync] Playback endpoint returned ${response.status}: ${errorText}`);
-                    }
-                }
-
-                const track = data?.item || data?.currently_playing || null;
-                if (!track) {
-                    if (elements.spotifyTrackName) elements.spotifyTrackName.textContent = "No active song";
-                    if (elements.spotifyArtistName) elements.spotifyArtistName.textContent = "Open Spotify and select an active device";
-                    if (elements.spotifySyncTempo) elements.spotifySyncTempo.textContent = "Connected • Waiting for playback";
-                    this.isPlaying = false;
-                    if (elements.spotifyHudInfo) {
-                        elements.spotifyHudInfo.classList.add("hidden");
-                    }
-                    return;
-                }
-                
-                this.isPlaying = data.is_playing !== undefined ? data.is_playing : true;
-                this.lastFetchProgressMs = data.progress_ms || 0;
-                this.lastFetchLocalTime = Date.now();
-                
-                const artistNames = track.artists?.map(a => a.name).join(", ") || track.show?.publisher || "Spotify";
-                if (elements.spotifyTrackName) elements.spotifyTrackName.textContent = track.name;
-                if (elements.spotifyArtistName) elements.spotifyArtistName.textContent = artistNames;
-                if (elements.spotifyQuickBtn) elements.spotifyQuickBtn.setAttribute("data-tooltip", `Spotify: ${track.name} - ${artistNames} (Click to Disconnect)`);
-                
-                if (track.id !== this.currentlyPlayingTrackId) {
-                    this.currentlyPlayingTrackId = track.id;
-                    this.trackInfo = track;
-                    if (track.type === "track" && track.id) this.fetchAudioAnalysis(track.id);
-                    
-                    // Trigger new song animations!
-                    this.showTrackOverlay(track);
-                }
-            } catch (error) {
-                console.error("[SpotifySync] Polling playback failed:", error);
-            }
-        },
-
-        showTrackOverlay(track) {
-            if (!track) return;
-            const artistNames = track.artists?.map(a => a.name).join(", ") || track.show?.publisher || "Spotify";
-            const albumName = track.album?.name || track.show?.name || "Spotify";
-
-            // Update Overlay Card Details
-            if (elements.spotifyOverlayTitle) elements.spotifyOverlayTitle.textContent = track.name;
-            if (elements.spotifyOverlayArtist) elements.spotifyOverlayArtist.textContent = artistNames;
-            if (elements.spotifyOverlayAlbum) elements.spotifyOverlayAlbum.textContent = albumName;
-
-            // Update HUD Logo Widget Details
-            if (elements.spotifyHudTitle) elements.spotifyHudTitle.textContent = track.name;
-            if (elements.spotifyHudArtist) elements.spotifyHudArtist.textContent = artistNames;
-            if (elements.spotifyHudInfo) elements.spotifyHudInfo.classList.remove("hidden");
-
-            // Slide Up / Fade In Track Card Overlay
-            if (elements.spotifyTrackOverlay) {
-                elements.spotifyTrackOverlay.classList.remove("hidden");
-
-                // Clear any existing timeouts to prevent overlapping fades
-                if (this.overlayTimeout) clearTimeout(this.overlayTimeout);
-
-                // Auto hide overlay after 5 seconds of display
-                this.overlayTimeout = setTimeout(() => {
-                    elements.spotifyTrackOverlay.classList.add("hidden");
-                }, 5000);
-            }
-        },
-        
-        async fetchAudioAnalysis(trackId) {
-            if (!this.accessToken) return;
-            
-            try {
-                if (elements.spotifySyncTempo) elements.spotifySyncTempo.textContent = "Analyzing track blueprint...";
-                const response = await fetch(`https://api.spotify.com/v1/audio-analysis/${trackId}`, {
-                    headers: {
-                        "Authorization": `Bearer ${this.accessToken}`
-                    }
-                });
-                
-                if (response.status === 200) {
-                    const data = await response.json();
-                    this.audioAnalysis = data;
-                    
-                    // Display tempo info
-                    if (data && data.track) {
-                        const bpm = Math.round(data.track.tempo);
-                        if (elements.spotifySyncTempo) elements.spotifySyncTempo.textContent = `Synced • ${bpm} BPM`;
-                    }
-                    
-                    // Reset beat state
-                    this.lastBeatIndex = -1;
-                    CosmicLogger.info(`[SpotifySync] Successfully loaded audio analysis for: ${this.trackInfo.name}`);
-                } else {
-                    CosmicLogger.warn(`[SpotifySync] Audio analysis endpoint returned status ${response.status}. Engaging procedural fallback.`);
-                    this.generateSyntheticAnalysis();
-                }
-            } catch (error) {
-                console.error("[SpotifySync] Fetching audio analysis failed:", error);
-                this.generateSyntheticAnalysis();
-            }
-        },
-
-        generateSyntheticAnalysis() {
-            // Synthesize a default 122 BPM beat structure (typical electronic/dance tempo)
-            const bpm = 122;
-            const beatDuration = 60 / bpm; // 0.4918s per beat
-            const trackDuration = 240; // 4 minutes fallback
-            
-            const beats = [];
-            for (let t = 0; t < trackDuration; t += beatDuration) {
-                beats.push({
-                    start: t,
-                    duration: beatDuration,
-                    confidence: 0.8 + Math.random() * 0.2
-                });
-            }
-            
-            const segments = [];
-            const segDuration = 0.25; // 250ms segments
-            for (let t = 0; t < trackDuration; t += segDuration) {
-                // Generate a cyclic/wavy loudness profile and pitch distribution
-                const loudness = -14 + Math.sin(t * 0.3) * 8; // -22dB to -6dB
-                const pitches = Array.from({ length: 12 }, (_, i) => 
-                    0.25 + Math.abs(Math.sin(t * 0.4 + i * 0.28)) * 0.75
-                );
-                
-                segments.push({
-                    start: t,
-                    duration: segDuration,
-                    loudness_max: loudness,
-                    pitches: pitches
-                });
-            }
-            
-            this.audioAnalysis = { beats, segments };
-            this.lastBeatIndex = -1;
-            
-            if (elements.spotifySyncTempo) {
-                elements.spotifySyncTempo.textContent = `Synced • ${bpm} BPM (Procedural)`;
-            }
-            CosmicLogger.info("[SpotifySync] Engaged restricted API fallback: procedurally synthesizing beats and chroma values.");
-        },
-        
-        // Tick method to query current playhead position and execute beats / pitch effects
-        updateFrame() {
-            if (!this.isPlaying || !this.audioAnalysis || !this.audioAnalysis.beats) return;
-            
-            // Calculate current interpolated playhead time in milliseconds
-            const elapsedSinceFetch = Date.now() - this.lastFetchLocalTime;
-            const currentPlayheadMs = this.lastFetchProgressMs + elapsedSinceFetch;
-            const currentPlayheadSeconds = currentPlayheadMs / 1000;
-            
-            // 1. BEAT DETECTION
-            const beats = this.audioAnalysis.beats;
-            // Find current beat index
-            let activeBeatIndex = -1;
-            for (let i = 0; i < beats.length; i++) {
-                const b = beats[i];
-                if (currentPlayheadSeconds >= b.start && currentPlayheadSeconds < b.start + b.duration) {
-                    activeBeatIndex = i;
-                    break;
-                }
-            }
-            
-            // Check if we crossed into a new beat
-            if (activeBeatIndex !== -1 && activeBeatIndex !== this.lastBeatIndex) {
-                this.lastBeatIndex = activeBeatIndex;
-                this.onBeatHit(beats[activeBeatIndex]);
-            }
-            
-            // 2. SEGMENT PITCH & LOUDNESS INTEGRATION
-            const segments = this.audioAnalysis.segments;
-            let activeSeg = null;
-            for (let i = 0; i < segments.length; i++) {
-                const s = segments[i];
-                if (currentPlayheadSeconds >= s.start && currentPlayheadSeconds < s.start + s.duration) {
-                    activeSeg = s;
-                    break;
-                }
-            }
-            
-            if (activeSeg) {
-                this.applySegmentModulation(activeSeg, currentPlayheadSeconds);
-            }
-        },
-        
-        onBeatHit(beat) {
-            const confidence = beat.confidence || 0.5;
-            // Map confidence (0..1) to a bassAttack-equivalent (0..1) that feeds all the same envelopes
-            const bassAttack = 0.15 + confidence * 0.85;
-            const now = Date.now();
-
-            // --- ENVELOPE INJECTION (mirrors processMusicReactivity ADSR) ---
-            sizePulse  = Math.max(sizePulse,  bassAttack * 3.8);
-
-            // --- CANVAS SCALE BOUNCE ---
-            const scaleAmount = 1.0 + Math.min(0.035, sizePulse * 0.03);
-            const canvasEl = document.getElementById("canvas");
-            if (canvasEl) canvasEl.style.transform = `scale(${scaleAmount})`;
-            const webglCanvasEl = document.getElementById("webgl-canvas");
-            if (webglCanvasEl) webglCanvasEl.style.transform = `scale(${scaleAmount})`;
-
-            // --- AMBIENT GLOW PULSE ---
-            const glowSize    = 70 + Math.min(25, sizePulse * 22);
-            const glowOpacity = 0.5 + Math.min(0.5, sizePulse * 0.4);
-            const ambientGlowEl = document.getElementById("ambient-glow");
-            if (ambientGlowEl) {
-                ambientGlowEl.style.background = `radial-gradient(circle, ${sim.backgroundColor}dd 0%, transparent ${glowSize}%)`;
-                ambientGlowEl.style.opacity = glowOpacity;
-            }
-
-            // --- BASS MODULATIONS (Size, Dissipation, Physics) ---
-            if (elements.pulseBassToggle.checked) {
-                if (!baseSettings) {
-                    baseSettings = {
-                        baseSize: sim.settings.baseSize, turbulence: sim.settings.turbulence,
-                        speed: sim.settings.speed, dissipation: sim.settings.dissipation,
-                        wobble: sim.settings.wobble, stretch: sim.settings.stretch,
-                        rotationSpeed: sim.settings.rotationSpeed
-                    };
-                    basePalette = [...sim.palette];
-                }
-                const sizeMod = 1.0 + Math.min(2.5, sizePulse);
-                sim.settings.baseSize = baseSettings.baseSize * sizeMod;
-                sim.settings.dissipation = Math.max(0.004, baseSettings.dissipation - Math.min(0.04, sizePulse * 0.05));
-
-                // Physical blasts on confident beats (mirrors bassAttack > 0.12 threshold)
-                if (confidence > 0.5 && now - lastShockwaveTime > 380) {
-                    const cx = window.innerWidth / 2;
-                    const cy = window.innerHeight / 2;
-                    if (is3DMode && sim3D) {
-                        sim3D.triggerBurst(0, 0, 45);
-                        sim3D.triggerVortex(0, 0, 280, 18.0, 50);
-                        if (sim.settings.shockwavesEnabled) sim3D.triggerShockwave(0, 0, 60.0, 11.0);
-                    } else {
-                        sim.particles.forEach(p => {
-                            const dx = p.x - cx, dy = p.y - cy;
-                            const distSq = dx * dx + dy * dy;
-                            if (distSq > 9) {
-                                const dist = Math.sqrt(distSq);
-                                const pushForce = 8.0 + (bassAttack * 18.0);
-                                p.vx += (dx / dist) * pushForce;
-                                p.vy += (dy / dist) * pushForce;
-                            }
-                        });
-                        sim.triggerBurst(cx, cy, 35);
-                        sim.triggerVortex(cx, cy, 280, 16.0, 45);
-                        sim.triggerShockwave(cx, cy, 55.0, 10.5);
-                    }
-                    lastShockwaveTime = now;
-                }
-
-                // Palette regeneration on hard confident beats
-                if (isFlowEnabled("colors") && confidence > 0.75 && now - lastColorShiftTime > 3000) {
-                    const palette = generateHarmoniousPalette();
-                    updateActivePalette(palette);
-                    renderSwatches();
-                    modulateSynth();
-                    lastColorShiftTime = now;
-                }
-            }
-
-            // Mirror beat data into 3D renderer
-            if (sim3D) {
-                sim3D.sizePulse = Math.max(sim3D.sizePulse || 0, sizePulse);
-                if (confidence > 0.65) {
-                    sim3D.triggerBurst();
-                    if (sim.settings.shockwavesEnabled) sim3D.triggerShockwave(0, 0, 32 + confidence * 24);
-                }
-            }
-        },
-
-        applySegmentModulation(segment, playheadSec) {
-            // Normalize segment loudness (-35..0 dB → 0..1)
-            const db = segment.loudness_max;
-            const volumePct = Math.max(0.0, Math.min(1.0, (db + 35) / 35));
-            const elapsedInSegment = playheadSec - segment.start;
-            const decay = Math.max(0.0, 1.0 - (elapsedInSegment / segment.duration));
-            const activeIntensity = volumePct * decay;
-
-            // Treble-equivalent — drives speed, turbulence, wobble, stretch
-            const trebleAttack = activeIntensity * 0.7;
-            speedPulse  = Math.max(speedPulse,  trebleAttack * 4.2);
-            turbPulse   = Math.max(turbPulse,   trebleAttack * 3.5);
-            wobblePulse = Math.max(wobblePulse, trebleAttack * 5.0);
-            stretchPulse = Math.max(stretchPulse, trebleAttack * 6.0);
-
-            // Apply snappy decay (runs once per updateFrame call per segment)
-            sizePulse    *= 0.82;
-            speedPulse   *= 0.86;
-            turbPulse    *= 0.86;
-            wobblePulse  *= 0.84;
-            stretchPulse *= 0.84;
-
-            // Feed treble pulses to simulation
-            sim.settings.trebleIntensity = speedPulse;
-            if (sim3D) sim3D.trebleIntensity = speedPulse;
-
-            // Treble modulations (speed, turbulence, wobble, stretch)
-            if (elements.pulseTrebleToggle.checked && baseSettings) {
-                sim.settings.speed       = baseSettings.speed       * (1.0 + Math.min(2.5, speedPulse));
-                sim.settings.turbulence  = baseSettings.turbulence  * (1.0 + Math.min(2.0, turbPulse));
-                sim.settings.wobble      = baseSettings.wobble      + Math.min(6.0, wobblePulse);
-                sim.settings.stretch     = baseSettings.stretch     + Math.min(7.0, stretchPulse);
-                sim.settings.rotationSpeed = baseSettings.rotationSpeed + (speedPulse * 0.08);
-            }
-
-            // Pitch-to-color synesthesia
-            if (segment.pitches && segment.pitches.length === 12 && isFlowEnabled("colors")) {
-                this.modulateColorsFromChroma(segment.pitches, activeIntensity);
-            }
-        },
-
-        modulateColorsFromChroma(pitches, intensity = 1.0) {
-            // Use intensity to weight mood shift magnitude — loud segments shift more aggressively
-            const pitchWeights = pitches.map((weight, index) => ({ index, weight }));
-            pitchWeights.sort((a, b) => b.weight - a.weight);
-
-            // Map pitch chroma to HSL hue (C=0°, C#=30°, … B=330°)
-            const dominant = pitchWeights[0];
-            if (dominant.weight < 0.3) return; // not enough pitch dominance to act on
-
-            // Mood shift: dominant pitch energy drives hue/sat/lightness offsets
-            // High pitch index (>6) = bright/sharp tones → warm shift
-            // Low pitch index (≤6) = deep/resonant tones → cool shift
-            const isBright = dominant.index > 6;
-            const targetHueShift   = isBright ? 35  * intensity : -40 * intensity;
-            const targetSatShift   = isBright ? 18  * intensity : -22 * intensity;
-            const targetLightShift = isBright ? 4   * intensity : -8  * intensity;
-
-            moodH += (targetHueShift   - moodH) * 0.018;
-            moodS += (targetSatShift   - moodS) * 0.018;
-            moodL += (targetLightShift - moodL) * 0.018;
-
-            if (!basePalette) basePalette = [...sim.palette];
-
-            if (Math.abs(moodH) > 0.5 || Math.abs(moodS) > 0.5 || Math.abs(moodL) > 0.5) {
-                const moodPalette = basePalette.map(color => {
-                    const hsl = hexToHsl(parseColorToHex(color));
-                    if (hsl) {
-                        let h = (hsl.h + moodH) % 360;
-                        if (h < 0) h += 360;
-                        const s = Math.max(10, Math.min(100, hsl.s + moodS));
-                        const l = Math.max(8,  Math.min(95,  hsl.l + moodL));
-                        return hslToHex(h, s, l);
-                    }
-                    return color;
-                });
-                sim.updatePalette(moodPalette);
-                renderSwatches();
-                modulateSynth();
-            }
-        }
-    };
 
 
     // --- INITIALIZATION ---
@@ -1199,13 +537,12 @@ document.addEventListener("DOMContentLoaded", () => {
             throw new Error("Domain lock triggered: unauthorized hostname mirror.");
         }
         ConfigHistory.init();
-        // Spotify integration retired; device-audio reaction is now the direct music path.
-        ["spotify_access_token", "spotify_access_token_expires_at", "spotify_refresh_token", "spotify_pkce_verifier", "spotify_pre_auth_state"]
-            .forEach(key => sessionStorage.removeItem(key));
         setupTabs();
         setupFlowToggles();
         buildPresetCards();
         setupHarmonicDesigner();
+        setFlowPersonality(flowPersonality, { announce: false, restart: false });
+        setComfortMode(isComfortMode, { persist: false, announce: false });
         
         // Initialize master volume to 40% (comfortable default, starts muted)
         elements.synthVolumeSlider.value = 40;
@@ -1301,6 +638,7 @@ document.addEventListener("DOMContentLoaded", () => {
             });
 
             const selectCuratedPalette = delta => {
+                releaseActivePreset({ announce: false });
                 if (vrPaletteIndex < 0) {
                     vrPaletteIndex = delta > 0 ? 0 : CuratedPalettes.length - 1;
                 } else {
@@ -1308,7 +646,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
                 const palette = [...CuratedPalettes[vrPaletteIndex]];
                 startPaletteMorph(palette, 5200);
-                lastPresetKey = null;
                 capturePaletteTarget(palette);
             };
 
@@ -1349,12 +686,12 @@ document.addEventListener("DOMContentLoaded", () => {
                     break;
                 case "randomPalette":
                     {
-                        const palette = generateHarmoniousPalette();
+                        releaseActivePreset({ announce: false });
+                        const palette = generateHarmoniousPalette(flowPersonality);
                         vrPaletteIndex = -1;
                         startPaletteMorph(palette, 5200);
                         capturePaletteTarget(palette);
                     }
-                    lastPresetKey = null;
                     break;
                 case "effectPrev":
                     cyclePreset(-1);
@@ -1506,25 +843,69 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- PRESETS MANAGEMENT ---
     function buildPresetCards() {
         elements.presetsGrid.innerHTML = "";
-        Object.keys(StylePresets).forEach(key => {
+        const keys = Object.keys(StylePresets).sort((a, b) =>
+            Number(favoritePresetKeys.has(b)) - Number(favoritePresetKeys.has(a))
+        );
+        keys.forEach(key => {
             const p = StylePresets[key];
             const card = document.createElement("div");
-            card.className = "preset-card";
+            card.className = `preset-card${lastPresetKey === key ? " active" : ""}`;
             card.setAttribute("data-preset", key);
             card.innerHTML = `
-                <div class="preset-name">${p.name}</div>
+                <div class="preset-card-heading">
+                    <div class="preset-name">${p.name}</div>
+                    <button class="preset-favorite${favoritePresetKeys.has(key) ? " active" : ""}" aria-label="${favoritePresetKeys.has(key) ? "Remove" : "Add"} ${p.name} ${favoritePresetKeys.has(key) ? "from" : "to"} favorites" title="Favorite preset">★</button>
+                </div>
                 <div class="preset-desc">${p.desc}</div>
             `;
+            const favoriteButton = card.querySelector(".preset-favorite");
+            favoriteButton.onclick = event => {
+                event.stopPropagation();
+                if (favoritePresetKeys.has(key)) favoritePresetKeys.delete(key);
+                else favoritePresetKeys.add(key);
+                localStorage.setItem("eternalVeilFavoritePresets", JSON.stringify([...favoritePresetKeys]));
+                buildPresetCards();
+            };
             card.onclick = () => loadPreset(key);
             elements.presetsGrid.appendChild(card);
         });
     }
 
+    function getPresetSignatureKeys(preset) {
+        const keys = [
+            "speed", "turbulence", "flowOrganic", "density", "dissipation", "zoom",
+            "baseSize", "sizeVariation", "stretch", "interaction", "rotationSpeed", "wobble",
+            "particleShape", "particleLighting", "colors"
+        ];
+        if (preset.kaleidoscopeEnabled) keys.push("kaleidoscopeEnabled", "kaleidoscopeSegments");
+        if (preset.psychedelicMode) keys.push("psychedelicMode");
+        if (preset.morphingBg) keys.push("morphingBg");
+        if (preset.spinningKaleido) keys.push("spinningKaleido");
+        return keys;
+    }
+
+    function releaseActivePreset({ announce = true } = {}) {
+        activePresetLocks.forEach(setOptionToFlow);
+        activePresetLocks = [];
+        lastPresetKey = null;
+        document.querySelectorAll(".preset-card").forEach(card => card.classList.remove("active"));
+        if (announce) showToast("Preset released. Flow is free again.");
+    }
+
     function loadPreset(key) {
         const p = StylePresets[key];
         if (!p) return;
+
+        if (lastPresetKey === key) {
+            releaseActivePreset();
+            return;
+        }
+
+        releaseActivePreset({ announce: false });
         
         lastPresetKey = key;
+        activePresetLocks = getPresetSignatureKeys(p);
+        activePresetLocks.forEach(setOptionToManual);
         
         // Highlight active card
         document.querySelectorAll(".preset-card").forEach(c => {
@@ -1533,32 +914,36 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         // Trigger smooth parameter morph transitions
-        startMorph("speed", p.speed);
-        startMorph("turbulence", p.turbulence);
+        const comfortCaps = { speed: 1.35, turbulence: 0.85, density: 2200, baseSize: 7, stretch: 3, rotationSpeed: 0.18, wobble: 0.38 };
+        const presetTarget = (key, value) => isComfortMode && comfortCaps[key] !== undefined
+            ? Math.min(value, comfortCaps[key])
+            : value;
+        startMorph("speed", presetTarget("speed", p.speed));
+        startMorph("turbulence", presetTarget("turbulence", p.turbulence));
         startMorph("flowOrganic", p.curl);
-        startMorph("density", p.density);
+        startMorph("density", presetTarget("density", p.density));
         startMorph("dissipation", p.dissipation);
         startMorph("zoom", p.zoom);
-        startMorph("baseSize", p.size);
+        startMorph("baseSize", presetTarget("baseSize", p.size));
         startMorph("sizeVariation", p.sizeVar);
-        startMorph("stretch", p.stretch);
+        startMorph("stretch", presetTarget("stretch", p.stretch));
         startMorph("interaction", p.interaction);
-        startMorph("rotationSpeed", p.rotationSpeed);
-        startMorph("wobble", p.wobble);
+        startMorph("rotationSpeed", presetTarget("rotationSpeed", p.rotationSpeed));
+        startMorph("wobble", presetTarget("wobble", p.wobble));
         
         // Colors travel the same gentle path instead of snapping to the preset.
         startPaletteMorph([...p.colors], 7000);
 
         // Apply custom flags for Psychedelic Drives if defined, else reset to default states
-        const psychOn = p.psychedelicMode === true;
+        const psychOn = !isComfortMode && p.psychedelicMode === true;
         sim.settings.psychedelicMode = psychOn;
         elements.psychedelicToggle.checked = psychOn;
 
-        const morphBgOn = p.morphingBg === true;
+        const morphBgOn = !isComfortMode && p.morphingBg === true;
         sim.settings.morphingBg = morphBgOn;
         elements.morphingBgToggle.checked = morphBgOn;
 
-        const spinKaleidoOn = p.spinningKaleido === true;
+        const spinKaleidoOn = !isComfortMode && p.spinningKaleido === true;
         sim.settings.spinningKaleido = spinKaleidoOn;
         elements.spinningKaleidoToggle.checked = spinKaleidoOn;
 
@@ -1724,6 +1109,56 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    function setOptionToFlow(key) {
+        optionModes[key] = "flow";
+        const pillGroup = document.querySelector(`.flow-toggle-group[data-key="${key}"]`);
+        if (!pillGroup) return;
+        pillGroup.querySelectorAll(".flow-toggle-option").forEach(option => {
+            option.classList.toggle("active", option.getAttribute("data-val") === "flow");
+        });
+    }
+
+    function setFlowPersonality(personality, { announce = true, restart = true } = {}) {
+        flowPersonality = validFlowPersonalities.includes(personality) ? personality : "serene";
+        localStorage.setItem("eternalVeilFlowPersonality", flowPersonality);
+        document.body.dataset.flowPersonality = flowPersonality;
+        const descriptions = {
+            serene: "Gentle motion, harmonious colors, and smaller changes.",
+            alive: "Balanced variety with recognizable shifts and occasional energy.",
+            wild: "Bold contrast, larger motion, and rare spectacle moments."
+        };
+        if (elements.flowPersonalityDescription) {
+            elements.flowPersonalityDescription.textContent = descriptions[flowPersonality];
+        }
+        elements.personalityButtons?.forEach(button => {
+            button.classList.toggle("active", button.dataset.personality === flowPersonality);
+        });
+        if (restart && isAutopilot) startAutopilotIntervals();
+        if (announce) showToast(`${flowPersonality[0].toUpperCase() + flowPersonality.slice(1)} Flow selected.`);
+    }
+
+    function setComfortMode(enabled, { persist = true, announce = true } = {}) {
+        isComfortMode = Boolean(enabled);
+        document.body.classList.toggle("comfort-mode", isComfortMode);
+        if (elements.comfortModeToggle) elements.comfortModeToggle.checked = isComfortMode;
+        if (persist) localStorage.setItem("eternalVeilComfortMode", String(isComfortMode));
+        if (isComfortMode) {
+            const caps = { speed: 1.35, turbulence: 0.85, density: 2200, baseSize: 7, stretch: 3, rotationSpeed: 0.18, wobble: 0.38 };
+            Object.entries(caps).forEach(([key, maximum]) => {
+                if (Number(sim.settings[key]) > maximum) sim.settings[key] = maximum;
+            });
+            ["psychedelicMode", "morphingBg", "spinningKaleido", "shockwavesEnabled"].forEach(key => {
+                sim.settings[key] = false;
+            });
+            if (elements.psychedelicToggle) elements.psychedelicToggle.checked = false;
+            if (elements.morphingBgToggle) elements.morphingBgToggle.checked = false;
+            if (elements.spinningKaleidoToggle) elements.spinningKaleidoToggle.checked = false;
+            if (elements.shockwavesToggle) elements.shockwavesToggle.checked = false;
+            syncAllSlidersToSettings();
+        }
+        if (announce) showToast(isComfortMode ? "Comfort Mode on: gentler motion and light." : "Comfort Mode off.");
+    }
+
     function setupFlowToggles() {
         const flowableOptions = [
             { key: "speed", selector: "#speed-slider", type: "slider" },
@@ -1852,7 +1287,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (elements.autopilotColorToggle.checked) {
             autopilotColorTimer = setInterval(() => {
                 if (isFlowEnabled("colors")) {
-                    const palette = generateHarmoniousPalette();
+                    const palette = generateHarmoniousPalette(flowPersonality);
                     const paletteDuration = Math.max(4500, Math.min(12000, colorInterval * 0.45));
                     startPaletteMorph(palette, paletteDuration);
                     modulateSynth();
@@ -1874,13 +1309,15 @@ document.addEventListener("DOMContentLoaded", () => {
         // tiny minority are a controlled surge. Even surges stay below the UI's
         // deliberately extreme limits: Autopilot should feel alive, not alarming.
         const roll = Math.random();
-        const mode = roll < 0.74 ? "drift" : (roll < 0.96 ? "scenic" : "surge");
+        const effectivePersonality = isComfortMode ? "serene" : flowPersonality;
+        const thresholds = { serene: [0.84, 1.0], alive: [0.74, 0.97], wild: [0.58, 0.88] }[effectivePersonality];
+        const mode = roll < thresholds[0] ? "drift" : (roll < thresholds[1] ? "scenic" : "surge");
         const patternSeconds = parseInt(elements.autoPatternSlider.value, 10) || 20;
         // Keep transitions smooth without reducing how often the scene discovers
         // something new. At the 5-second minimum, a morph completes before the
         // next one; at the 20-second default, it glides for about 11 seconds.
         const baseDuration = Math.max(3200, Math.min(12000, patternSeconds * 550));
-        const fields = {
+        const defaultFields = {
             speed: [0.15, 2.4, 0.42, 0.05, 4.0],
             turbulence: [0.08, 1.65, 0.28, 0.0, 3.0],
             density: [650, 3000, 430, 350, 5000, true],
@@ -1895,6 +1332,25 @@ document.addEventListener("DOMContentLoaded", () => {
             rotationSpeed: [0.0, 0.32, 0.055, 0.0, 0.58],
             wobble: [0.05, 0.62, 0.1, 0.0, 0.95]
         };
+        const sereneFields = {
+            speed: [0.12, 1.25, 0.2, 0.12, 1.25], turbulence: [0.04, 0.72, 0.15, 0.04, 0.72],
+            density: [650, 2200, 260, 650, 2200, true], flowOrganic: [0.45, 1.25, 0.13, 0.45, 1.25],
+            dissipation: [0.007, 0.035, 0.004, 0.007, 0.035], zoom: [0.7, 2.6, 0.3, 0.7, 2.6],
+            baseSize: [0.8, 6.2, 0.65, 0.8, 6.2], sizeVariation: [0.2, 2.4, 0.36, 0.2, 2.4],
+            stretch: [0.15, 2.7, 0.34, 0.15, 2.7], interaction: [0.1, 1.45, 0.2, 0.1, 1.45],
+            mouseInfluence: [0.25, 2, 0.3, 0.25, 2], rotationSpeed: [0, 0.16, 0.03, 0, 0.16],
+            wobble: [0.03, 0.38, 0.06, 0.03, 0.38]
+        };
+        const wildFields = {
+            speed: [0.18, 3.3, 0.6, 0.05, 5], turbulence: [0.08, 2.1, 0.4, 0, 3.8],
+            density: [650, 3800, 600, 350, 6000, true], flowOrganic: [0.25, 1.7, 0.3, 0.05, 2],
+            dissipation: [0.004, 0.06, 0.01, 0.002, 0.09], zoom: [0.45, 4.2, 0.7, 0.2, 6],
+            baseSize: [0.6, 9, 1.4, 0.3, 13], sizeVariation: [0.1, 4.6, 0.8, 0, 6.5],
+            stretch: [0.1, 4.2, 0.75, 0, 6.5], interaction: [0.05, 2.7, 0.5, 0, 4],
+            mouseInfluence: [0.2, 3.6, 0.65, 0, 5], rotationSpeed: [0, 0.45, 0.08, 0, 0.8],
+            wobble: [0.04, 0.82, 0.14, 0, 1.25]
+        };
+        const fields = effectivePersonality === "serene" ? sereneFields : (effectivePersonality === "wild" ? wildFields : defaultFields);
 
         Object.entries(fields).forEach(([key, field]) => {
             if (!isFlowEnabled(key)) return;
@@ -1934,19 +1390,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
         startMorph("drag", rnd(0.89, 0.945), baseDuration);
 
-        if (isFlowEnabled("psychedelicMode") && Math.random() < 0.06) {
+        if (!isComfortMode && isFlowEnabled("psychedelicMode") && Math.random() < (effectivePersonality === "wild" ? 0.11 : 0.04)) {
             const psychOn = Math.random() < 0.12;
             sim.settings.psychedelicMode = psychOn;
             elements.psychedelicToggle.checked = psychOn;
         }
 
-        if (isFlowEnabled("morphingBg") && Math.random() < 0.1) {
+        if (!isComfortMode && isFlowEnabled("morphingBg") && Math.random() < (effectivePersonality === "wild" ? 0.16 : 0.08)) {
             const morphBgOn = Math.random() < 0.28;
             sim.settings.morphingBg = morphBgOn;
             elements.morphingBgToggle.checked = morphBgOn;
         }
 
-        if (isFlowEnabled("spinningKaleido") && Math.random() < 0.06) {
+        if (!isComfortMode && isFlowEnabled("spinningKaleido") && Math.random() < (effectivePersonality === "wild" ? 0.12 : 0.04)) {
             const spinKaleidoOn = Math.random() < 0.12;
             sim.settings.spinningKaleido = spinKaleidoOn;
             elements.spinningKaleidoToggle.checked = spinKaleidoOn;
@@ -2199,9 +1655,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 const frameDuration = now - lastRenderTime;
                 lastRenderTime = now;
 
-                // Update Spotify Sync progress and triggers
-                SpotifySyncEngine.updateFrame();
-
                 processMusicReactivity();
                 processMorphs();
                 
@@ -2276,46 +1729,6 @@ document.addEventListener("DOMContentLoaded", () => {
     function updateHudWaveform() {
         const bars = elements.hudVisualizer.querySelectorAll(".visualizer-bar");
         if (bars.length === 0) return;
-
-        // If Spotify is active, synthesize the visualizer bars directly using the currently active pitches and loudness
-        if (SpotifySyncEngine.accessToken && SpotifySyncEngine.isPlaying && SpotifySyncEngine.audioAnalysis) {
-            // Find current playhead segment
-            const elapsedSinceFetch = Date.now() - SpotifySyncEngine.lastFetchLocalTime;
-            const currentPlayheadMs = SpotifySyncEngine.lastFetchProgressMs + elapsedSinceFetch;
-            const currentPlayheadSeconds = currentPlayheadMs / 1000;
-
-            const segments = SpotifySyncEngine.audioAnalysis.segments;
-            let activeSeg = null;
-            if (segments) {
-                for (let i = 0; i < segments.length; i++) {
-                    const s = segments[i];
-                    if (currentPlayheadSeconds >= s.start && currentPlayheadSeconds < s.start + s.duration) {
-                        activeSeg = s;
-                        break;
-                    }
-                }
-            }
-
-            if (activeSeg) {
-                const db = activeSeg.loudness_max;
-                const volumePct = Math.max(0.1, Math.min(1.0, (db + 35) / 35));
-                const elapsedInSegment = currentPlayheadSeconds - activeSeg.start;
-                const decay = Math.max(0.2, 1.0 - (elapsedInSegment / activeSeg.duration));
-                const activeIntensity = volumePct * decay;
-
-                // Use the 12 chroma pitches to animate the different bars in the HUD equalizer
-                const pitches = activeSeg.pitches || [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
-                bars.forEach((bar, i) => {
-                    // Map index to a chroma pitch
-                    const pitchVal = pitches[(i * 2) % pitches.length] || 0.5;
-                    const pct = Math.max(12, Math.round(pitchVal * activeIntensity * 100));
-                    bar.style.height = `${pct}%`;
-                    bar.style.background = `#1ed760`; // Spotify Green theme for the active sync indicator!
-                    bar.style.opacity = 0.6 + (pct / 250);
-                });
-                return;
-            }
-        }
 
         const visualData = window.CosmicSynth.getVisualizerData();
         if (visualData && bars.length > 0) {
@@ -2479,6 +1892,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Autopilot switches
         elements.autopilotToggle.onchange = () => toggleAutopilot(elements.autopilotToggle.checked);
+        elements.personalityButtons.forEach(button => {
+            button.onclick = () => setFlowPersonality(button.dataset.personality);
+        });
+        elements.comfortModeToggle.onchange = () => setComfortMode(elements.comfortModeToggle.checked);
         elements.autopilotColorToggle.onchange = () => {
             if (isAutopilot) startAutopilotIntervals();
         };
@@ -2491,6 +1908,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (isAutopilot) startAutopilotIntervals();
         };
         elements.resetAllFlowBtn.onclick = () => {
+            releaseActivePreset({ announce: false });
             const flowToggles = document.querySelectorAll(".flow-toggle-group");
             flowToggles.forEach(group => {
                 const key = group.getAttribute("data-key");
@@ -2511,7 +1929,7 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.randomizePaletteBtn.onclick = () => {
             setOptionToManual("colors");
             turnOffPsychedelicMode();
-            const palette = generateHarmoniousPalette();
+            const palette = generateHarmoniousPalette(flowPersonality);
             updateActivePalette(palette);
             renderSwatches();
             modulateSynth();
@@ -2550,7 +1968,12 @@ document.addEventListener("DOMContentLoaded", () => {
         // Bind Sliders to settings parameters
         const bindSlider = (slider, valText, settingKey, isDensity = false) => {
             slider.oninput = () => {
-                const v = parseFloat(slider.value);
+                const comfortCaps = { speed: 1.35, turbulence: 0.85, density: 2200, baseSize: 7, stretch: 3, rotationSpeed: 0.18, wobble: 0.38 };
+                let v = parseFloat(slider.value);
+                if (isComfortMode && comfortCaps[settingKey] !== undefined) {
+                    v = Math.min(v, comfortCaps[settingKey]);
+                    slider.value = String(v);
+                }
                 updateActiveSetting(settingKey, v);
                 
                 // Format floating displays nicely
@@ -2601,15 +2024,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Psychedelic Drives
         elements.psychedelicToggle.onchange = () => {
+            if (isComfortMode && elements.psychedelicToggle.checked) {
+                elements.psychedelicToggle.checked = false;
+                showToast("Comfort Mode keeps Rainbow Cycle off.");
+            }
             sim.settings.psychedelicMode = elements.psychedelicToggle.checked;
         };
         elements.morphingBgToggle.onchange = () => {
+            if (isComfortMode && elements.morphingBgToggle.checked) {
+                elements.morphingBgToggle.checked = false;
+                showToast("Comfort Mode keeps background flashing off.");
+            }
             sim.settings.morphingBg = elements.morphingBgToggle.checked;
         };
         elements.spinningKaleidoToggle.onchange = () => {
+            if (isComfortMode && elements.spinningKaleidoToggle.checked) {
+                elements.spinningKaleidoToggle.checked = false;
+                showToast("Comfort Mode keeps spinning reflections off.");
+            }
             sim.settings.spinningKaleido = elements.spinningKaleidoToggle.checked;
         };
         elements.shockwavesToggle.onchange = () => {
+            if (isComfortMode && elements.shockwavesToggle.checked) {
+                elements.shockwavesToggle.checked = false;
+                showToast("Comfort Mode keeps shockwaves off.");
+            }
             sim.settings.shockwavesEnabled = elements.shockwavesToggle.checked;
         };
         elements.particleShapeSelect.onchange = () => {
@@ -3024,50 +2463,16 @@ document.addEventListener("DOMContentLoaded", () => {
         window.addEventListener("touchstart", resetUiFadeTimer, { passive: true });
         window.addEventListener("keydown", resetUiFadeTimer);
 
-        // Splash screen dismissal & audio pre-unlock gesture
+        // One-step entry with an explicit comfort choice. The audio context is
+        // unlocked only after the user's gesture, as required by browsers.
         if (elements.splashScreen) {
-            const params = new URLSearchParams(window.location.search);
-            const isSpotifyReturn = params.has("code") || sessionStorage.getItem("spotify_pkce_verifier");
-            
-            if (isSpotifyReturn) {
+            const enterVeil = preferComfort => {
+                setComfortMode(preferComfort, { persist: true, announce: false });
                 elements.splashScreen.classList.add("fade-out");
-                // Pre-initialize Cosmic Synth AudioContext on returning from redirect
                 window.CosmicSynth.init();
-            }
-
-            elements.splashScreen.onclick = () => {
-                elements.splashScreen.classList.add("fade-out");
-                
-                // Pre-initialize Cosmic Synth AudioContext on first user click gesture
-                window.CosmicSynth.init();
-                
-                // Display the excited New Features modal overlay (only if not returning from Spotify)
-                if (!isSpotifyReturn) {
-                    const featuresModal = document.getElementById("new-features-modal");
-                    if (featuresModal) {
-                        featuresModal.classList.remove("hidden");
-                    }
-                }
             };
-        }
-
-        // New Features Modal dismissal actions
-        const dismissFeatures = () => {
-            const el = document.getElementById("new-features-modal");
-            if (el) el.classList.add("hidden");
-        };
-        
-        const featuresCloseBtn = document.getElementById("features-close-btn");
-        if (featuresCloseBtn) featuresCloseBtn.onclick = dismissFeatures;
-        
-        const featuresDismissBtn = document.getElementById("features-dismiss-btn");
-        if (featuresDismissBtn) featuresDismissBtn.onclick = dismissFeatures;
-        
-        const featuresModalEl = document.getElementById("new-features-modal");
-        if (featuresModalEl) {
-            featuresModalEl.onclick = (e) => {
-                if (e.target === featuresModalEl) dismissFeatures();
-            };
+            if (elements.enterStandardBtn) elements.enterStandardBtn.onclick = () => enterVeil(false);
+            if (elements.enterComfortBtn) elements.enterComfortBtn.onclick = () => enterVeil(true);
         }
 
         // Window resize
@@ -3243,10 +2648,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function toggleAudio(active) {
-        if (SpotifySyncEngine && SpotifySyncEngine.accessToken) {
-            showToast("Local synth disabled while Spotify is connected.");
-            return;
-        }
         const synth = window.CosmicSynth;
         const state = (active !== undefined) ? !active : !synth.isMuted;
         
@@ -3454,9 +2855,6 @@ document.addEventListener("DOMContentLoaded", () => {
     let moodL = 0;
 
     function processMusicReactivity() {
-        if (SpotifySyncEngine && SpotifySyncEngine.accessToken) {
-            return; // Let Spotify handle all visual modulations
-        }
         if (!window.CosmicSynth) return;
         
         const analysis = window.CosmicSynth.getMusicAnalysis();
@@ -3522,7 +2920,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const trebleAttack = Math.max(0, normalizedTreble - prevTreble);
         // Large immersive displays amplify every pulse. Keep the existing 2D
         // response untouched while applying a calmer half-strength mix in 3D/VR.
-        const musicResponseGain = is3DMode ? 0.5 : 1.0;
+        const musicResponseGain = (is3DMode ? 0.5 : 1.0) * (isComfortMode ? 0.5 : 1.0);
         
         prevBass = normalizedBass;
         prevTreble = normalizedTreble;
@@ -3693,7 +3091,7 @@ document.addEventListener("DOMContentLoaded", () => {
             
             // Trigger a quick new palette generation on major beats if not mood shifting
             if (isFlowEnabled("colors") && bassAttack > 0.22 && now - lastColorShiftTime > 3000) {
-                const palette = generateHarmoniousPalette();
+                const palette = generateHarmoniousPalette(flowPersonality);
                 updateActivePalette(palette);
                 renderSwatches();
                 modulateSynth();
@@ -3729,9 +3127,6 @@ document.addEventListener("DOMContentLoaded", () => {
     
     function tickLoop() {
         if (is3DMode) return;
-        
-        // Update Spotify Sync progress and triggers
-        SpotifySyncEngine.updateFrame();
         
         // Run real-time music reactivity modulation
         processMusicReactivity();
