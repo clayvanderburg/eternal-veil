@@ -3520,6 +3520,9 @@ document.addEventListener("DOMContentLoaded", () => {
         // Tracks changes from previous frame to isolate beat attacks (onset) rather than raw volume level
         const bassAttack = Math.max(0, normalizedBass - prevBass);
         const trebleAttack = Math.max(0, normalizedTreble - prevTreble);
+        // Large immersive displays amplify every pulse. Keep the existing 2D
+        // response untouched while applying a calmer half-strength mix in 3D/VR.
+        const musicResponseGain = is3DMode ? 0.5 : 1.0;
         
         prevBass = normalizedBass;
         prevTreble = normalizedTreble;
@@ -3577,6 +3580,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 targetSatShift = -22;
                 targetLightShift = -8;
             }
+
+            targetHueShift *= musicResponseGain;
+            targetSatShift *= musicResponseGain;
+            targetLightShift *= musicResponseGain;
             
             // Smoothly drift offsets (low-pass filter) to avoid flashing or jitter
             moodH += (targetHueShift - moodH) * 0.015;
@@ -3604,9 +3611,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         
         // 6. Apply Modulations to simulation settings
+        const appliedSizePulse = sizePulse * musicResponseGain;
+        const appliedSpeedPulse = speedPulse * musicResponseGain;
+        const appliedTurbPulse = turbPulse * musicResponseGain;
+        const appliedWobblePulse = wobblePulse * musicResponseGain;
+        const appliedStretchPulse = stretchPulse * musicResponseGain;
         
         // Dynamic Canvas scale screen bounce (subtle punch up to 1.035x)
-        const scaleAmount = 1.0 + Math.min(0.035, sizePulse * 0.03);
+        const scaleAmount = 1.0 + Math.min(0.035, appliedSizePulse * 0.03);
         const canvasEl = document.getElementById("canvas");
         if (canvasEl) {
             canvasEl.style.transform = `scale(${scaleAmount})`;
@@ -3617,8 +3629,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         
         // Dynamic Ambient Glow pulse
-        const glowSize = 70 + Math.min(25, sizePulse * 22);
-        const glowOpacity = 0.5 + Math.min(0.5, sizePulse * 0.4);
+        const glowSize = 70 + Math.min(25, appliedSizePulse * 22);
+        const glowOpacity = 0.5 + Math.min(0.5, appliedSizePulse * 0.4);
         const ambientGlowEl = document.getElementById("ambient-glow");
         if (ambientGlowEl) {
             ambientGlowEl.style.background = `radial-gradient(circle, ${sim.backgroundColor}dd 0%, transparent ${glowSize}%)`;
@@ -3626,20 +3638,20 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         
         // Feed Treble pulse to settings to drive particle sparkles
-        sim.settings.trebleIntensity = speedPulse;
+        sim.settings.trebleIntensity = appliedSpeedPulse;
         if (is3DMode && sim3D) {
-            sim3D.sizePulse = sizePulse;
-            sim3D.trebleIntensity = speedPulse;
+            sim3D.sizePulse = appliedSizePulse;
+            sim3D.trebleIntensity = appliedSpeedPulse;
         }
         
         // Bass Modulations (Particle Size & Dissipation)
         if (elements.pulseBassToggle.checked) {
             // Pulse particle base size (cap size swelling at a clean 3.5x max for visible punch)
-            const sizeMod = 1.0 + Math.min(2.5, sizePulse);
+            const sizeMod = 1.0 + Math.min(2.5, appliedSizePulse);
             sim.settings.baseSize = baseSettings.baseSize * sizeMod;
             
             // Temporarily decrease dissipation to make flow trails glow on attacks
-            const dissMod = Math.max(0.004, baseSettings.dissipation - Math.min(0.04, sizePulse * 0.05));
+            const dissMod = Math.max(0.004, baseSettings.dissipation - Math.min(0.04, appliedSizePulse * 0.05));
             sim.settings.dissipation = dissMod;
             
             // Trigger physical starbursts & explosions ONLY on hard transient attacks (not sustained drones)
@@ -3648,9 +3660,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 const cy = window.innerHeight / 2;
                 
                 if (is3DMode && sim3D) {
-                    sim3D.triggerBurst(0, 0, 45);
-                    sim3D.triggerVortex(0, 0, 280, 18.0, 50);
-                    sim3D.triggerShockwave(0, 0, 60.0, 11.0);
+                    sim3D.triggerBurst(0, 0, Math.round(45 * musicResponseGain));
+                    sim3D.triggerVortex(0, 0, 280, 18.0 * musicResponseGain, Math.round(50 * musicResponseGain));
+                    sim3D.triggerShockwave(0, 0, 60.0, 11.0 * musicResponseGain);
                 } else {
                     // Direct physical outward velocity boost to all particles
                     sim.particles.forEach(p => {
@@ -3695,13 +3707,13 @@ document.addEventListener("DOMContentLoaded", () => {
         // Treble Modulations (Flow Speed, Turbulence, Wobble & Stretch)
         if (elements.pulseTrebleToggle.checked) {
             // Speed and turbulence pulse to melody attacks (capped at a clean, smooth swell)
-            sim.settings.speed = baseSettings.speed * (1.0 + Math.min(2.5, speedPulse));
-            sim.settings.turbulence = baseSettings.turbulence * (1.0 + Math.min(2.0, turbPulse));
+            sim.settings.speed = baseSettings.speed * (1.0 + Math.min(2.5, appliedSpeedPulse));
+            sim.settings.turbulence = baseSettings.turbulence * (1.0 + Math.min(2.0, appliedTurbPulse));
             
             // Quick wobble and stretch pulses
-            sim.settings.wobble = baseSettings.wobble + Math.min(6.0, wobblePulse);
-            sim.settings.stretch = baseSettings.stretch + Math.min(7.0, stretchPulse);
-            sim.settings.rotationSpeed = baseSettings.rotationSpeed + (speedPulse * 0.08);
+            sim.settings.wobble = baseSettings.wobble + Math.min(6.0, appliedWobblePulse);
+            sim.settings.stretch = baseSettings.stretch + Math.min(7.0, appliedStretchPulse);
+            sim.settings.rotationSpeed = baseSettings.rotationSpeed + (appliedSpeedPulse * 0.08);
         } else {
             sim.settings.speed = baseSettings.speed;
             sim.settings.turbulence = baseSettings.turbulence;
