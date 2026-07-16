@@ -805,83 +805,174 @@ document.addEventListener("DOMContentLoaded", () => {
         },
         
         onBeatHit(beat) {
-            // Apply instant size pulse (bass kick) and turbulence peak
-            // The confidence metric (0.0 to 1.0) decides how intense the visual kick is!
             const confidence = beat.confidence || 0.5;
-            
-            // Trigger 2D/3D burst elements
-            const visualIntensity = 0.5 + confidence * 1.5;
-            
-            sim.sizePulse = Math.max(sim.sizePulse || 0, visualIntensity * 0.9);
-            sim.trebleIntensity = Math.max(sim.trebleIntensity || 0, visualIntensity * 0.6);
-            
+            // Map confidence (0..1) to a bassAttack-equivalent (0..1) that feeds all the same envelopes
+            const bassAttack = 0.15 + confidence * 0.85;
+            const now = Date.now();
+
+            // --- ENVELOPE INJECTION (mirrors processMusicReactivity ADSR) ---
+            sizePulse  = Math.max(sizePulse,  bassAttack * 3.8);
+
+            // --- CANVAS SCALE BOUNCE ---
+            const scaleAmount = 1.0 + Math.min(0.035, sizePulse * 0.03);
+            const canvasEl = document.getElementById("canvas");
+            if (canvasEl) canvasEl.style.transform = `scale(${scaleAmount})`;
+            const webglCanvasEl = document.getElementById("webgl-canvas");
+            if (webglCanvasEl) webglCanvasEl.style.transform = `scale(${scaleAmount})`;
+
+            // --- AMBIENT GLOW PULSE ---
+            const glowSize    = 70 + Math.min(25, sizePulse * 22);
+            const glowOpacity = 0.5 + Math.min(0.5, sizePulse * 0.4);
+            const ambientGlowEl = document.getElementById("ambient-glow");
+            if (ambientGlowEl) {
+                ambientGlowEl.style.background = `radial-gradient(circle, ${sim.backgroundColor}dd 0%, transparent ${glowSize}%)`;
+                ambientGlowEl.style.opacity = glowOpacity;
+            }
+
+            // --- BASS MODULATIONS (Size, Dissipation, Physics) ---
+            if (elements.pulseBassToggle.checked) {
+                if (!baseSettings) {
+                    baseSettings = {
+                        baseSize: sim.settings.baseSize, turbulence: sim.settings.turbulence,
+                        speed: sim.settings.speed, dissipation: sim.settings.dissipation,
+                        wobble: sim.settings.wobble, stretch: sim.settings.stretch,
+                        rotationSpeed: sim.settings.rotationSpeed
+                    };
+                    basePalette = [...sim.palette];
+                }
+                const sizeMod = 1.0 + Math.min(2.5, sizePulse);
+                sim.settings.baseSize = baseSettings.baseSize * sizeMod;
+                sim.settings.dissipation = Math.max(0.004, baseSettings.dissipation - Math.min(0.04, sizePulse * 0.05));
+
+                // Physical blasts on confident beats (mirrors bassAttack > 0.12 threshold)
+                if (confidence > 0.5 && now - lastShockwaveTime > 380) {
+                    const cx = window.innerWidth / 2;
+                    const cy = window.innerHeight / 2;
+                    if (is3DMode && sim3D) {
+                        sim3D.triggerBurst(0, 0, 45);
+                        sim3D.triggerVortex(0, 0, 280, 18.0, 50);
+                        if (sim.settings.shockwavesEnabled) sim3D.triggerShockwave(0, 0, 60.0, 11.0);
+                    } else {
+                        sim.particles.forEach(p => {
+                            const dx = p.x - cx, dy = p.y - cy;
+                            const distSq = dx * dx + dy * dy;
+                            if (distSq > 9) {
+                                const dist = Math.sqrt(distSq);
+                                const pushForce = 8.0 + (bassAttack * 18.0);
+                                p.vx += (dx / dist) * pushForce;
+                                p.vy += (dy / dist) * pushForce;
+                            }
+                        });
+                        sim.triggerBurst(cx, cy, 35);
+                        sim.triggerVortex(cx, cy, 280, 16.0, 45);
+                        sim.triggerShockwave(cx, cy, 55.0, 10.5);
+                    }
+                    lastShockwaveTime = now;
+                }
+
+                // Palette regeneration on hard confident beats
+                if (isFlowEnabled("colors") && confidence > 0.75 && now - lastColorShiftTime > 3000) {
+                    const palette = generateHarmoniousPalette();
+                    updateActivePalette(palette);
+                    renderSwatches();
+                    modulateSynth();
+                    lastColorShiftTime = now;
+                }
+            }
+
+            // Mirror beat data into 3D renderer
             if (sim3D) {
-                sim3D.sizePulse = sim.sizePulse;
-                sim3D.trebleIntensity = sim.trebleIntensity;
-                
-                // Trigger burst in 3D scene on strong beats!
+                sim3D.sizePulse = Math.max(sim3D.sizePulse || 0, sizePulse);
                 if (confidence > 0.65) {
                     sim3D.triggerBurst();
-                    if (sim.settings.shockwavesEnabled) {
-                        sim3D.triggerShockwave(0, 0, 32 + confidence * 24);
-                    }
+                    if (sim.settings.shockwavesEnabled) sim3D.triggerShockwave(0, 0, 32 + confidence * 24);
                 }
             }
         },
-        
+
         applySegmentModulation(segment, playheadSec) {
-            // Segment loudness ranges from -60 to 0 dB. Normalize it!
+            // Normalize segment loudness (-35..0 dB → 0..1)
             const db = segment.loudness_max;
-            // Map -35dB..0dB to 0.0..1.0
             const volumePct = Math.max(0.0, Math.min(1.0, (db + 35) / 35));
-            
-            // Blend volume decay from start of segment
             const elapsedInSegment = playheadSec - segment.start;
             const decay = Math.max(0.0, 1.0 - (elapsedInSegment / segment.duration));
             const activeIntensity = volumePct * decay;
-            
-            // Smoothly modulate treble/turbulence activity
-            sim.trebleIntensity = Math.max(sim.trebleIntensity || 0, activeIntensity * 0.7);
-            if (sim3D) {
-                sim3D.trebleIntensity = sim.trebleIntensity;
+
+            // Treble-equivalent — drives speed, turbulence, wobble, stretch
+            const trebleAttack = activeIntensity * 0.7;
+            speedPulse  = Math.max(speedPulse,  trebleAttack * 4.2);
+            turbPulse   = Math.max(turbPulse,   trebleAttack * 3.5);
+            wobblePulse = Math.max(wobblePulse, trebleAttack * 5.0);
+            stretchPulse = Math.max(stretchPulse, trebleAttack * 6.0);
+
+            // Apply snappy decay (runs once per updateFrame call per segment)
+            sizePulse    *= 0.82;
+            speedPulse   *= 0.86;
+            turbPulse    *= 0.86;
+            wobblePulse  *= 0.84;
+            stretchPulse *= 0.84;
+
+            // Feed treble pulses to simulation
+            sim.settings.trebleIntensity = speedPulse;
+            if (sim3D) sim3D.trebleIntensity = speedPulse;
+
+            // Treble modulations (speed, turbulence, wobble, stretch)
+            if (elements.pulseTrebleToggle.checked && baseSettings) {
+                sim.settings.speed       = baseSettings.speed       * (1.0 + Math.min(2.5, speedPulse));
+                sim.settings.turbulence  = baseSettings.turbulence  * (1.0 + Math.min(2.0, turbPulse));
+                sim.settings.wobble      = baseSettings.wobble      + Math.min(6.0, wobblePulse);
+                sim.settings.stretch     = baseSettings.stretch     + Math.min(7.0, stretchPulse);
+                sim.settings.rotationSpeed = baseSettings.rotationSpeed + (speedPulse * 0.08);
             }
-            
-            // 3. PITCH TO COLOR SYNESTHESIA
-            // segment.pitches is a 12-element array (chroma values, 0.0 to 1.0)
+
+            // Pitch-to-color synesthesia
             if (segment.pitches && segment.pitches.length === 12 && isFlowEnabled("colors")) {
-                this.modulateColorsFromChroma(segment.pitches);
+                this.modulateColorsFromChroma(segment.pitches, activeIntensity);
             }
         },
-        
-        modulateColorsFromChroma(pitches) {
-            // Find top 3 dominant pitch indices
+
+        modulateColorsFromChroma(pitches, intensity = 1.0) {
+            // Use intensity to weight mood shift magnitude — loud segments shift more aggressively
             const pitchWeights = pitches.map((weight, index) => ({ index, weight }));
             pitchWeights.sort((a, b) => b.weight - a.weight);
-            
-            // Map 12 pitch indices to specific HSL hue positions
-            // C = 0 deg, C# = 30 deg, D = 60 deg, ..., B = 330 deg
-            const targetColors = [];
-            for (let i = 0; i < Math.min(4, sim.palette.length); i++) {
-                const pitch = pitchWeights[i % pitchWeights.length];
-                // Only morph colors if the pitch weight is significant (dominant notes)
-                if (pitch.weight > 0.35) {
-                    const hue = (pitch.index * 30) % 360;
-                    const saturation = 85 + Math.round(pitch.weight * 15); // 85% - 100%
-                    const lightness = 45 + Math.round(pitch.weight * 10);  // 45% - 55%
-                    targetColors.push(hslToHex(hue, saturation, lightness));
-                } else {
-                    // Fallback to original preset palette if notes are faint
-                    targetColors.push(sim.palette[i]);
-                }
-            }
-            
-            // Trigger a very gentle color crossfade (morph)
-            if (targetColors.length > 0) {
-                // Morph active palette smoothly over 1.2 seconds to track pitch changes in real time!
-                startPaletteMorph(targetColors, 1200);
+
+            // Map pitch chroma to HSL hue (C=0°, C#=30°, … B=330°)
+            const dominant = pitchWeights[0];
+            if (dominant.weight < 0.3) return; // not enough pitch dominance to act on
+
+            // Mood shift: dominant pitch energy drives hue/sat/lightness offsets
+            // High pitch index (>6) = bright/sharp tones → warm shift
+            // Low pitch index (≤6) = deep/resonant tones → cool shift
+            const isBright = dominant.index > 6;
+            const targetHueShift   = isBright ? 35  * intensity : -40 * intensity;
+            const targetSatShift   = isBright ? 18  * intensity : -22 * intensity;
+            const targetLightShift = isBright ? 4   * intensity : -8  * intensity;
+
+            moodH += (targetHueShift   - moodH) * 0.018;
+            moodS += (targetSatShift   - moodS) * 0.018;
+            moodL += (targetLightShift - moodL) * 0.018;
+
+            if (!basePalette) basePalette = [...sim.palette];
+
+            if (Math.abs(moodH) > 0.5 || Math.abs(moodS) > 0.5 || Math.abs(moodL) > 0.5) {
+                const moodPalette = basePalette.map(color => {
+                    const hsl = hexToHsl(parseColorToHex(color));
+                    if (hsl) {
+                        let h = (hsl.h + moodH) % 360;
+                        if (h < 0) h += 360;
+                        const s = Math.max(10, Math.min(100, hsl.s + moodS));
+                        const l = Math.max(8,  Math.min(95,  hsl.l + moodL));
+                        return hslToHex(h, s, l);
+                    }
+                    return color;
+                });
+                sim.updatePalette(moodPalette);
+                renderSwatches();
+                modulateSynth();
             }
         }
     };
+
 
     // --- INITIALIZATION ---
     function initialize() {
