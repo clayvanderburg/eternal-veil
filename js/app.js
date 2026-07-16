@@ -48,6 +48,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let autopilotColorTimer = null;
     let isAutopilot = true;
     let lastPresetKey = null;
+    let lastFlowPatternShape = null;
     const validFlowPersonalities = ["serene", "alive", "wild"];
     let flowPersonality = localStorage.getItem("eternalVeilFlowPersonality") || "serene";
     if (!validFlowPersonalities.includes(flowPersonality)) flowPersonality = "serene";
@@ -1301,6 +1302,31 @@ document.addEventListener("DOMContentLoaded", () => {
         clearInterval(autopilotColorTimer);
     }
 
+    function chooseNextFlowPattern(effectivePersonality) {
+        if (!isFlowEnabled("particleShape")) return null;
+
+        const serenePatterns = [
+            "ellipse", "drop", "ring", "nebula", "aquatic",
+            "ocean", "aurora", "orbitals", "lotus", "spiral"
+        ];
+        const alivePatterns = [
+            ...serenePatterns, "brush", "cluster", "pipes",
+            "pipesTight", "pipesCathedral", "pipesShrine"
+        ];
+        const wildPatterns = [...alivePatterns, "acid"];
+        const pool = effectivePersonality === "serene"
+            ? serenePatterns
+            : (effectivePersonality === "wild" ? wildPatterns : alivePatterns);
+        const currentShape = sim.settings.particleShape || lastFlowPatternShape || "ellipse";
+        const alternatives = pool.filter(shape => shape !== currentShape);
+        const nextShape = alternatives[Math.floor(Math.random() * alternatives.length)] || "ellipse";
+
+        sim.settings.particleShape = nextShape;
+        elements.particleShapeSelect.value = nextShape;
+        lastFlowPatternShape = nextShape;
+        return nextShape;
+    }
+
     function randomizeAllParameters() {
         const rnd = (min, max) => min + Math.random() * (max - min);
         const rndInt = (min, max) => Math.floor(rnd(min, max + 1));
@@ -1317,6 +1343,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // something new. At the 5-second minimum, a morph completes before the
         // next one; at the 20-second default, it glides for about 11 seconds.
         const baseDuration = Math.max(3200, Math.min(12000, patternSeconds * 550));
+        const nextPatternShape = chooseNextFlowPattern(effectivePersonality);
         const defaultFields = {
             speed: [0.15, 2.4, 0.42, 0.05, 4.0],
             turbulence: [0.08, 1.65, 0.28, 0.0, 3.0],
@@ -1408,29 +1435,18 @@ document.addEventListener("DOMContentLoaded", () => {
             elements.spinningKaleidoToggle.checked = spinKaleidoOn;
         }
 
-        if (isFlowEnabled("particleShape") && Math.random() < 0.16) {
-            const randVal = Math.random();
-            const shapeChosen = randVal < 0.26 ? "ellipse"
-                : (randVal < 0.42 ? "drop"
-                    : (randVal < 0.56 ? "ring"
-                        : (randVal < 0.66 ? "nebula"
-                            : (randVal < 0.74 ? "aquatic"
-                                : (randVal < 0.82 ? "ocean"
-                                    : (randVal < 0.89 ? "aurora"
-                                        : (randVal < 0.95 ? "orbitals" : "lotus")))))));
-            sim.settings.particleShape = shapeChosen;
-            elements.particleShapeSelect.value = shapeChosen;
-        }
-
-        if (isFlowEnabled("particleLighting") && Math.random() < 0.14) {
+        if (isFlowEnabled("particleLighting") && Math.random() < 0.32) {
             const lightingStyles = ["glow", "reactive", "pearl"];
-            const lighting = lightingStyles[Math.floor(Math.random() * lightingStyles.length)];
+            const currentLighting = sim.settings.particleLighting || "glow";
+            const lightingChoices = lightingStyles.filter(style => style !== currentLighting);
+            const lighting = lightingChoices[Math.floor(Math.random() * lightingChoices.length)];
             sim.settings.particleLighting = lighting;
             elements.particleLightingSelect.value = lighting;
         }
 
-        // Clear active presets selected cards
-        document.querySelectorAll(".preset-card").forEach(c => c.classList.remove("active"));
+        if (nextPatternShape) {
+            CosmicLogger.info(`Flow pattern shifted to: ${nextPatternShape.toUpperCase()}.`);
+        }
     }
 
     // Modulate audio params based on physics

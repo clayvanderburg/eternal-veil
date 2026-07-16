@@ -22,6 +22,8 @@ for (const personality of ["serene", "alive", "wild"]) {
     check(html.includes(`data-personality="${personality}"`), `${personality} personality control is missing`);
 }
 check(app.includes("effectivePersonality") && app.includes("sereneFields") && app.includes("wildFields"), "personality-specific Flow ranges are missing");
+check(app.includes("chooseNextFlowPattern") && app.includes('shape !== currentShape'), "pattern interval must guarantee a different Flow geometry");
+check(html.includes("Chooses a visibly different pattern every interval"), "pattern interval behavior is not explained in the UI");
 check(app.includes("favoritePresetKeys") && app.includes("releaseActivePreset") && app.includes("getPresetSignatureKeys"), "preset favorites or lock/release behavior is missing");
 check(presets.includes('particleShape: "spiral"'), "Hypnotic Spiral does not select authored geometry");
 check(schema.includes('"spiral"'), "Spiral is not accepted by shared-state validation");
