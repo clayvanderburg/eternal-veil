@@ -63,6 +63,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     let selected3DStyle = load3DStyle();
+    let vrPaletteIndex = -1;
+    const vrPaletteNames = [
+        "Solar Ember", "Violet Dream", "Ocean Glass", "Sunset Voltage",
+        "Verdant Tide", "Rose Horizon", "Cosmic Dawn", "Hyper Neon"
+    ];
 
     // --- COSMIC CONFIGURATION HISTORY ENGINE ---
     const ConfigHistory = {
@@ -219,6 +224,7 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.morphingBgToggle.checked = state.settings.morphingBg;
         elements.spinningKaleidoToggle.checked = state.settings.spinningKaleido;
         elements.particleShapeSelect.value = state.settings.particleShape || "ellipse";
+        elements.particleLightingSelect.value = state.settings.particleLighting || "glow";
         
         syncAllSlidersToSettings();
         
@@ -245,10 +251,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const rndInt = (min, max) => Math.floor(rnd(min, max + 1));
         const occasionallyChange = (current, chance, enabledChance) =>
             Math.random() < chance ? Math.random() < enabledChance : current;
-        const zenShapes = ["ellipse", "ellipse", "drop", "ring", "nebula", "aquatic"];
+        const zenShapes = [
+            "ellipse", "ellipse", "drop", "ring", "nebula", "aquatic",
+            "ocean", "aurora", "orbitals", "lotus"
+        ];
         const nextShape = Math.random() < 0.24
             ? zenShapes[Math.floor(Math.random() * zenShapes.length)]
             : sim.settings.particleShape;
+        const lightingStyles = ["glow", "reactive", "pearl"];
+        const nextLighting = Math.random() < 0.22
+            ? lightingStyles[Math.floor(Math.random() * lightingStyles.length)]
+            : (sim.settings.particleLighting || "glow");
         
         const randomSettings = {
             speed: rnd(0.2, 2.8),
@@ -269,7 +282,8 @@ document.addEventListener("DOMContentLoaded", () => {
             psychedelicMode: occasionallyChange(sim.settings.psychedelicMode, 0.07, 0.06),
             morphingBg: occasionallyChange(sim.settings.morphingBg, 0.12, 0.24),
             spinningKaleido: occasionallyChange(sim.settings.spinningKaleido, 0.07, 0.08),
-            particleShape: nextShape
+            particleShape: nextShape,
+            particleLighting: nextLighting
         };
 
         const randomPalette = generateHarmoniousPalette();
@@ -293,6 +307,7 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.morphingBgToggle.checked = randomSettings.morphingBg;
         elements.spinningKaleidoToggle.checked = randomSettings.spinningKaleido;
         elements.particleShapeSelect.value = randomSettings.particleShape;
+        elements.particleLightingSelect.value = randomSettings.particleLighting;
         
         startPaletteMorph(randomPalette, duration * 1.25);
         modulateSynth();
@@ -410,6 +425,7 @@ document.addEventListener("DOMContentLoaded", () => {
         spinningKaleidoToggle: document.getElementById("spinning-kaleido-toggle"),
         shockwavesToggle: document.getElementById("shockwaves-toggle"),
         particleShapeSelect: document.getElementById("particle-shape-select"),
+        particleLightingSelect: document.getElementById("particle-lighting-select"),
         webglStyleQuickSelector: document.getElementById("webgl-style-quick-selector"),
         stylePillNative: document.getElementById("style-pill-native"),
         stylePillDome: document.getElementById("style-pill-dome"),
@@ -558,7 +574,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 paused: Boolean(sim.isPaused),
                 size: sim.settings.baseSize,
                 speed: sim.settings.speed,
-                density: sim.settings.density
+                density: sim.settings.density,
+                palette: [...sim.palette],
+                paletteName: vrPaletteNames[vrPaletteIndex] || "Custom Palette",
+                lighting: sim.settings.particleLighting || "glow",
+                effectName: lastPresetKey && StylePresets[lastPresetKey]
+                    ? StylePresets[lastPresetKey].name
+                    : `Custom / ${(sim.settings.particleShape || "ellipse").toUpperCase()}`,
+                historyCanBack: ConfigHistory.index > 0,
+                historyCanForward: ConfigHistory.index < ConfigHistory.states.length - 1
             });
             if (action === "getState") return state();
 
@@ -573,6 +597,34 @@ document.addEventListener("DOMContentLoaded", () => {
                 updateSliderTextDisplays();
             };
 
+            const capturePaletteTarget = palette => ConfigHistory.push({
+                settings: { ...sim.settings },
+                palette: [...palette],
+                backgroundColor: sim.backgroundColor,
+                isSolidMode: sim.isSolidMode
+            });
+
+            const selectCuratedPalette = delta => {
+                if (vrPaletteIndex < 0) {
+                    vrPaletteIndex = delta > 0 ? 0 : CuratedPalettes.length - 1;
+                } else {
+                    vrPaletteIndex = (vrPaletteIndex + delta + CuratedPalettes.length) % CuratedPalettes.length;
+                }
+                const palette = [...CuratedPalettes[vrPaletteIndex]];
+                startPaletteMorph(palette, 5200);
+                lastPresetKey = null;
+                capturePaletteTarget(palette);
+            };
+
+            const cyclePreset = delta => {
+                const keys = Object.keys(StylePresets);
+                if (keys.length === 0) return;
+                let index = lastPresetKey ? keys.indexOf(lastPresetKey) : -1;
+                if (index < 0) index = delta > 0 ? -1 : 0;
+                index = (index + delta + keys.length) % keys.length;
+                loadPreset(keys[index]);
+            };
+
             switch (action) {
                 case "togglePause":
                     togglePause();
@@ -580,6 +632,49 @@ document.addEventListener("DOMContentLoaded", () => {
                 case "toggleAutopilot":
                     toggleAutopilot(!isAutopilot);
                     break;
+                case "historyBack": {
+                    const previous = ConfigHistory.back();
+                    if (previous) applyHistoryState(previous);
+                    break;
+                }
+                case "historyForward": {
+                    const next = ConfigHistory.forward();
+                    if (next) applyHistoryState(next);
+                    break;
+                }
+                case "randomFlow":
+                    applyRandomConfig();
+                    break;
+                case "palettePrev":
+                    selectCuratedPalette(-1);
+                    break;
+                case "paletteNext":
+                    selectCuratedPalette(1);
+                    break;
+                case "randomPalette":
+                    {
+                        const palette = generateHarmoniousPalette();
+                        vrPaletteIndex = -1;
+                        startPaletteMorph(palette, 5200);
+                        capturePaletteTarget(palette);
+                    }
+                    lastPresetKey = null;
+                    break;
+                case "effectPrev":
+                    cyclePreset(-1);
+                    break;
+                case "effectNext":
+                    cyclePreset(1);
+                    break;
+                case "cycleLighting": {
+                    const styles = ["glow", "reactive", "pearl"];
+                    const current = Math.max(0, styles.indexOf(sim.settings.particleLighting || "glow"));
+                    const next = styles[(current + 1) % styles.length];
+                    sim.settings.particleLighting = next;
+                    if (elements.particleLightingSelect) elements.particleLightingSelect.value = next;
+                    captureHistoryState();
+                    break;
+                }
                 case "sizeDown":
                     adjust("baseSize", -0.5, 0.1, 14.0, elements.sizeSlider);
                     break;
@@ -775,6 +870,10 @@ document.addEventListener("DOMContentLoaded", () => {
         sim.settings.particleShape = shape;
         elements.particleShapeSelect.value = shape;
 
+        const lighting = p.particleLighting || "glow";
+        sim.settings.particleLighting = lighting;
+        elements.particleLightingSelect.value = lighting;
+
         const kaleidoOn = p.kaleidoscopeEnabled === true;
         sim.settings.kaleidoscopeEnabled = kaleidoOn;
         elements.kaleidoscopeToggle.checked = kaleidoOn;
@@ -950,6 +1049,7 @@ document.addEventListener("DOMContentLoaded", () => {
             { key: "morphingBg", selector: "#morphing-bg-toggle", type: "switch" },
             { key: "spinningKaleido", selector: "#spinning-kaleido-toggle", type: "switch" },
             { key: "particleShape", selector: "#particle-shape-select", type: "select" },
+            { key: "particleLighting", selector: "#particle-lighting-select", type: "select" },
             { key: "colors", selector: "#swatches-palette", type: "palette" }
         ];
 
@@ -1158,12 +1258,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (isFlowEnabled("particleShape") && Math.random() < 0.16) {
             const randVal = Math.random();
-            const shapeChosen = randVal < 0.38 ? "ellipse"
-                : (randVal < 0.62 ? "drop"
-                    : (randVal < 0.82 ? "ring"
-                        : (randVal < 0.94 ? "nebula" : "aquatic")));
+            const shapeChosen = randVal < 0.26 ? "ellipse"
+                : (randVal < 0.42 ? "drop"
+                    : (randVal < 0.56 ? "ring"
+                        : (randVal < 0.66 ? "nebula"
+                            : (randVal < 0.74 ? "aquatic"
+                                : (randVal < 0.82 ? "ocean"
+                                    : (randVal < 0.89 ? "aurora"
+                                        : (randVal < 0.95 ? "orbitals" : "lotus")))))));
             sim.settings.particleShape = shapeChosen;
             elements.particleShapeSelect.value = shapeChosen;
+        }
+
+        if (isFlowEnabled("particleLighting") && Math.random() < 0.14) {
+            const lightingStyles = ["glow", "reactive", "pearl"];
+            const lighting = lightingStyles[Math.floor(Math.random() * lightingStyles.length)];
+            sim.settings.particleLighting = lighting;
+            elements.particleLightingSelect.value = lighting;
         }
 
         // Clear active presets selected cards
@@ -1762,6 +1873,9 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.particleShapeSelect.onchange = () => {
             sim.settings.particleShape = elements.particleShapeSelect.value;
         };
+        elements.particleLightingSelect.onchange = () => {
+            sim.settings.particleLighting = elements.particleLightingSelect.value;
+        };
         if (elements.webglStyleQuickSelector) {
             const updateQuickSelectorPill = (style) => {
                 if (style === "native") {
@@ -1996,6 +2110,8 @@ document.addEventListener("DOMContentLoaded", () => {
             elements.shockwavesToggle.checked = true;
             sim.settings.particleShape = "ellipse";
             elements.particleShapeSelect.value = "ellipse";
+            sim.settings.particleLighting = "glow";
+            elements.particleLightingSelect.value = "glow";
             sim.shockwaves = [];
             
             // Reset bilateral and ASMR audio configurations
@@ -2451,6 +2567,7 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.spinningKaleidoToggle.checked = sim.settings.spinningKaleido;
         elements.shockwavesToggle.checked = sim.settings.shockwavesEnabled;
         elements.particleShapeSelect.value = sim.settings.particleShape || "ellipse";
+        elements.particleLightingSelect.value = sim.settings.particleLighting || "glow";
         
         // Sync Audio settings UIs
         const loadedBinauralMode = sim.settings.binauralMode || "theta";

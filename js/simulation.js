@@ -129,13 +129,60 @@ class Particle {
         
         // Randomly assign particle category for Nebula preset splits (75% twinkling stars, 25% background cloud blobs)
         this.nebulaType = Math.random() > 0.25 ? "star" : "cloud";
+
+        // Stable authored-composition seeds. They are reconfigured when entering
+        // a structured effect so particles form a scene instead of random soup.
+        this.activeEffectShape = null;
+        this.effectRole = Math.random();
+        this.effectLane = Math.random();
+        this.effectPhase = Math.random() * Math.PI * 2;
         
         this.color = this.pickColor();
     }
 
     pickColor() {
         if (!this.palette || this.palette.length === 0) return "#ffffff";
-        return this.palette[Math.floor(Math.random() * this.palette.length)];
+        this.colorIndex = Math.floor(Math.random() * this.palette.length);
+        return this.palette[this.colorIndex];
+    }
+
+    configureAuthoredEffect(shape, globalTime = 0) {
+        this.activeEffectShape = shape;
+        this.effectRole = Math.random();
+        this.effectLane = Math.random();
+        this.effectPhase = Math.random() * Math.PI * 2;
+
+        if (shape === "ocean") {
+            if (this.effectRole < 0.70) {
+                this.x = Math.random() * this.w;
+                this.y = this.h * (0.58 + this.effectLane * 0.36);
+            } else if (this.effectRole < 0.995) {
+                this.x = Math.random() * this.w;
+                this.y = Math.random() * this.h;
+            } else {
+                this.x = Math.random() * this.w;
+                this.y = this.h * (0.10 + this.effectLane * 0.34);
+            }
+        } else if (shape === "aurora") {
+            this.x = this.w * (0.04 + this.effectLane * 0.92);
+            this.y = Math.random() * this.h;
+        } else if (shape === "orbitals") {
+            const radius = Math.min(this.w, this.h) * (0.08 + this.effectLane * 0.44);
+            const angle = this.effectPhase + globalTime * (0.004 + this.effectRole * 0.006);
+            this.x = this.w * 0.5 + Math.cos(angle) * radius;
+            this.y = this.h * 0.5 + Math.sin(angle) * radius * 0.68;
+        } else if (shape === "lotus") {
+            const petal = Math.floor(this.effectLane * 10);
+            const angle = petal * Math.PI * 0.2 + (this.effectRole - 0.5) * 0.24;
+            const radius = Math.min(this.w, this.h) * (0.08 + this.effectRole * 0.40);
+            this.x = this.w * 0.5 + Math.cos(angle) * radius;
+            this.y = this.h * 0.52 + Math.sin(angle) * radius;
+        }
+
+        this.lastX = this.x;
+        this.lastY = this.y;
+        this.vx = 0;
+        this.vy = 0;
     }
 
     update(settings, globalTime, mouse, customForces, shockwaves, vortices, dt = 1.0) {
@@ -148,6 +195,14 @@ class Particle {
         const flowFreq = 0.007 / zoom;
         const organic = settings.flowOrganic ?? 0.85;
         const turb = settings.turbulence ?? 0.65;
+        const authoredShapes = ["ocean", "aurora", "orbitals", "lotus"];
+        if (authoredShapes.includes(settings.particleShape)) {
+            if (this.activeEffectShape !== settings.particleShape) {
+                this.configureAuthoredEffect(settings.particleShape, globalTime);
+            }
+        } else {
+            this.activeEffectShape = null;
+        }
 
         // Calculate curl at scaled virtual coordinates to make swirls size-invariant
         const curl = getCurlNoise(this.x / scaleRef, this.y / scaleRef, globalTime * 0.35, flowFreq);
@@ -157,6 +212,49 @@ class Particle {
         // Scale vector forces by scaleRef to prevent speed feeling too fast on mobile and slow on 4K
         let targetVx = (curl.vx * organic + tVal * (1 - organic) * turb) * speed * 0.26 * scaleRef;
         let targetVy = (curl.vy * organic + tVal * (1 - organic) * turb) * speed * 0.26 * scaleRef;
+
+        if (settings.particleShape === "ocean") {
+            if (this.effectRole < 0.70) {
+                const targetY = this.h * (0.58 + this.effectLane * 0.36)
+                    + Math.sin(this.x * 0.012 + globalTime * 0.035 + this.effectPhase)
+                        * this.h * (0.012 + this.effectLane * 0.018);
+                targetVx = (0.28 + this.effectLane * 0.32) * speed * scaleRef;
+                targetVy = (targetY - this.y) * 0.018;
+            } else if (this.effectRole < 0.995) {
+                targetVx = Math.sin(globalTime * 0.025 + this.effectPhase) * 0.045 * scaleRef;
+                targetVy = (0.48 + this.effectLane * 0.72) * speed * scaleRef;
+            } else {
+                const targetY = this.h * (0.10 + this.effectLane * 0.34);
+                targetVx = (0.018 + this.effectLane * 0.024) * speed * scaleRef;
+                targetVy = (targetY - this.y) * 0.01
+                    + Math.sin(globalTime * 0.008 + this.effectPhase) * 0.012 * scaleRef;
+            }
+        } else if (settings.particleShape === "aurora") {
+            const targetX = this.w * (0.04 + this.effectLane * 0.92)
+                + Math.sin(globalTime * 0.012 + this.effectPhase + this.y * 0.004)
+                    * this.w * (0.025 + this.effectRole * 0.035);
+            targetVx = (targetX - this.x) * 0.012;
+            targetVy = -(0.12 + this.effectRole * 0.26) * speed * scaleRef;
+        } else if (settings.particleShape === "orbitals") {
+            const radius = Math.min(this.w, this.h) * (0.08 + this.effectLane * 0.44);
+            const angle = this.effectPhase + globalTime * (0.004 + this.effectRole * 0.006) * speed;
+            const targetX = this.w * 0.5 + Math.cos(angle) * radius;
+            const targetY = this.h * 0.5 + Math.sin(angle) * radius * 0.68;
+            targetVx = (targetX - this.x) * 0.028;
+            targetVy = (targetY - this.y) * 0.028;
+        } else if (settings.particleShape === "lotus") {
+            const petal = Math.floor(this.effectLane * 10);
+            const breathe = 0.86 + Math.sin(globalTime * 0.012 + this.effectPhase) * 0.14;
+            const petalAngle = petal * Math.PI * 0.2
+                + (this.effectRole - 0.5) * 0.26
+                + Math.sin(globalTime * 0.006) * 0.08;
+            const radius = Math.min(this.w, this.h)
+                * (0.07 + this.effectRole * 0.42) * breathe;
+            const targetX = this.w * 0.5 + Math.cos(petalAngle) * radius;
+            const targetY = this.h * 0.52 + Math.sin(petalAngle) * radius;
+            targetVx = (targetX - this.x) * 0.032;
+            targetVy = (targetY - this.y) * 0.032;
+        }
         
         // Inject Aquatic Flow split velocity physics overrides
         if (settings.particleShape === "aquatic") {
@@ -381,6 +479,161 @@ class Particle {
         }
     }
 
+    drawLitOrb(ctx, radius, alpha, settings) {
+        const lighting = settings.particleLighting || "glow";
+        const time = Date.now() * 0.00008;
+        const lightX = Math.cos(time + this.effectPhase);
+        const lightY = Math.sin(time * 0.73 + this.effectPhase);
+        const accent = this.palette?.[(this.colorIndex + 1) % this.palette.length] || this.color;
+
+        ctx.save();
+        ctx.fillStyle = this.color;
+        ctx.globalAlpha = alpha * (lighting === "glow" ? 0.42 : 0.78);
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (lighting === "glow") {
+            ctx.strokeStyle = accent;
+            ctx.globalAlpha = alpha * 0.42;
+            ctx.lineWidth = Math.max(1, radius * 0.12);
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, radius * 0.86, 0, Math.PI * 2);
+            ctx.stroke();
+        } else {
+            // A slowly moving environment light and opposing shadow create a
+            // readable sphere without the old fixed white sticker highlight.
+            ctx.fillStyle = "#020617";
+            ctx.globalAlpha = alpha * (lighting === "pearl" ? 0.22 : 0.34);
+            ctx.beginPath();
+            ctx.arc(
+                this.x - lightX * radius * 0.22,
+                this.y - lightY * radius * 0.22,
+                radius * 0.94,
+                0,
+                Math.PI * 2
+            );
+            ctx.fill();
+
+            ctx.fillStyle = accent;
+            ctx.globalAlpha = alpha * (lighting === "pearl" ? 0.58 : 0.72);
+            ctx.beginPath();
+            ctx.arc(
+                this.x + lightX * radius * 0.36,
+                this.y + lightY * radius * 0.36,
+                radius * (lighting === "pearl" ? 0.19 : 0.14),
+                0,
+                Math.PI * 2
+            );
+            ctx.fill();
+
+            ctx.strokeStyle = accent;
+            ctx.globalAlpha = alpha * (lighting === "pearl" ? 0.72 : 0.34);
+            ctx.lineWidth = Math.max(1, radius * (lighting === "pearl" ? 0.12 : 0.06));
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, radius * 0.91, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    drawAuthoredEffect(ctx, settings, drawSize, drawAlpha) {
+        const shape = settings.particleShape;
+        if (shape === "ocean") {
+            if (this.effectRole < 0.70) {
+                ctx.strokeStyle = this.color;
+                ctx.lineCap = "round";
+                ctx.globalAlpha = drawAlpha * 0.18;
+                ctx.lineWidth = Math.max(2, drawSize * (3.0 + this.effectLane * 2.6));
+                ctx.beginPath();
+                ctx.moveTo(this.lastX, this.lastY);
+                ctx.lineTo(this.x, this.y);
+                ctx.stroke();
+                ctx.globalAlpha = drawAlpha * 0.82;
+                ctx.lineWidth = Math.max(0.8, drawSize * (0.48 + this.effectLane * 0.42));
+                ctx.beginPath();
+                ctx.moveTo(this.lastX, this.lastY);
+                ctx.lineTo(this.x, this.y);
+                ctx.stroke();
+            } else if (this.effectRole < 0.995) {
+                const rainLength = Math.max(4, drawSize * 2.4 + Math.abs(this.vy) * 3.5);
+                ctx.strokeStyle = this.color;
+                ctx.lineCap = "round";
+                ctx.globalAlpha = drawAlpha * 0.58;
+                ctx.lineWidth = Math.max(0.45, drawSize * 0.18);
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y - rainLength);
+                ctx.lineTo(this.x + this.vx * 0.8, this.y);
+                ctx.stroke();
+            } else {
+                this.drawLitOrb(ctx, drawSize * (11 + this.effectLane * 13), drawAlpha * 0.82, settings);
+            }
+            return true;
+        }
+
+        if (shape === "aurora") {
+            if (this.effectRole < 0.92) {
+                const curtainHeight = drawSize * (9 + this.effectLane * 18);
+                const bend = Math.sin(Date.now() * 0.00012 + this.effectPhase) * drawSize * 2.2;
+                ctx.strokeStyle = this.color;
+                ctx.lineCap = "round";
+                ctx.globalAlpha = drawAlpha * 0.10;
+                ctx.lineWidth = Math.max(2, drawSize * (3.2 + this.effectLane * 2.0));
+                ctx.beginPath();
+                ctx.moveTo(this.x - bend, this.y - curtainHeight);
+                ctx.quadraticCurveTo(this.x + bend, this.y, this.x - bend * 0.35, this.y + curtainHeight);
+                ctx.stroke();
+                ctx.globalAlpha = drawAlpha * 0.48;
+                ctx.lineWidth = Math.max(0.7, drawSize * 0.38);
+                ctx.stroke();
+            } else {
+                this.drawLitOrb(ctx, drawSize * 0.55, drawAlpha * 0.9, settings);
+            }
+            return true;
+        }
+
+        if (shape === "orbitals") {
+            if (this.effectRole > 0.994) {
+                this.drawLitOrb(ctx, drawSize * (7 + this.effectLane * 7), drawAlpha, settings);
+            } else {
+                ctx.strokeStyle = this.color;
+                ctx.lineCap = "round";
+                ctx.globalAlpha = drawAlpha * 0.28;
+                ctx.lineWidth = Math.max(0.8, drawSize * 0.48);
+                ctx.beginPath();
+                ctx.moveTo(this.lastX, this.lastY);
+                ctx.lineTo(this.x, this.y);
+                ctx.stroke();
+                ctx.globalAlpha = drawAlpha * 0.8;
+                ctx.lineWidth = Math.max(0.5, drawSize * 0.18);
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, drawSize * 0.72, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            return true;
+        }
+
+        if (shape === "lotus") {
+            if (this.effectRole > 0.995) {
+                this.drawLitOrb(ctx, drawSize * 6.5, drawAlpha, settings);
+            } else {
+                const angle = Math.atan2(this.y - this.h * 0.52, this.x - this.w * 0.5);
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = drawAlpha * 0.22;
+                ctx.beginPath();
+                ctx.ellipse(this.x, this.y, drawSize * 3.8, drawSize * 1.15, angle, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = drawAlpha * 0.72;
+                ctx.beginPath();
+                ctx.ellipse(this.x, this.y, drawSize * 1.8, drawSize * 0.42, angle, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            return true;
+        }
+
+        return false;
+    }
+
     draw(ctx, settings) {
         const lifeRatio = Math.max(0.1, this.life / this.maxLife);
         
@@ -397,6 +650,10 @@ class Particle {
         
         let drawSize = size;
         let drawAlpha = alpha;
+
+        if (this.drawAuthoredEffect(ctx, settings, drawSize, drawAlpha)) {
+            return;
+        }
         
         if (shape === "aquatic") {
             shape = this.aquaticType === "paint" ? "brush" : "ring";
@@ -447,6 +704,10 @@ class Particle {
             ctx.ellipse(coreX, coreY, drawSize * (0.7 + stretch * 0.1), drawSize * (0.38 + dynamicStretch * 0.08), angle, 0, Math.PI * 2);
             ctx.fill();
         } else if (shape === "drop") {
+            if ((settings.particleLighting || "glow") !== "glow") {
+                this.drawLitOrb(ctx, drawSize * 1.5, drawAlpha * 0.95, settings);
+                return;
+            }
             ctx.fillStyle = this.color;
             ctx.globalAlpha = drawAlpha * 0.9;
             ctx.beginPath();
@@ -559,11 +820,20 @@ class Particle {
             ctx.arc(this.x + drawSize * 0.5, this.y + drawSize * 0.45, drawSize * 0.58, 0, Math.PI * 2);
             ctx.fill();
             
-            // Circle D: Specular white reflection dot for 3D depth/glow
-            ctx.fillStyle = "#ffffff";
-            ctx.globalAlpha = drawAlpha * 0.78;
+            // Circle D: moving palette-tinted reflection; no fixed white sticker.
+            const lightTime = Date.now() * 0.00008 + this.effectPhase;
+            const lightX = Math.cos(lightTime);
+            const lightY = Math.sin(lightTime * 0.73);
+            ctx.fillStyle = this.palette?.[(this.colorIndex + 1) % this.palette.length] || this.color;
+            ctx.globalAlpha = drawAlpha * ((settings.particleLighting || "glow") === "glow" ? 0.42 : 0.72);
             ctx.beginPath();
-            ctx.arc(this.x - drawSize * 0.45, this.y - drawSize * 0.45, drawSize * 0.22, 0, Math.PI * 2);
+            ctx.arc(
+                this.x + lightX * drawSize * 0.48,
+                this.y + lightY * drawSize * 0.48,
+                drawSize * 0.22,
+                0,
+                Math.PI * 2
+            );
             ctx.fill();
         }
     }
@@ -651,6 +921,7 @@ class FlowSimulation {
             morphingBg: false,
             spinningKaleido: false,
             particleShape: "ellipse",
+            particleLighting: "glow",
             shockwavesEnabled: true,
             
             // Audio additions

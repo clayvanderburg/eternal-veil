@@ -81,6 +81,7 @@ class NativeFlowSimulation3D {
         this.vrPanelTexture = null;
         this.vrPanelButtons = [];
         this.vrPanelHoverAction = null;
+        this.vrPanelPage = "main";
         this.vrPanelStateHash = "";
         this.vrPanelRefreshAt = 0;
         this.xrRaycaster = new THREE.Raycaster();
@@ -157,16 +158,31 @@ class NativeFlowSimulation3D {
         this.scene.add(this.vrPanelGroup);
 
         this.vrPanelButtons = [
-            { action: "togglePause", x: 56, y: 170, w: 438, h: 104 },
-            { action: "toggleAutopilot", x: 530, y: 170, w: 438, h: 104 },
-            { action: "sizeDown", x: 650, y: 320, w: 132, h: 102 },
-            { action: "sizeUp", x: 818, y: 320, w: 132, h: 102 },
-            { action: "speedDown", x: 650, y: 454, w: 132, h: 102 },
-            { action: "speedUp", x: 818, y: 454, w: 132, h: 102 },
-            { action: "densityDown", x: 650, y: 588, w: 132, h: 102 },
-            { action: "densityUp", x: 818, y: 588, w: 132, h: 102 },
-            { action: "hideMenu", x: 56, y: 748, w: 912, h: 92 },
-            { action: "exitToSettings", x: 56, y: 864, w: 912, h: 108 }
+            { page: "main", action: "togglePause", x: 56, y: 145, w: 438, h: 88 },
+            { page: "main", action: "toggleAutopilot", x: 530, y: 145, w: 438, h: 88 },
+            { page: "main", action: "historyBack", x: 56, y: 255, w: 280, h: 82 },
+            { page: "main", action: "randomFlow", x: 372, y: 255, w: 280, h: 82 },
+            { page: "main", action: "historyForward", x: 688, y: 255, w: 280, h: 82 },
+            { page: "main", action: "sizeDown", x: 700, y: 365, w: 120, h: 84 },
+            { page: "main", action: "sizeUp", x: 848, y: 365, w: 120, h: 84 },
+            { page: "main", action: "speedDown", x: 700, y: 475, w: 120, h: 84 },
+            { page: "main", action: "speedUp", x: 848, y: 475, w: 120, h: 84 },
+            { page: "main", action: "densityDown", x: 700, y: 585, w: 120, h: 84 },
+            { page: "main", action: "densityUp", x: 848, y: 585, w: 120, h: 84 },
+            { page: "main", action: "pageLooks", x: 56, y: 700, w: 912, h: 82 },
+            { page: "main", action: "hideMenu", x: 56, y: 798, w: 912, h: 82 },
+            { page: "main", action: "exitToSettings", x: 56, y: 898, w: 912, h: 82 },
+            { page: "looks", action: "pageMainTop", x: 56, y: 145, w: 912, h: 82 },
+            { page: "looks", action: "palettePrev", x: 56, y: 260, w: 280, h: 86 },
+            { page: "looks", action: "randomPalette", x: 372, y: 260, w: 280, h: 86 },
+            { page: "looks", action: "paletteNext", x: 688, y: 260, w: 280, h: 86 },
+            { page: "looks", action: "effectPrev", x: 56, y: 470, w: 438, h: 86 },
+            { page: "looks", action: "effectNext", x: 530, y: 470, w: 438, h: 86 },
+            { page: "looks", action: "cycleLighting", x: 56, y: 590, w: 912, h: 86 },
+            { page: "looks", action: "gentleRipple", x: 56, y: 700, w: 912, h: 86 },
+            { page: "looks", action: "hideMenu", x: 56, y: 806, w: 438, h: 76 },
+            { page: "looks", action: "exitToSettings", x: 530, y: 806, w: 438, h: 76 },
+            { page: "looks", action: "pageMain", x: 56, y: 898, w: 912, h: 82 }
         ];
         this.drawVRPanel();
     }
@@ -189,15 +205,18 @@ class NativeFlowSimulation3D {
             ctx.quadraticCurveTo(x, y, x + r, y);
             ctx.closePath();
         };
-        const button = (rect, label, accent = "#60a5fa") => {
-            const hovered = hoverAction === rect.action;
-            ctx.fillStyle = hovered ? accent : "rgba(25, 33, 57, 0.96)";
-            ctx.strokeStyle = hovered ? "#ffffff" : accent;
+        const button = (rect, label, accent = "#60a5fa", disabled = false) => {
+            if (!rect) return;
+            const hovered = hoverAction === rect.action && !disabled;
+            ctx.fillStyle = disabled
+                ? "rgba(20, 26, 42, 0.74)"
+                : (hovered ? accent : "rgba(25, 33, 57, 0.96)");
+            ctx.strokeStyle = disabled ? "#475569" : (hovered ? "#ffffff" : accent);
             ctx.lineWidth = hovered ? 5 : 3;
             roundedRect(rect.x, rect.y, rect.w, rect.h, 22);
             ctx.fill();
             ctx.stroke();
-            ctx.fillStyle = hovered ? "#07101f" : "#f8fafc";
+            ctx.fillStyle = disabled ? "#64748b" : (hovered ? "#07101f" : "#f8fafc");
             ctx.font = "700 31px system-ui, sans-serif";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
@@ -218,13 +237,10 @@ class NativeFlowSimulation3D {
         ctx.fillText("ETERNAL VEIL  //  VR", 58, 70);
         ctx.fillStyle = "#94a3b8";
         ctx.font = "500 23px system-ui, sans-serif";
-        ctx.fillText("Aim with either controller • Trigger selects • Grip hides/shows", 58, 116);
+        ctx.fillText("Aim + trigger to select  /  Grip hides or shows this menu", 58, 116);
 
-        button(this.vrPanelButtons[0], state.paused ? "RESUME" : "PAUSE", "#a78bfa");
-        button(
-            this.vrPanelButtons[1],
-            `AUTOPILOT  ${state.autopilot ? "ON" : "OFF"}`,
-            state.autopilot ? "#34d399" : "#64748b"
+        const findButton = action => this.vrPanelButtons.find(
+            b => b.page === this.vrPanelPage && b.action === action
         );
 
         const drawSettingRow = (y, label, value, downAction, upAction) => {
@@ -235,15 +251,59 @@ class NativeFlowSimulation3D {
             ctx.fillStyle = "#67e8f9";
             ctx.font = "800 39px system-ui, sans-serif";
             ctx.fillText(value, 360, y + 39);
-            button(this.vrPanelButtons.find(b => b.action === downAction), "−", "#38bdf8");
-            button(this.vrPanelButtons.find(b => b.action === upAction), "+", "#38bdf8");
+            button(findButton(downAction), "-", "#38bdf8");
+            button(findButton(upAction), "+", "#38bdf8");
         };
-        drawSettingRow(320, "PARTICLE SIZE", Number(state.size || 0).toFixed(1), "sizeDown", "sizeUp");
-        drawSettingRow(454, "FLOW SPEED", Number(state.speed || 0).toFixed(2), "speedDown", "speedUp");
-        drawSettingRow(588, "PARTICLES", String(Math.round(state.density || 0)), "densityDown", "densityUp");
 
-        button(this.vrPanelButtons.find(b => b.action === "hideMenu"), "HIDE MENU  •  GRIP TO REOPEN", "#64748b");
-        button(this.vrPanelButtons.find(b => b.action === "exitToSettings"), "EXIT VR  →  2D SETTINGS", "#fb7185");
+        if (this.vrPanelPage === "looks") {
+            button(findButton("pageMainTop"), "<  MAIN CONTROLS", "#64748b");
+            button(findButton("palettePrev"), "< PALETTE", "#22d3ee");
+            button(findButton("randomPalette"), "RANDOM COLOR", "#c084fc");
+            button(findButton("paletteNext"), "PALETTE >", "#22d3ee");
+
+            ctx.fillStyle = "#94a3b8";
+            ctx.font = "650 25px system-ui, sans-serif";
+            ctx.textAlign = "left";
+            ctx.fillText(state.paletteName || "CURRENT PALETTE", 58, 395);
+            const palette = Array.isArray(state.palette) ? state.palette.slice(0, 6) : [];
+            palette.forEach((color, index) => {
+                ctx.beginPath();
+                ctx.arc(475 + index * 72, 386, 24, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.fill();
+                ctx.strokeStyle = "rgba(255,255,255,0.65)";
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            });
+
+            button(findButton("effectPrev"), "< EFFECT", "#60a5fa");
+            button(findButton("effectNext"), "EFFECT >", "#60a5fa");
+            ctx.fillStyle = "#e0f2fe";
+            ctx.font = "700 27px system-ui, sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText(state.effectName || "Custom Flow", 512, 575);
+            button(findButton("cycleLighting"), `LIGHTING  /  ${(state.lighting || "glow").toUpperCase()}`, "#fbbf24");
+            button(findButton("gentleRipple"), "SEND A GENTLE RIPPLE", "#34d399");
+            button(findButton("hideMenu"), "HIDE MENU", "#64748b");
+            button(findButton("exitToSettings"), "EXIT VR", "#fb7185");
+            button(findButton("pageMain"), "<  MAIN CONTROLS", "#64748b");
+        } else {
+            button(findButton("togglePause"), state.paused ? "RESUME" : "PAUSE", "#a78bfa");
+            button(
+                findButton("toggleAutopilot"),
+                `AUTOPILOT  ${state.autopilot ? "ON" : "OFF"}`,
+                state.autopilot ? "#34d399" : "#64748b"
+            );
+            button(findButton("historyBack"), "< LAST", "#60a5fa", !state.historyCanBack);
+            button(findButton("randomFlow"), "RANDOM FLOW", "#c084fc");
+            button(findButton("historyForward"), "NEXT >", "#60a5fa", !state.historyCanForward);
+            drawSettingRow(365, "PARTICLE SIZE", Number(state.size || 0).toFixed(1), "sizeDown", "sizeUp");
+            drawSettingRow(475, "FLOW SPEED", Number(state.speed || 0).toFixed(2), "speedDown", "speedUp");
+            drawSettingRow(585, "PARTICLES", String(Math.round(state.density || 0)), "densityDown", "densityUp");
+            button(findButton("pageLooks"), "COLORS + EFFECTS  >", "#22d3ee");
+            button(findButton("hideMenu"), "HIDE MENU  /  GRIP TO REOPEN", "#64748b");
+            button(findButton("exitToSettings"), "EXIT VR  >  2D SETTINGS", "#fb7185");
+        }
 
         this.vrPanelTexture.needsUpdate = true;
         this.vrPanelStateHash = JSON.stringify(state);
@@ -267,6 +327,7 @@ class NativeFlowSimulation3D {
         const x = intersection.uv.x * this.vrPanelCanvas.width;
         const y = (1 - intersection.uv.y) * this.vrPanelCanvas.height;
         const control = this.vrPanelButtons.find(b =>
+            b.page === this.vrPanelPage &&
             x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h
         );
         return control ? { action: control.action, distance: intersection.distance } : null;
@@ -306,6 +367,17 @@ class NativeFlowSimulation3D {
             if (session) session.end();
             return true;
         }
+        if (action === "pageLooks" || action === "pageMain" || action === "pageMainTop") {
+            this.vrPanelPage = action === "pageLooks" ? "looks" : "main";
+            this.vrPanelHoverAction = null;
+            this.drawVRPanel();
+            return true;
+        }
+        if (action === "gentleRipple") {
+            this.triggerGentleRipple();
+            this.drawVRPanel(action);
+            return true;
+        }
         if (typeof window.onNativeVRControl === "function") {
             window.onNativeVRControl(action);
             const state = this.getVRControlState();
@@ -336,6 +408,8 @@ class NativeFlowSimulation3D {
             uShock: { value: 0 },
             uShockRadius: { value: 0 },
             uGlowEnergy: { value: 0.78 },
+            uEffectMode: { value: 0 },
+            uLightingStyle: { value: 0 },
             uPalette: { value: colors }
         };
     }
@@ -366,14 +440,20 @@ class NativeFlowSimulation3D {
             uniform float uVortex;
             uniform float uShock;
             uniform float uShockRadius;
+            uniform float uEffectMode;
             uniform vec3 uPalette[6];
 
             varying vec3 vColor;
             varying float vAlpha;
             varying float vTrailAmount;
             varying float vRenderedSize;
+            varying float vEffectClass;
 
             const float PI = 3.141592653589793;
+
+            float hash21(vec2 p) {
+                return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+            }
 
             vec3 paletteColor(float indexValue) {
                 vec3 c = uPalette[0];
@@ -389,7 +469,72 @@ class NativeFlowSimulation3D {
             vec3 flowPosition(float trailAmount) {
                 float t = uTime * (0.24 + uSpeed * 0.18) - trailAmount * uTrailLength;
                 float lane = aPhase * PI * 2.0;
-                // A small subset passes very close to the viewer for genuine depth/fly-bys.
+                float role = hash21(aSeed.xy + vec2(aPhase, aSeed.z));
+                float seededZ = aSeed.z * uDepth * 0.5;
+                vec3 result = vec3(0.0);
+
+                // Authored modes keep the motion spatial while giving the eye a
+                // recognizable composition. Trail samples use the same time offset,
+                // so every streak remains a continuous path instead of a pearl chain.
+                if (uEffectMode > 0.5 && uEffectMode < 1.5) {
+                    // Rain Ocean: layered lower-half waves, vertical rain, and a
+                    // handful of huge moons/suns in the open sky.
+                    if (role < 0.70) {
+                        float waveLane = floor(aPhase * 7.0);
+                        float span = uVolumeRadius * 2.65;
+                        float x = mod((aSeed.x * 0.5 + 0.5) * span + t * 58.0 + span, span) - span * 0.5;
+                        float swell = sin(x * 0.024 + t * 0.92 + aSeed.y * 6.0);
+                        float crossSwell = sin(x * 0.011 - t * 0.38 + waveLane * 1.7);
+                        float y = -58.0 - waveLane * 16.0 + swell * (9.0 + waveLane * 1.9) + crossSwell * 4.5;
+                        result = vec3(x, y, seededZ * 0.64 + waveLane * 11.0);
+                    } else if (role < 0.995) {
+                        float rainSpan = 390.0;
+                        float y = mod((aSeed.y * 0.5 + 0.5) * rainSpan - t * 108.0 + rainSpan, rainSpan) - rainSpan * 0.5;
+                        result = vec3(aSeed.x * uVolumeRadius * 1.12, y, seededZ * 0.72);
+                    } else {
+                        result = vec3(
+                            aSeed.x * uVolumeRadius * 0.76 + sin(t * 0.08 + lane) * 18.0,
+                            82.0 + abs(aSeed.y) * 105.0,
+                            seededZ * 0.36
+                        );
+                    }
+                } else if (uEffectMode > 1.5 && uEffectMode < 2.5) {
+                    // Aurora Cathedral: deep, slowly breathing curtains rather than
+                    // an unstructured particle cloud.
+                    float column = floor(aPhase * 9.0);
+                    float ySpan = 430.0;
+                    float y = mod((aSeed.y * 0.5 + 0.5) * ySpan + t * 17.0 + ySpan, ySpan) - ySpan * 0.5;
+                    float x = aSeed.x * uVolumeRadius * 0.94
+                        + sin(y * 0.014 + t * 0.34 + column) * (22.0 + 8.0 * abs(aSeed.z));
+                    float z = seededZ * 0.62 + sin(x * 0.013 - t * 0.22 + column * 0.8) * 46.0;
+                    result = vec3(x, y, z);
+                } else if (uEffectMode > 2.5 && uEffectMode < 3.5) {
+                    // Celestial Orrery: nested orbital planes make the different
+                    // streams legible from almost any headset viewing direction.
+                    float ring = 38.0 + (aSeed.x * 0.5 + 0.5) * uVolumeRadius * 0.84;
+                    float orbit = lane + t * (0.20 + abs(aSeed.y) * 0.16);
+                    float tilt = aSeed.z * 0.48;
+                    vec3 p = vec3(cos(orbit) * ring, sin(orbit) * ring * 0.72, sin(orbit * 2.0) * 28.0);
+                    float ct = cos(tilt);
+                    float st = sin(tilt);
+                    p.yz = mat2(ct, -st, st, ct) * p.yz;
+                    p.z += aSeed.z * 115.0;
+                    result = p;
+                } else if (uEffectMode > 3.5) {
+                    // Lotus Pulse: ten petal lanes open and close around a softly
+                    // breathing center, with real depth between the layers.
+                    float petal = floor(aPhase * 10.0);
+                    float baseAngle = petal * (PI * 2.0 / 10.0);
+                    float breath = 0.86 + 0.14 * sin(t * 0.25 + aSeed.y * 5.0);
+                    float radial = (28.0 + (aSeed.x * 0.5 + 0.5) * uVolumeRadius * 0.78) * breath;
+                    float angle = baseAngle + aSeed.y * 0.19 + sin(t * 0.14) * 0.06;
+                    result = vec3(
+                        cos(angle) * radial,
+                        sin(angle) * radial,
+                        seededZ * 0.23 + sin(radial * 0.042 + t * 0.31 + petal) * 28.0
+                    );
+                } else {
+                    // A small subset passes very close to the viewer for genuine depth/fly-bys.
                 float seedRadius = 0.035 + pow(abs(aSeed.x), 1.08) * 0.965;
                 float radius = uVolumeRadius * seedRadius;
 
@@ -432,7 +577,10 @@ class NativeFlowSimulation3D {
                 float shell = exp(-abs(distFromCenter - uShockRadius) * 0.022);
                 p += normalize(p + vec3(0.001)) * shell * uShock * 55.0;
 
-                return p;
+                    result = p;
+                }
+
+                return result;
             }
 
             void main() {
@@ -446,15 +594,34 @@ class NativeFlowSimulation3D {
                 // from drawing a giant line across the scene when its endpoints wrap.
                 float wrapFade = smoothstep(0.0, 54.0, uDepth * 0.5 - abs(p.z));
                 vAlpha = distanceFade * nearFade * wrapFade;
+                if (uEffectMode > 0.5) vAlpha = distanceFade * nearFade;
                 vTrailAmount = trailAmount;
                 vColor = paletteColor(aPaletteIndex);
+                float effectRole = hash21(aSeed.xy + vec2(aPhase, aSeed.z));
+                vEffectClass = 0.0;
+                if (uEffectMode > 0.5 && uEffectMode < 1.5) {
+                    vEffectClass = effectRole < 0.70 ? 0.5 : (effectRole < 0.995 ? 1.0 : 2.0);
+                } else if (uEffectMode > 1.5 && uEffectMode < 2.5) {
+                    vEffectClass = 3.0;
+                } else if (uEffectMode > 2.5 && uEffectMode < 3.5) {
+                    vEffectClass = effectRole > 0.992 ? 2.0 : 4.0;
+                } else if (uEffectMode > 3.5) {
+                    vEffectClass = effectRole > 0.994 ? 2.0 : 5.0;
+                }
+
+                float effectScale = 1.0;
+                if (vEffectClass > 0.4 && vEffectClass < 0.8) effectScale = 1.24;
+                if (vEffectClass > 0.8 && vEffectClass < 1.2) effectScale = 0.28;
+                if (vEffectClass > 1.8 && vEffectClass < 2.2) effectScale = ${isTrail ? "2.2" : "8.5"};
+                if (vEffectClass > 2.8 && vEffectClass < 3.2) effectScale = 1.32;
+                if (vEffectClass > 3.8 && vEffectClass < 5.2) effectScale = 0.92;
 
                 ${isTrail ? `
                     gl_Position = projectionMatrix * mvPosition;
                     float perspective = 300.0 / max(10.0, -mvPosition.z);
                     float pulse = 1.0 + min(2.4, uBass * 1.8);
                     float sizeCeiling = mix(144.0, 432.0, aHero);
-                    float headDiameter = clamp(uPointSize * aScale * perspective * pulse, 1.0, sizeCeiling);
+                    float headDiameter = clamp(uPointSize * aScale * effectScale * perspective * pulse, 1.0, sizeCeiling);
                     float taper = pow(max(0.0, 1.0 - aTrail), 0.74);
                     // The first glow sample exactly matches the particle diameter;
                     // subsequent overlapping samples taper into a soft plasma tail.
@@ -468,7 +635,8 @@ class NativeFlowSimulation3D {
                     // to large, soft energy orbs. The hardware point-size limit is
                     // still respected automatically by WebGL.
                     float sizeCeiling = mix(144.0, 432.0, aHero);
-                    vRenderedSize = clamp(uPointSize * aScale * perspective * pulse, 1.0, sizeCeiling);
+                    sizeCeiling = vEffectClass > 1.8 && vEffectClass < 2.2 ? 620.0 : sizeCeiling;
+                    vRenderedSize = clamp(uPointSize * aScale * effectScale * perspective * pulse, 1.0, sizeCeiling);
                     gl_PointSize = vRenderedSize;
                 `}
             }
@@ -478,12 +646,15 @@ class NativeFlowSimulation3D {
     createHeadFragmentShader() {
         return `
             precision highp float;
+            uniform float uTime;
             uniform float uTreble;
             uniform float uPointSize;
             uniform float uGlowEnergy;
+            uniform float uLightingStyle;
             varying vec3 vColor;
             varying float vAlpha;
             varying float vRenderedSize;
+            varying float vEffectClass;
 
             void main() {
                 vec2 d = gl_PointCoord - vec2(0.5);
@@ -496,10 +667,62 @@ class NativeFlowSimulation3D {
                 float settingBalance = mix(1.0, 0.42, smoothstep(12.0, 36.0, uPointSize));
                 float heroBalance = mix(1.0, 0.14, smoothstep(90.0, 432.0, vRenderedSize));
                 float largeSizeBalance = min(settingBalance, heroBalance);
-                vec3 color = vColor * (halo * 0.82 + core * 1.9)
-                    * sparkle * mix(1.0, 0.72, 1.0 - largeSizeBalance);
-                float alpha = (halo * 0.56 + core * 0.86) * vAlpha
-                    * largeSizeBalance * uGlowEnergy;
+                float lightingStyle = max(uLightingStyle, step(1.8, vEffectClass));
+                vec3 color;
+                float alpha;
+
+                if (lightingStyle < 0.5) {
+                    // Original soft energy-glow style remains available as an
+                    // intentionally flatter randomized look.
+                    color = vColor * (halo * 0.82 + core * 1.9)
+                        * sparkle * mix(1.0, 0.72, 1.0 - largeSizeBalance);
+                    alpha = (halo * 0.56 + core * 0.86) * vAlpha
+                        * largeSizeBalance * uGlowEnergy;
+                } else {
+                    // Reconstruct a sphere normal from the point sprite. Two slow,
+                    // palette-tinted environment lights make shading respond as a
+                    // volume instead of reading like a static white sticker.
+                    vec2 sphereXY = d * 2.0;
+                    float sphereZ = sqrt(max(0.0, 1.0 - dot(sphereXY, sphereXY)));
+                    vec3 normal = normalize(vec3(sphereXY, sphereZ));
+                    vec3 viewDir = vec3(0.0, 0.0, 1.0);
+                    vec3 keyDir = normalize(vec3(
+                        cos(uTime * 0.13),
+                        0.42 + 0.28 * sin(uTime * 0.09),
+                        0.78
+                    ));
+                    vec3 fillDir = normalize(vec3(
+                        -0.62 + 0.22 * sin(uTime * 0.07),
+                        -0.36,
+                        0.52
+                    ));
+                    float key = max(dot(normal, keyDir), 0.0);
+                    float fill = max(dot(normal, fillDir), 0.0);
+                    float fresnel = pow(1.0 - max(dot(normal, viewDir), 0.0), 2.25);
+                    vec3 halfDir = normalize(keyDir + viewDir);
+                    float specular = pow(max(dot(normal, halfDir), 0.0), 22.0);
+
+                    vec3 brightTint = pow(max(vColor, vec3(0.015)), vec3(0.62));
+                    vec3 coolTint = mix(vColor.bgr, vColor, 0.42);
+                    float diffuse = 0.20 + key * 0.84 + fill * 0.16;
+                    vec3 reactiveColor = vColor * diffuse
+                        + brightTint * specular * 0.40
+                        + coolTint * fresnel * 0.18;
+
+                    if (lightingStyle > 1.5) {
+                        // Pearl turns the rim and secondary reflection up while
+                        // retaining a deep colored shadow side.
+                        reactiveColor = vColor * (0.18 + key * 0.72 + fill * 0.24)
+                            + brightTint * (specular * 0.88 + fresnel * 0.34)
+                            + coolTint * fresnel * 0.24;
+                    }
+
+                    float silhouette = smoothstep(0.5, 0.445, r);
+                    float softAura = smoothstep(0.5, 0.28, r) * 0.20;
+                    color = reactiveColor * sparkle + vColor * softAura;
+                    alpha = (silhouette * 0.94 + softAura) * vAlpha
+                        * largeSizeBalance * uGlowEnergy;
+                }
                 gl_FragColor = vec4(color * alpha, alpha);
             }
         `;
@@ -1000,6 +1223,10 @@ class NativeFlowSimulation3D {
         );
         this.sharedUniforms.uTurbulence.value = Math.max(0.0, Math.min(5.0, s.turbulence ?? 0.65));
         this.sharedUniforms.uOrganic.value = Math.max(0.0, Math.min(2.0, s.flowOrganic ?? 0.85));
+        const effectModes = { ocean: 1, aurora: 2, orbitals: 3, lotus: 4 };
+        this.sharedUniforms.uEffectMode.value = effectModes[s.particleShape] || 0;
+        const lightingStyles = { glow: 0, reactive: 1, pearl: 2 };
+        this.sharedUniforms.uLightingStyle.value = lightingStyles[s.particleLighting] || 0;
         // The flat renderer's 0.1–14 size range was too compressed in a world-scale
         // 3D volume. A curved mapping keeps the lower half controllable while the
         // upper end can create genuinely large VR particles. Approximate native

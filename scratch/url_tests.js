@@ -79,7 +79,8 @@ try {
             morphingBg: true,
             spinningKaleido: true,
             shockwavesEnabled: false,
-            particleShape: "aquatic",
+            particleShape: "ocean",
+            particleLighting: "pearl",
             bilateralEnabled: true,
             asmrEnabled: true
         },
@@ -94,7 +95,8 @@ try {
     assert.strictEqual(outValid.settings.speed, 2.2, "Speed should remain 2.2");
     assert.strictEqual(outValid.settings.density, 2500, "Density should remain 2500");
     assert.strictEqual(outValid.settings.mouseMode, "paint", "Mouse mode should remain paint");
-    assert.strictEqual(outValid.settings.particleShape, "aquatic", "Shape should remain aquatic");
+    assert.strictEqual(outValid.settings.particleShape, "ocean", "Authored shape should remain ocean");
+    assert.strictEqual(outValid.settings.particleLighting, "pearl", "Lighting should remain pearl");
     assert.strictEqual(outValid.palette[0], "#ff0000", "Palette colors should remain valid");
     assert.strictEqual(outValid.backgroundColor, "#112233", "Background color should remain valid");
     assert.strictEqual(outValid.isSolidMode, true, "isSolidMode should remain true");
@@ -129,7 +131,8 @@ try {
             speed: NaN,
             turbulence: Infinity,
             mouseMode: "hacky-hacker-mode",
-            particleShape: "oblong-box"
+            particleShape: "oblong-box",
+            particleLighting: "flashlight"
         }
     };
 
@@ -139,6 +142,7 @@ try {
     assert.strictEqual(outCorrupt.settings.turbulence, 0.65, "Infinity turbulence should fall back to 0.65 default");
     assert.strictEqual(outCorrupt.settings.mouseMode, "burst", "Invalid mouseMode should fall back to burst default");
     assert.strictEqual(outCorrupt.settings.particleShape, "ellipse", "Invalid shape should fall back to ellipse default");
+    assert.strictEqual(outCorrupt.settings.particleLighting, "glow", "Invalid lighting should fall back to glow default");
     console.log("✅ Passed: Invalid data types and invalid enums fall back to defaults safely.");
 
     // Test Case 6: Palette validation & length constraints

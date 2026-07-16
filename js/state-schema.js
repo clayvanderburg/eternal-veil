@@ -10,8 +10,11 @@ const StateSchema = {
 
     // Valid particle rendering shapes
     VALID_PARTICLE_SHAPES: new Set([
-        "ellipse", "drop", "ring", "aquatic", "acid", "nebula", "brush", "cluster"
+        "ellipse", "drop", "ring", "aquatic", "acid", "nebula", "brush", "cluster",
+        "ocean", "aurora", "orbitals", "lotus"
     ]),
+
+    VALID_PARTICLE_LIGHTING: new Set(["glow", "reactive", "pearl"]),
 
     // Helper to sanitize numeric values within strict boundaries
     sanitizeNumber(value, fallback, min, max) {
@@ -111,6 +114,9 @@ const StateSchema = {
                 particleShape: this.VALID_PARTICLE_SHAPES.has(rawState.settings?.particleShape)
                     ? rawState.settings.particleShape
                     : "ellipse",
+                particleLighting: this.VALID_PARTICLE_LIGHTING.has(rawState.settings?.particleLighting)
+                    ? rawState.settings.particleLighting
+                    : "glow",
 
                 // Binaural & Audio
                 bilateralEnabled: this.sanitizeBoolean(rawState.settings?.bilateralEnabled, false),
