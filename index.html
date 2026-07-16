@@ -129,6 +129,11 @@
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
         </button>
 
+        <!-- Spotify Sync Toggle -->
+        <button class="icon-btn tool-tip" id="spotify-quick-btn" data-tooltip="Connect Spotify Playback Sync" style="color: #1ed760; border-color: rgba(30, 215, 96, 0.4); background: rgba(30, 215, 96, 0.05);">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+        </button>
+
         <!-- Ambient Audio Toggle -->
         <button class="icon-btn tool-tip" id="audio-toggle-btn" data-tooltip="Toggle Ambient Synth (A)">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather audio-muted-icon"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
@@ -779,6 +784,31 @@
                         <li><strong>Drag:</strong> Spawns burst particles or paints custom vector flow forces.</li>
                     </ul>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Spotify Client ID Input Modal -->
+    <div class="modal-overlay hidden" id="spotify-modal">
+        <div class="modal-card" style="max-width: 400px; border-color: #1ed760; background: rgba(5, 5, 10, 0.95); box-shadow: 0 0 25px rgba(30, 215, 96, 0.25);">
+            <div class="modal-header" style="border-bottom: 1px solid rgba(30, 215, 96, 0.2); padding-bottom: 10px;">
+                <h3 style="color: #1ed760; letter-spacing: 1px; font-family: var(--font-secondary); font-weight: 800; font-size: 16px;">CONNECT SPOTIFY SYNC</h3>
+                <button class="modal-close-btn" id="spotify-modal-close-btn" style="color: #94a3b8; font-size: 20px; background: none; border: none; cursor: pointer;">&times;</button>
+            </div>
+            <div class="modal-body" style="line-height: 1.5; padding-top: 15px;">
+                <p style="margin: 0 0 16px 0; font-size: 12.5px; color: var(--text-primary); opacity: 0.9; text-align: center;">
+                    Paste your Spotify **Client ID** below to link your player. This is a one-time connection stored securely in your local browser storage.
+                </p>
+                <div class="control-item" style="margin-bottom: 16px;">
+                    <input type="text" id="spotify-modal-client-id" class="dropdown-select" style="width: 100%; font-size: 12px; padding: 10px; font-family: monospace; background: rgba(0,0,0,0.5); text-align: center; border: 1px solid rgba(30, 215, 96, 0.25); border-radius: 6px; color: #fff;" placeholder="Paste Client ID here">
+                </div>
+                <div style="font-size: 11px; color: #94a3b8; margin-bottom: 20px; text-align: center; line-height: 1.45;">
+                    Don't have a Client ID? Create one at the <a href="https://developer.spotify.com/dashboard" target="_blank" style="color: #1ed760; text-decoration: underline; font-weight: 600;">Spotify Developer Dashboard</a> with redirect URI:
+                    <div style="background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 10.5px; color: #fff; margin-top: 5px; border: 1px solid rgba(255,255,255,0.05); user-select: all;">https://eternal-veil.netlify.app/</div>
+                </div>
+                <button class="btn btn-primary" id="spotify-modal-submit-btn" style="width: 100%; background: #1ed760; border-color: #1ed760; color: #000; font-weight: 800; padding: 10px; border-radius: 6px; cursor: pointer; transition: all 0.2s ease;">
+                    Authenticate & Connect
+                </button>
             </div>
         </div>
     </div>

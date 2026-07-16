@@ -469,7 +469,12 @@ document.addEventListener("DOMContentLoaded", () => {
         spotifyTrackName: document.getElementById("spotify-track-name"),
         spotifyArtistName: document.getElementById("spotify-artist-name"),
         spotifySyncTempo: document.getElementById("spotify-sync-tempo"),
-        spotifyStatusLed: document.getElementById("spotify-status-led")
+        spotifyStatusLed: document.getElementById("spotify-status-led"),
+        spotifyQuickBtn: document.getElementById("spotify-quick-btn"),
+        spotifyModal: document.getElementById("spotify-modal"),
+        spotifyModalCloseBtn: document.getElementById("spotify-modal-close-btn"),
+        spotifyModalClientId: document.getElementById("spotify-modal-client-id"),
+        spotifyModalSubmitBtn: document.getElementById("spotify-modal-submit-btn")
     };
 
     // --- SPOTIFY SYNC ENGINE ---
@@ -494,6 +499,7 @@ document.addEventListener("DOMContentLoaded", () => {
             this.clientId = localStorage.getItem("spotify_client_id") || "";
             if (this.clientId) {
                 elements.spotifyClientIdInput.value = this.clientId;
+                elements.spotifyModalClientId.value = this.clientId;
             }
             
             // Check for hash access token
@@ -508,19 +514,56 @@ document.addEventListener("DOMContentLoaded", () => {
                 this.onDisconnected();
             }
 
-            // Save Client ID on input change
+            // Sync input changes
             elements.spotifyClientIdInput.addEventListener("input", () => {
                 this.clientId = elements.spotifyClientIdInput.value.trim();
+                elements.spotifyModalClientId.value = this.clientId;
+                localStorage.setItem("spotify_client_id", this.clientId);
+            });
+            elements.spotifyModalClientId.addEventListener("input", () => {
+                this.clientId = elements.spotifyModalClientId.value.trim();
+                elements.spotifyClientIdInput.value = this.clientId;
                 localStorage.setItem("spotify_client_id", this.clientId);
             });
             
-            // Button action
+            // Tab 4 button action
             elements.spotifyConnectBtn.addEventListener("click", () => {
                 if (this.accessToken) {
                     this.disconnect();
                 } else {
                     this.connect();
                 }
+            });
+
+            // Quick button action (top right header)
+            elements.spotifyQuickBtn.addEventListener("click", () => {
+                if (this.accessToken) {
+                    this.disconnect();
+                } else {
+                    this.clientId = localStorage.getItem("spotify_client_id") || "";
+                    if (!this.clientId) {
+                        elements.spotifyModal.classList.remove("hidden");
+                    } else {
+                        this.connect();
+                    }
+                }
+            });
+
+            // Modal UI actions
+            elements.spotifyModalCloseBtn.addEventListener("click", () => {
+                elements.spotifyModal.classList.add("hidden");
+            });
+
+            elements.spotifyModalSubmitBtn.addEventListener("click", () => {
+                this.clientId = elements.spotifyModalClientId.value.trim();
+                if (!this.clientId) {
+                    showToast("Please enter a Client ID to connect.");
+                    return;
+                }
+                localStorage.setItem("spotify_client_id", this.clientId);
+                elements.spotifyClientIdInput.value = this.clientId;
+                elements.spotifyModal.classList.add("hidden");
+                this.connect();
             });
         },
         
@@ -588,6 +631,13 @@ document.addEventListener("DOMContentLoaded", () => {
             elements.spotifyStatusContainer.style.display = "block";
             elements.spotifyStatusLed.classList.add("pulse-green-active");
             
+            // Highlight quick header button
+            elements.spotifyQuickBtn.style.background = "#1ed760";
+            elements.spotifyQuickBtn.style.color = "#000000";
+            elements.spotifyQuickBtn.style.borderColor = "#1ed760";
+            elements.spotifyQuickBtn.classList.add("pulse-green-active");
+            elements.spotifyQuickBtn.setAttribute("data-tooltip", "Spotify Sync Active (Click to Disconnect)");
+            
             // Start polling playback state
             this.startPolling();
         },
@@ -599,6 +649,13 @@ document.addEventListener("DOMContentLoaded", () => {
             elements.spotifyConnectBtn.style.color = "#1ed760";
             elements.spotifyStatusContainer.style.display = "none";
             elements.spotifyStatusLed.classList.remove("pulse-green-active");
+            
+            // Reset quick header button
+            elements.spotifyQuickBtn.style.background = "rgba(30, 215, 96, 0.05)";
+            elements.spotifyQuickBtn.style.color = "#1ed760";
+            elements.spotifyQuickBtn.style.borderColor = "rgba(30, 215, 96, 0.4)";
+            elements.spotifyQuickBtn.classList.remove("pulse-green-active");
+            elements.spotifyQuickBtn.setAttribute("data-tooltip", "Connect Spotify Playback Sync");
             
             this.stopPolling();
             this.currentlyPlayingTrackId = null;
@@ -658,6 +715,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const track = data.item;
                 elements.spotifyTrackName.textContent = track.name;
                 elements.spotifyArtistName.textContent = track.artists.map(a => a.name).join(", ");
+                elements.spotifyQuickBtn.setAttribute("data-tooltip", `Synced: ${track.name} - ${track.artists[0].name} (Click to Disconnect)`);
                 
                 if (track.id !== this.currentlyPlayingTrackId) {
                     this.currentlyPlayingTrackId = track.id;
