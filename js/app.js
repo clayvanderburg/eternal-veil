@@ -470,7 +470,6 @@ document.addEventListener("DOMContentLoaded", () => {
         spotifyArtistName: document.getElementById("spotify-artist-name"),
         spotifySyncTempo: document.getElementById("spotify-sync-tempo"),
         spotifyStatusLed: document.getElementById("spotify-status-led"),
-        spotifyLiveAudioBtn: document.getElementById("spotify-live-audio-btn"),
         spotifyQuickBtn: document.getElementById("spotify-quick-btn"),
         spotifyModal: document.getElementById("spotify-modal"),
         spotifyModalCloseBtn: document.getElementById("spotify-modal-close-btn"),
@@ -537,49 +536,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 elements.spotifyModal.classList.add("hidden");
             });
 
-            if (elements.spotifyLiveAudioBtn) {
-                elements.spotifyLiveAudioBtn.addEventListener("click", () => this.toggleLiveAudioCapture());
-            }
-        },
-
-        hasLiveAudioCapture() {
-            return Boolean(window.CosmicSynth && window.CosmicSynth.visualizerMode !== "none");
-        },
-
-        updateLiveAudioButton() {
-            if (!elements.spotifyLiveAudioBtn) return;
-            const active = this.hasLiveAudioCapture();
-            elements.spotifyLiveAudioBtn.textContent = active ? "Disable Live Audio Reaction" : "Enable Live Audio Reaction";
-            elements.spotifyLiveAudioBtn.classList.toggle("highlight", active);
-        },
-
-        async toggleLiveAudioCapture() {
-            const synth = window.CosmicSynth;
-            if (!synth) return;
-
-            try {
-                synth.init();
-                if (synth.visualizerMode === "system") {
-                    synth.stopMusicReactivity();
-                    this.updateLiveAudioButton();
-                    showToast("Live Spotify audio reaction disabled.");
-                    return;
-                }
-
-                const success = await synth.toggleSystemAudioReactivity();
-                this.updateLiveAudioButton();
-                if (success) {
-                    // Keep Eternal Veil's own tones silent while allowing the
-                    // independent capture analyser to remain active.
-                    synth.setMute(true);
-                    showToast("Live audio reaction active — play Spotify now.");
-                    CosmicLogger.info("[SpotifySync] Live device-audio analysis active.");
-                }
-            } catch (error) {
-                this.updateLiveAudioButton();
-                showToast(error.message || "Audio sharing was cancelled.");
-                CosmicLogger.warn("[SpotifySync] Live audio capture failed: " + error.message);
-            }
         },
 
         // --- PKCE HELPERS ---
@@ -725,7 +681,7 @@ document.addEventListener("DOMContentLoaded", () => {
             
             // Mute all local synthesizers (binaural drone, ASMR, chimes) to avoid clashing
             window.CosmicSynth.setMute(true);
-            this.updateLiveAudioButton();
+            window.CosmicSynth.stopMusicReactivity();
             
             // Graphically set the top-right audio icon to active playing state (since Spotify is playing)
             const muteIcon = elements.audioToggleBtn.querySelector(".audio-muted-icon");
@@ -782,7 +738,6 @@ document.addEventListener("DOMContentLoaded", () => {
             this.currentlyPlayingTrackId = null;
             this.audioAnalysis = null;
             this.trackInfo = null;
-            this.updateLiveAudioButton();
         },
         
         startPolling() {
@@ -802,51 +757,79 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!this.accessToken) return;
             
             try {
-                const response = await fetch("https://api.spotify.com/v1/me/player/currently-playing", {
-                    headers: {
-                        "Authorization": `Bearer ${this.accessToken}`
+                const headers = { "Authorization": `Bearer ${this.accessToken}` };
+                const urls = [
+                    "https://api.spotify.com/v1/me/player/currently-playing?additional_types=track,episode",
+                    "https://api.spotify.com/v1/me/player?additional_types=track,episode",
+                    "https://api.spotify.com/v1/me/player/queue"
+                ];
+                let data = null;
+
+                for (const url of urls) {
+                    const response = await fetch(url, { headers });
+
+                    if (response.status === 401) {
+                        this.disconnect();
+                        showToast("Spotify session expired. Please connect again.");
+                        return;
                     }
-                });
-                
-                if (response.status === 401) {
-                    // Token expired
-                    this.disconnect();
-                    showToast("Spotify session expired. Please connect again.");
-                    return;
+
+                    if (response.status === 403) {
+                        const errorBody = await response.json().catch(() => ({}));
+                        const message = errorBody?.error?.message || "Playback access denied";
+                        if (elements.spotifyTrackName) elements.spotifyTrackName.textContent = "Spotify access denied";
+                        if (elements.spotifyArtistName) elements.spotifyArtistName.textContent = "Check Premium and app access";
+                        if (elements.spotifySyncTempo) elements.spotifySyncTempo.textContent = `Spotify 403 • ${message}`;
+                        this.isPlaying = false;
+                        CosmicLogger.warn(`[SpotifySync] Playback API denied access: ${message}`);
+                        return;
+                    }
+
+                    if (response.status === 429) {
+                        if (elements.spotifyTrackName) elements.spotifyTrackName.textContent = "Spotify rate limited";
+                        if (elements.spotifyArtistName) elements.spotifyArtistName.textContent = "Waiting before retry";
+                        if (elements.spotifySyncTempo) elements.spotifySyncTempo.textContent = "Spotify 429 • Retrying...";
+                        this.isPlaying = false;
+                        return;
+                    }
+
+                    if (response.ok && response.status !== 204) {
+                        const candidate = await response.json().catch(() => null);
+                        if (candidate?.item || candidate?.currently_playing) {
+                            data = candidate;
+                            break;
+                        }
+                    } else if (!response.ok && response.status !== 204 && response.status !== 404) {
+                        const errorText = await response.text().catch(() => "");
+                        CosmicLogger.warn(`[SpotifySync] Playback endpoint returned ${response.status}: ${errorText}`);
+                    }
                 }
-                
-                if (response.status === 204 || response.status === 404) {
-                    // Nothing playing
+
+                const track = data?.item || data?.currently_playing || null;
+                if (!track) {
                     if (elements.spotifyTrackName) elements.spotifyTrackName.textContent = "No active song";
-                    if (elements.spotifyArtistName) elements.spotifyArtistName.textContent = "Play a song in Spotify";
-                    if (elements.spotifySyncTempo) elements.spotifySyncTempo.textContent = "Waiting for playback...";
+                    if (elements.spotifyArtistName) elements.spotifyArtistName.textContent = "Open Spotify and select an active device";
+                    if (elements.spotifySyncTempo) elements.spotifySyncTempo.textContent = "Connected • Waiting for playback";
                     this.isPlaying = false;
-                    
                     if (elements.spotifyHudInfo) {
                         elements.spotifyHudInfo.classList.add("hidden");
                     }
                     return;
                 }
                 
-                const data = await response.json();
-                if (!data || !data.item) {
-                    this.isPlaying = false;
-                    return;
-                }
-                
-                this.isPlaying = data.is_playing;
-                this.lastFetchProgressMs = data.progress_ms;
+                this.isPlaying = data.is_playing !== undefined ? data.is_playing : true;
+                this.lastFetchProgressMs = data.progress_ms || 0;
                 this.lastFetchLocalTime = Date.now();
                 
-                const track = data.item;
+                const artistNames = track.artists?.map(a => a.name).join(", ") || track.show?.publisher || "Spotify";
                 if (elements.spotifyTrackName) elements.spotifyTrackName.textContent = track.name;
-                if (elements.spotifyArtistName) elements.spotifyArtistName.textContent = track.artists.map(a => a.name).join(", ");
-                if (elements.spotifyQuickBtn) elements.spotifyQuickBtn.setAttribute("data-tooltip", `Synced: ${track.name} - ${track.artists[0].name} (Click to Disconnect)`);
+                if (elements.spotifyArtistName) elements.spotifyArtistName.textContent = artistNames;
+                if (elements.spotifyQuickBtn) elements.spotifyQuickBtn.setAttribute("data-tooltip", `Spotify: ${track.name} - ${artistNames} (Click to Disconnect)`);
                 
                 if (track.id !== this.currentlyPlayingTrackId) {
                     this.currentlyPlayingTrackId = track.id;
                     this.trackInfo = track;
-                    this.fetchAudioAnalysis(track.id);
+                    if (track.type === "track" && track.id) this.fetchAudioAnalysis(track.id);
                     
                     // Trigger new song animations!
                     this.showTrackOverlay(track);
@@ -858,8 +841,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         showTrackOverlay(track) {
             if (!track) return;
-            const artistNames = track.artists.map(a => a.name).join(", ");
-            const albumName = track.album ? track.album.name : "Single";
+            const artistNames = track.artists?.map(a => a.name).join(", ") || track.show?.publisher || "Spotify";
+            const albumName = track.album?.name || track.show?.name || "Spotify";
 
             // Update Overlay Card Details
             if (elements.spotifyOverlayTitle) elements.spotifyOverlayTitle.textContent = track.name;
@@ -962,9 +945,6 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // Tick method to query current playhead position and execute beats / pitch effects
         updateFrame() {
-            // Real captured audio is more accurate than Spotify's deprecated
-            // analysis endpoint or the procedural timing fallback.
-            if (this.hasLiveAudioCapture()) return;
             if (!this.isPlaying || !this.audioAnalysis || !this.audioAnalysis.beats) return;
             
             // Calculate current interpolated playhead time in milliseconds
@@ -2296,7 +2276,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (bars.length === 0) return;
 
         // If Spotify is active, synthesize the visualizer bars directly using the currently active pitches and loudness
-        if (!SpotifySyncEngine.hasLiveAudioCapture() && SpotifySyncEngine.accessToken && SpotifySyncEngine.isPlaying && SpotifySyncEngine.audioAnalysis) {
+        if (SpotifySyncEngine.accessToken && SpotifySyncEngine.isPlaying && SpotifySyncEngine.audioAnalysis) {
             // Find current playhead segment
             const elapsedSinceFetch = Date.now() - SpotifySyncEngine.lastFetchLocalTime;
             const currentPlayheadMs = SpotifySyncEngine.lastFetchProgressMs + elapsedSinceFetch;
@@ -3441,7 +3421,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let moodL = 0;
 
     function processMusicReactivity() {
-        if (SpotifySyncEngine && SpotifySyncEngine.accessToken && !SpotifySyncEngine.hasLiveAudioCapture()) {
+        if (SpotifySyncEngine && SpotifySyncEngine.accessToken) {
             return; // Let Spotify handle all visual modulations
         }
         if (!window.CosmicSynth) return;
