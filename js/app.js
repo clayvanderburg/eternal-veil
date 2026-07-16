@@ -496,9 +496,9 @@ document.addEventListener("DOMContentLoaded", () => {
         lastBeatIndex: -1,
         
         init() {
-            // Check for hash access token on return from Spotify auth
-            this.extractTokenFromHash();
-            
+            // Handle PKCE callback from Spotify (code in URL query params)
+            this.handlePKCECallback();
+
             // Restore session token if still valid
             this.accessToken = sessionStorage.getItem("spotify_access_token") || null;
             const tokenExpiresAt = Number(sessionStorage.getItem("spotify_access_token_expires_at") || 0);
@@ -513,7 +513,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (this.accessToken) { this.disconnect(); } else { this.connect(); }
             });
 
-            // Top-right quick button — one click, straight to Spotify auth
+            // Top-right quick button
             elements.spotifyQuickBtn.addEventListener("click", () => {
                 if (this.accessToken) { this.disconnect(); } else { this.connect(); }
             });
@@ -527,51 +527,102 @@ document.addEventListener("DOMContentLoaded", () => {
                 elements.spotifyModal.classList.add("hidden");
             });
         },
-        
-        extractTokenFromHash() {
-            const hash = window.location.hash;
-            if (!hash) return;
-            
-            // Matches access_token, expires_in, state in URL fragment
-            const tokenMatch = hash.match(/access_token=([^&]*)/);
-            const expiresMatch = hash.match(/expires_in=([^&]*)/);
-            
-            if (tokenMatch) {
-                this.accessToken = tokenMatch[1];
-                const expiresInSeconds = expiresMatch ? Number(expiresMatch[1]) : 3600;
-                const expiresAt = Date.now() + (expiresInSeconds * 1000);
-                
+
+        // --- PKCE HELPERS ---
+        generateCodeVerifier() {
+            const array = new Uint8Array(64);
+            window.crypto.getRandomValues(array);
+            return btoa(String.fromCharCode(...array))
+                .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+        },
+
+        async generateCodeChallenge(verifier) {
+            const data = new TextEncoder().encode(verifier);
+            const digest = await window.crypto.subtle.digest("SHA-256", data);
+            return btoa(String.fromCharCode(...new Uint8Array(digest)))
+                .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+        },
+
+        async connect() {
+            const verifier = this.generateCodeVerifier();
+            const challenge = await this.generateCodeChallenge(verifier);
+            sessionStorage.setItem("spotify_pkce_verifier", verifier);
+
+            const scopes = "user-read-currently-playing user-read-playback-state";
+            const redirectUri = window.location.origin + window.location.pathname;
+            const params = new URLSearchParams({
+                client_id: this.clientId,
+                response_type: "code",
+                redirect_uri: redirectUri,
+                scope: scopes,
+                code_challenge_method: "S256",
+                code_challenge: challenge,
+            });
+            window.location.href = "https://accounts.spotify.com/authorize?" + params.toString();
+        },
+
+        async handlePKCECallback() {
+            const params = new URLSearchParams(window.location.search);
+            const code = params.get("code");
+            if (!code) return;
+
+            // Clean the URL immediately so the code can't be reused or leaked
+            window.history.replaceState({}, "", window.location.pathname);
+
+            const verifier = sessionStorage.getItem("spotify_pkce_verifier");
+            if (!verifier) return;
+
+            try {
+                const redirectUri = window.location.origin + window.location.pathname;
+                const body = new URLSearchParams({
+                    client_id: this.clientId,
+                    grant_type: "authorization_code",
+                    code,
+                    redirect_uri: redirectUri,
+                    code_verifier: verifier,
+                });
+
+                const res = await fetch("https://accounts.spotify.com/api/token", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: body.toString(),
+                });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    console.error("[SpotifySync] Token exchange failed:", err);
+                    showToast("Spotify login failed. Please try again.");
+                    return;
+                }
+
+                const data = await res.json();
+                this.accessToken = data.access_token;
+                const expiresAt = Date.now() + (data.expires_in * 1000);
                 sessionStorage.setItem("spotify_access_token", this.accessToken);
                 sessionStorage.setItem("spotify_access_token_expires_at", String(expiresAt));
-                
-                // Clean up the URL hash so it's tidy and doesn't leak the token in sharing
-                const cleanedHash = hash.replace(/access_token=[^&]*(&?)/, '')
-                                        .replace(/token_type=[^&]*(&?)/, '')
-                                        .replace(/expires_in=[^&]*(&?)/, '')
-                                        .replace(/state=[^&]*(&?)/, '')
-                                        .replace(/#&/, '#')
-                                        .replace(/&$/, '');
-                window.history.replaceState(null, null, window.location.pathname + (cleanedHash === '#' || cleanedHash === '' ? '' : cleanedHash));
-                
-                showToast("Connected to Spotify successfully!");
+                if (data.refresh_token) {
+                    sessionStorage.setItem("spotify_refresh_token", data.refresh_token);
+                }
+                sessionStorage.removeItem("spotify_pkce_verifier");
+
+                showToast("Connected to Spotify! ✓");
                 this.onConnected();
+            } catch (e) {
+                console.error("[SpotifySync] PKCE token exchange error:", e);
+                showToast("Spotify login error. Check console for details.");
             }
         },
-        
-        connect() {
-            const scopes = "user-read-currently-playing user-read-playback-state";
-            const redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
-            const authUrl = `https://accounts.spotify.com/authorize?client_id=${this.clientId}&response_type=token&redirect_uri=${redirectUri}&scope=${encodeURIComponent(scopes)}`;
-            window.location.href = authUrl;
-        },
-        
+
         disconnect() {
             this.accessToken = null;
             sessionStorage.removeItem("spotify_access_token");
             sessionStorage.removeItem("spotify_access_token_expires_at");
+            sessionStorage.removeItem("spotify_refresh_token");
+            sessionStorage.removeItem("spotify_pkce_verifier");
             this.onDisconnected();
             showToast("Disconnected from Spotify.");
         },
+
         
         onConnected() {
             elements.spotifyConnectBtn.textContent = "Disconnect Spotify";
