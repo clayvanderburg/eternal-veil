@@ -553,6 +553,16 @@ document.addEventListener("DOMContentLoaded", () => {
         },
 
         async connect() {
+            // Save current simulator state parameters so redirect reload does not wipe config settings
+            const currentState = {
+                settings: { ...sim.settings },
+                palette: [...sim.palette],
+                backgroundColor: sim.backgroundColor,
+                isSolidMode: sim.isSolidMode,
+                isAutopilot: isAutopilot
+            };
+            sessionStorage.setItem("spotify_pre_auth_state", JSON.stringify(currentState));
+
             const verifier = this.generateCodeVerifier();
             const challenge = await this.generateCodeChallenge(verifier);
             sessionStorage.setItem("spotify_pkce_verifier", verifier);
@@ -613,6 +623,19 @@ document.addEventListener("DOMContentLoaded", () => {
                     sessionStorage.setItem("spotify_refresh_token", data.refresh_token);
                 }
                 sessionStorage.removeItem("spotify_pkce_verifier");
+
+                // Retrieve and restore pre-auth state Character-for-Character
+                const savedStateStr = sessionStorage.getItem("spotify_pre_auth_state");
+                if (savedStateStr) {
+                    try {
+                        const savedState = JSON.parse(savedStateStr);
+                        applyLoadedState(savedState);
+                        sessionStorage.removeItem("spotify_pre_auth_state");
+                        CosmicLogger.info("Successfully restored pre-auth cosmic state parameters.");
+                    } catch (err) {
+                        console.error("Failed to restore pre-auth state:", err);
+                    }
+                }
 
                 showToast("Connected to Spotify! ✓");
                 this.onConnected();
@@ -2861,16 +2884,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Splash screen dismissal & audio pre-unlock gesture
         if (elements.splashScreen) {
+            const params = new URLSearchParams(window.location.search);
+            const isSpotifyReturn = params.has("code") || sessionStorage.getItem("spotify_pkce_verifier");
+            
+            if (isSpotifyReturn) {
+                elements.splashScreen.classList.add("fade-out");
+                // Pre-initialize Cosmic Synth AudioContext on returning from redirect
+                window.CosmicSynth.init();
+            }
+
             elements.splashScreen.onclick = () => {
                 elements.splashScreen.classList.add("fade-out");
                 
                 // Pre-initialize Cosmic Synth AudioContext on first user click gesture
                 window.CosmicSynth.init();
                 
-                // Display the excited New Features modal overlay
-                const featuresModal = document.getElementById("new-features-modal");
-                if (featuresModal) {
-                    featuresModal.classList.remove("hidden");
+                // Display the excited New Features modal overlay (only if not returning from Spotify)
+                if (!isSpotifyReturn) {
+                    const featuresModal = document.getElementById("new-features-modal");
+                    if (featuresModal) {
+                        featuresModal.classList.remove("hidden");
+                    }
                 }
             };
         }
@@ -3274,6 +3308,9 @@ document.addEventListener("DOMContentLoaded", () => {
     let moodL = 0;
 
     function processMusicReactivity() {
+        if (SpotifySyncEngine && SpotifySyncEngine.accessToken) {
+            return; // Let Spotify handle all visual modulations
+        }
         if (!window.CosmicSynth) return;
         
         const analysis = window.CosmicSynth.getMusicAnalysis();
