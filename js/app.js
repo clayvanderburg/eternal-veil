@@ -460,7 +460,368 @@ document.addEventListener("DOMContentLoaded", () => {
         webgl3DToggleBtn: document.getElementById("webgl-3d-toggle-btn"),
         enterVrBtn: document.getElementById("enter-vr-btn"),
         webglCanvas: document.getElementById("webgl-canvas"),
-        canvas2D: document.getElementById("canvas")
+        canvas2D: document.getElementById("canvas"),
+        
+        // Spotify Sync Elements
+        spotifyClientIdInput: document.getElementById("spotify-client-id-input"),
+        spotifyConnectBtn: document.getElementById("spotify-connect-btn"),
+        spotifyStatusContainer: document.getElementById("spotify-status-container"),
+        spotifyTrackName: document.getElementById("spotify-track-name"),
+        spotifyArtistName: document.getElementById("spotify-artist-name"),
+        spotifySyncTempo: document.getElementById("spotify-sync-tempo"),
+        spotifyStatusLed: document.getElementById("spotify-status-led")
+    };
+
+    // --- SPOTIFY SYNC ENGINE ---
+    const SpotifySyncEngine = {
+        accessToken: null,
+        clientId: null,
+        playbackInterval: null,
+        currentlyPlayingTrackId: null,
+        audioAnalysis: null,
+        trackInfo: null,
+        
+        // Progress tracking parameters
+        lastFetchProgressMs: 0,
+        lastFetchLocalTime: 0,
+        isPlaying: false,
+        
+        // Beat tracking variables for tickLoop
+        lastBeatIndex: -1,
+        
+        init() {
+            // Restore Client ID from localStorage
+            this.clientId = localStorage.getItem("spotify_client_id") || "";
+            if (this.clientId) {
+                elements.spotifyClientIdInput.value = this.clientId;
+            }
+            
+            // Check for hash access token
+            this.extractTokenFromHash();
+            
+            // Restore session token if valid
+            this.accessToken = sessionStorage.getItem("spotify_access_token") || null;
+            const tokenExpiresAt = Number(sessionStorage.getItem("spotify_access_token_expires_at") || 0);
+            if (this.accessToken && Date.now() < tokenExpiresAt) {
+                this.onConnected();
+            } else {
+                this.onDisconnected();
+            }
+
+            // Save Client ID on input change
+            elements.spotifyClientIdInput.addEventListener("input", () => {
+                this.clientId = elements.spotifyClientIdInput.value.trim();
+                localStorage.setItem("spotify_client_id", this.clientId);
+            });
+            
+            // Button action
+            elements.spotifyConnectBtn.addEventListener("click", () => {
+                if (this.accessToken) {
+                    this.disconnect();
+                } else {
+                    this.connect();
+                }
+            });
+        },
+        
+        extractTokenFromHash() {
+            const hash = window.location.hash;
+            if (!hash) return;
+            
+            // Matches access_token, expires_in, state in URL fragment
+            const tokenMatch = hash.match(/access_token=([^&]*)/);
+            const expiresMatch = hash.match(/expires_in=([^&]*)/);
+            
+            if (tokenMatch) {
+                this.accessToken = tokenMatch[1];
+                const expiresInSeconds = expiresMatch ? Number(expiresMatch[1]) : 3600;
+                const expiresAt = Date.now() + (expiresInSeconds * 1000);
+                
+                sessionStorage.setItem("spotify_access_token", this.accessToken);
+                sessionStorage.setItem("spotify_access_token_expires_at", String(expiresAt));
+                
+                // Clean up the URL hash so it's tidy and doesn't leak the token in sharing
+                const cleanedHash = hash.replace(/access_token=[^&]*(&?)/, '')
+                                        .replace(/token_type=[^&]*(&?)/, '')
+                                        .replace(/expires_in=[^&]*(&?)/, '')
+                                        .replace(/state=[^&]*(&?)/, '')
+                                        .replace(/#&/, '#')
+                                        .replace(/&$/, '');
+                window.history.replaceState(null, null, window.location.pathname + (cleanedHash === '#' || cleanedHash === '' ? '' : cleanedHash));
+                
+                showToast("Connected to Spotify successfully!");
+                this.onConnected();
+            }
+        },
+        
+        connect() {
+            this.clientId = elements.spotifyClientIdInput.value.trim();
+            if (!this.clientId) {
+                showToast("Please enter a valid Spotify Client ID first.");
+                return;
+            }
+            
+            localStorage.setItem("spotify_client_id", this.clientId);
+            
+            const scopes = "user-read-currently-playing user-read-playback-state";
+            const redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
+            
+            const authUrl = `https://accounts.spotify.com/authorize?client_id=${this.clientId}&response_type=token&redirect_uri=${redirectUri}&scope=${encodeURIComponent(scopes)}&show_dialog=true`;
+            
+            // Redirect user to Spotify authorization page
+            window.location.href = authUrl;
+        },
+        
+        disconnect() {
+            this.accessToken = null;
+            sessionStorage.removeItem("spotify_access_token");
+            sessionStorage.removeItem("spotify_access_token_expires_at");
+            this.onDisconnected();
+            showToast("Disconnected from Spotify.");
+        },
+        
+        onConnected() {
+            elements.spotifyConnectBtn.textContent = "Disconnect Spotify";
+            elements.spotifyConnectBtn.style.background = "rgba(239, 68, 68, 0.15)";
+            elements.spotifyConnectBtn.style.borderColor = "rgba(239, 68, 68, 0.4)";
+            elements.spotifyConnectBtn.style.color = "#ef4444";
+            elements.spotifyStatusContainer.style.display = "block";
+            elements.spotifyStatusLed.classList.add("pulse-green-active");
+            
+            // Start polling playback state
+            this.startPolling();
+        },
+        
+        onDisconnected() {
+            elements.spotifyConnectBtn.textContent = "Connect Spotify";
+            elements.spotifyConnectBtn.style.background = "rgba(30, 215, 96, 0.15)";
+            elements.spotifyConnectBtn.style.borderColor = "rgba(30, 215, 96, 0.4)";
+            elements.spotifyConnectBtn.style.color = "#1ed760";
+            elements.spotifyStatusContainer.style.display = "none";
+            elements.spotifyStatusLed.classList.remove("pulse-green-active");
+            
+            this.stopPolling();
+            this.currentlyPlayingTrackId = null;
+            this.audioAnalysis = null;
+            this.trackInfo = null;
+        },
+        
+        startPolling() {
+            this.stopPolling();
+            this.pollPlayback(); // Instant first check
+            this.playbackInterval = setInterval(() => this.pollPlayback(), 2000);
+        },
+        
+        stopPolling() {
+            if (this.playbackInterval) {
+                clearInterval(this.playbackInterval);
+                this.playbackInterval = null;
+            }
+        },
+        
+        async pollPlayback() {
+            if (!this.accessToken) return;
+            
+            try {
+                const response = await fetch("https://api.spotify.com/v1/me/player/currently-playing", {
+                    headers: {
+                        "Authorization": `Bearer ${this.accessToken}`
+                    }
+                });
+                
+                if (response.status === 401) {
+                    // Token expired
+                    this.disconnect();
+                    showToast("Spotify session expired. Please connect again.");
+                    return;
+                }
+                
+                if (response.status === 204 || response.status === 404) {
+                    // Nothing playing
+                    elements.spotifyTrackName.textContent = "No active song";
+                    elements.spotifyArtistName.textContent = "Play a song in Spotify";
+                    elements.spotifySyncTempo.textContent = "Waiting for playback...";
+                    this.isPlaying = false;
+                    return;
+                }
+                
+                const data = await response.json();
+                if (!data || !data.item) {
+                    this.isPlaying = false;
+                    return;
+                }
+                
+                this.isPlaying = data.is_playing;
+                this.lastFetchProgressMs = data.progress_ms;
+                this.lastFetchLocalTime = Date.now();
+                
+                const track = data.item;
+                elements.spotifyTrackName.textContent = track.name;
+                elements.spotifyArtistName.textContent = track.artists.map(a => a.name).join(", ");
+                
+                if (track.id !== this.currentlyPlayingTrackId) {
+                    this.currentlyPlayingTrackId = track.id;
+                    this.trackInfo = track;
+                    this.fetchAudioAnalysis(track.id);
+                }
+            } catch (error) {
+                console.error("[SpotifySync] Polling playback failed:", error);
+            }
+        },
+        
+        async fetchAudioAnalysis(trackId) {
+            if (!this.accessToken) return;
+            
+            try {
+                elements.spotifySyncTempo.textContent = "Analyzing track blueprint...";
+                const response = await fetch(`https://api.spotify.com/v1/audio-analysis/${trackId}`, {
+                    headers: {
+                        "Authorization": `Bearer ${this.accessToken}`
+                    }
+                });
+                
+                if (response.status === 200) {
+                    const data = await response.json();
+                    this.audioAnalysis = data;
+                    
+                    // Display tempo info
+                    if (data && data.track) {
+                        const bpm = Math.round(data.track.tempo);
+                        elements.spotifySyncTempo.textContent = `Synced • ${bpm} BPM`;
+                    }
+                    
+                    // Reset beat state
+                    this.lastBeatIndex = -1;
+                    CosmicLogger.info(`[SpotifySync] Successfully loaded audio analysis for: ${this.trackInfo.name}`);
+                } else {
+                    elements.spotifySyncTempo.textContent = "Analysis unavailable";
+                }
+            } catch (error) {
+                console.error("[SpotifySync] Fetching audio analysis failed:", error);
+                elements.spotifySyncTempo.textContent = "Sync failed";
+            }
+        },
+        
+        // Tick method to query current playhead position and execute beats / pitch effects
+        updateFrame() {
+            if (!this.isPlaying || !this.audioAnalysis || !this.audioAnalysis.beats) return;
+            
+            // Calculate current interpolated playhead time in milliseconds
+            const elapsedSinceFetch = Date.now() - this.lastFetchLocalTime;
+            const currentPlayheadMs = this.lastFetchProgressMs + elapsedSinceFetch;
+            const currentPlayheadSeconds = currentPlayheadMs / 1000;
+            
+            // 1. BEAT DETECTION
+            const beats = this.audioAnalysis.beats;
+            // Find current beat index
+            let activeBeatIndex = -1;
+            for (let i = 0; i < beats.length; i++) {
+                const b = beats[i];
+                if (currentPlayheadSeconds >= b.start && currentPlayheadSeconds < b.start + b.duration) {
+                    activeBeatIndex = i;
+                    break;
+                }
+            }
+            
+            // Check if we crossed into a new beat
+            if (activeBeatIndex !== -1 && activeBeatIndex !== this.lastBeatIndex) {
+                this.lastBeatIndex = activeBeatIndex;
+                this.onBeatHit(beats[activeBeatIndex]);
+            }
+            
+            // 2. SEGMENT PITCH & LOUDNESS INTEGRATION
+            const segments = this.audioAnalysis.segments;
+            let activeSeg = null;
+            for (let i = 0; i < segments.length; i++) {
+                const s = segments[i];
+                if (currentPlayheadSeconds >= s.start && currentPlayheadSeconds < s.start + s.duration) {
+                    activeSeg = s;
+                    break;
+                }
+            }
+            
+            if (activeSeg) {
+                this.applySegmentModulation(activeSeg, currentPlayheadSeconds);
+            }
+        },
+        
+        onBeatHit(beat) {
+            // Apply instant size pulse (bass kick) and turbulence peak
+            // The confidence metric (0.0 to 1.0) decides how intense the visual kick is!
+            const confidence = beat.confidence || 0.5;
+            
+            // Trigger 2D/3D burst elements
+            const visualIntensity = 0.5 + confidence * 1.5;
+            
+            sim.sizePulse = Math.max(sim.sizePulse || 0, visualIntensity * 0.9);
+            sim.trebleIntensity = Math.max(sim.trebleIntensity || 0, visualIntensity * 0.6);
+            
+            if (sim3D) {
+                sim3D.sizePulse = sim.sizePulse;
+                sim3D.trebleIntensity = sim.trebleIntensity;
+                
+                // Trigger burst in 3D scene on strong beats!
+                if (confidence > 0.65) {
+                    sim3D.triggerBurst();
+                    if (sim.settings.shockwavesEnabled) {
+                        sim3D.triggerShockwave(0, 0, 32 + confidence * 24);
+                    }
+                }
+            }
+        },
+        
+        applySegmentModulation(segment, playheadSec) {
+            // Segment loudness ranges from -60 to 0 dB. Normalize it!
+            const db = segment.loudness_max;
+            // Map -35dB..0dB to 0.0..1.0
+            const volumePct = Math.max(0.0, Math.min(1.0, (db + 35) / 35));
+            
+            // Blend volume decay from start of segment
+            const elapsedInSegment = playheadSec - segment.start;
+            const decay = Math.max(0.0, 1.0 - (elapsedInSegment / segment.duration));
+            const activeIntensity = volumePct * decay;
+            
+            // Smoothly modulate treble/turbulence activity
+            sim.trebleIntensity = Math.max(sim.trebleIntensity || 0, activeIntensity * 0.7);
+            if (sim3D) {
+                sim3D.trebleIntensity = sim.trebleIntensity;
+            }
+            
+            // 3. PITCH TO COLOR SYNESTHESIA
+            // segment.pitches is a 12-element array (chroma values, 0.0 to 1.0)
+            if (segment.pitches && segment.pitches.length === 12 && isFlowEnabled("colors")) {
+                this.modulateColorsFromChroma(segment.pitches);
+            }
+        },
+        
+        modulateColorsFromChroma(pitches) {
+            // Find top 3 dominant pitch indices
+            const pitchWeights = pitches.map((weight, index) => ({ index, weight }));
+            pitchWeights.sort((a, b) => b.weight - a.weight);
+            
+            // Map 12 pitch indices to specific HSL hue positions
+            // C = 0 deg, C# = 30 deg, D = 60 deg, ..., B = 330 deg
+            const targetColors = [];
+            for (let i = 0; i < Math.min(4, sim.palette.length); i++) {
+                const pitch = pitchWeights[i % pitchWeights.length];
+                // Only morph colors if the pitch weight is significant (dominant notes)
+                if (pitch.weight > 0.35) {
+                    const hue = (pitch.index * 30) % 360;
+                    const saturation = 85 + Math.round(pitch.weight * 15); // 85% - 100%
+                    const lightness = 45 + Math.round(pitch.weight * 10);  // 45% - 55%
+                    targetColors.push(hslToHex(hue, saturation, lightness));
+                } else {
+                    // Fallback to original preset palette if notes are faint
+                    targetColors.push(sim.palette[i]);
+                }
+            }
+            
+            // Trigger a very gentle color crossfade (morph)
+            if (targetColors.length > 0) {
+                // Morph active palette smoothly over 1.2 seconds to track pitch changes in real time!
+                startPaletteMorph(targetColors, 1200);
+            }
+        }
     };
 
     // --- INITIALIZATION ---
@@ -507,6 +868,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         ConfigHistory.init();
+        SpotifySyncEngine.init();
         setupTabs();
         setupFlowToggles();
         buildPresetCards();
@@ -1502,6 +1864,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 const now = performance.now();
                 const frameDuration = now - lastRenderTime;
                 lastRenderTime = now;
+
+                // Update Spotify Sync progress and triggers
+                SpotifySyncEngine.updateFrame();
 
                 processMusicReactivity();
                 processMorphs();
@@ -2926,6 +3291,9 @@ document.addEventListener("DOMContentLoaded", () => {
     
     function tickLoop() {
         if (is3DMode) return;
+        
+        // Update Spotify Sync progress and triggers
+        SpotifySyncEngine.updateFrame();
         
         // Run real-time music reactivity modulation
         processMusicReactivity();
