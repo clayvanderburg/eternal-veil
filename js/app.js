@@ -474,7 +474,16 @@ document.addEventListener("DOMContentLoaded", () => {
         spotifyModal: document.getElementById("spotify-modal"),
         spotifyModalCloseBtn: document.getElementById("spotify-modal-close-btn"),
         spotifyModalClientId: document.getElementById("spotify-modal-client-id"),
-        spotifyModalSubmitBtn: document.getElementById("spotify-modal-submit-btn")
+        spotifyModalSubmitBtn: document.getElementById("spotify-modal-submit-btn"),
+        
+        // Spotify Overlay & HUD Info DOM bindings
+        spotifyTrackOverlay: document.getElementById("spotify-track-overlay"),
+        spotifyOverlayTitle: document.getElementById("spotify-overlay-title"),
+        spotifyOverlayArtist: document.getElementById("spotify-overlay-artist"),
+        spotifyOverlayAlbum: document.getElementById("spotify-overlay-album"),
+        spotifyHudInfo: document.getElementById("spotify-hud-info"),
+        spotifyHudTitle: document.getElementById("spotify-hud-title"),
+        spotifyHudArtist: document.getElementById("spotify-hud-artist")
     };
 
     // --- SPOTIFY SYNC ENGINE ---
@@ -651,6 +660,11 @@ document.addEventListener("DOMContentLoaded", () => {
             elements.spotifyStatusContainer.style.display = "none";
             elements.spotifyStatusLed.classList.remove("pulse-green-active");
             
+            // Hide HUD track widget
+            if (elements.spotifyHudInfo) {
+                elements.spotifyHudInfo.classList.add("hidden");
+            }
+            
             // Reset quick header button
             elements.spotifyQuickBtn.style.background = "rgba(30, 215, 96, 0.05)";
             elements.spotifyQuickBtn.style.color = "#1ed760";
@@ -700,6 +714,10 @@ document.addEventListener("DOMContentLoaded", () => {
                     elements.spotifyArtistName.textContent = "Play a song in Spotify";
                     elements.spotifySyncTempo.textContent = "Waiting for playback...";
                     this.isPlaying = false;
+                    
+                    if (elements.spotifyHudInfo) {
+                        elements.spotifyHudInfo.classList.add("hidden");
+                    }
                     return;
                 }
                 
@@ -722,9 +740,41 @@ document.addEventListener("DOMContentLoaded", () => {
                     this.currentlyPlayingTrackId = track.id;
                     this.trackInfo = track;
                     this.fetchAudioAnalysis(track.id);
+                    
+                    // Trigger new song animations!
+                    this.showTrackOverlay(track);
                 }
             } catch (error) {
                 console.error("[SpotifySync] Polling playback failed:", error);
+            }
+        },
+
+        showTrackOverlay(track) {
+            if (!track) return;
+            const artistNames = track.artists.map(a => a.name).join(", ");
+            const albumName = track.album ? track.album.name : "Single";
+
+            // Update Overlay Card Details
+            if (elements.spotifyOverlayTitle) elements.spotifyOverlayTitle.textContent = track.name;
+            if (elements.spotifyOverlayArtist) elements.spotifyOverlayArtist.textContent = artistNames;
+            if (elements.spotifyOverlayAlbum) elements.spotifyOverlayAlbum.textContent = albumName;
+
+            // Update HUD Logo Widget Details
+            if (elements.spotifyHudTitle) elements.spotifyHudTitle.textContent = track.name;
+            if (elements.spotifyHudArtist) elements.spotifyHudArtist.textContent = artistNames;
+            if (elements.spotifyHudInfo) elements.spotifyHudInfo.classList.remove("hidden");
+
+            // Slide Up / Fade In Track Card Overlay
+            if (elements.spotifyTrackOverlay) {
+                elements.spotifyTrackOverlay.classList.remove("hidden");
+
+                // Clear any existing timeouts to prevent overlapping fades
+                if (this.overlayTimeout) clearTimeout(this.overlayTimeout);
+
+                // Auto hide overlay after 5 seconds of display
+                this.overlayTimeout = setTimeout(() => {
+                    elements.spotifyTrackOverlay.classList.add("hidden");
+                }, 5000);
             }
         },
         
@@ -2090,8 +2140,50 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Update floating HUD waveform visualizer bar scales
     function updateHudWaveform() {
-        const visualData = window.CosmicSynth.getVisualizerData();
         const bars = elements.hudVisualizer.querySelectorAll(".visualizer-bar");
+        if (bars.length === 0) return;
+
+        // If Spotify is active, synthesize the visualizer bars directly using the currently active pitches and loudness
+        if (SpotifySyncEngine.accessToken && SpotifySyncEngine.isPlaying && SpotifySyncEngine.audioAnalysis) {
+            // Find current playhead segment
+            const elapsedSinceFetch = Date.now() - SpotifySyncEngine.lastFetchLocalTime;
+            const currentPlayheadMs = SpotifySyncEngine.lastFetchProgressMs + elapsedSinceFetch;
+            const currentPlayheadSeconds = currentPlayheadMs / 1000;
+
+            const segments = SpotifySyncEngine.audioAnalysis.segments;
+            let activeSeg = null;
+            if (segments) {
+                for (let i = 0; i < segments.length; i++) {
+                    const s = segments[i];
+                    if (currentPlayheadSeconds >= s.start && currentPlayheadSeconds < s.start + s.duration) {
+                        activeSeg = s;
+                        break;
+                    }
+                }
+            }
+
+            if (activeSeg) {
+                const db = activeSeg.loudness_max;
+                const volumePct = Math.max(0.1, Math.min(1.0, (db + 35) / 35));
+                const elapsedInSegment = currentPlayheadSeconds - activeSeg.start;
+                const decay = Math.max(0.2, 1.0 - (elapsedInSegment / activeSeg.duration));
+                const activeIntensity = volumePct * decay;
+
+                // Use the 12 chroma pitches to animate the different bars in the HUD equalizer
+                const pitches = activeSeg.pitches || [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+                bars.forEach((bar, i) => {
+                    // Map index to a chroma pitch
+                    const pitchVal = pitches[(i * 2) % pitches.length] || 0.5;
+                    const pct = Math.max(12, Math.round(pitchVal * activeIntensity * 100));
+                    bar.style.height = `${pct}%`;
+                    bar.style.background = `#1ed760`; // Spotify Green theme for the active sync indicator!
+                    bar.style.opacity = 0.6 + (pct / 250);
+                });
+                return;
+            }
+        }
+
+        const visualData = window.CosmicSynth.getVisualizerData();
         if (visualData && bars.length > 0) {
             bars.forEach((bar, i) => {
                 const val = visualData[i * 2] || 0;
@@ -2106,6 +2198,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const newHeight = Math.max(10, currentHeight - 4);
                 bar.style.height = `${newHeight}%`;
                 bar.style.opacity = 0.2;
+                bar.style.background = `var(--accent-color)`;
             });
         }
     }

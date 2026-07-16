@@ -71,12 +71,33 @@
     <div id="headphones-prompt" class="headphones-prompt hidden">
         <span class="prompt-icon">🎧</span> Wear headphones for full binaural effect
     </div>
+    
+    <!-- Spotify Overlay Announcement for New Track (Centred bottom/middle) -->
+    <div id="spotify-track-overlay" class="spotify-track-overlay hidden">
+        <div class="spotify-overlay-card">
+            <div class="spotify-overlay-icon">🎧</div>
+            <div class="spotify-overlay-details">
+                <div class="spotify-overlay-sync-badge">SPOTIFY SYNC</div>
+                <div id="spotify-overlay-title" class="spotify-overlay-title">Unknown Track</div>
+                <div id="spotify-overlay-artist" class="spotify-overlay-artist">Unknown Artist</div>
+                <div id="spotify-overlay-album" class="spotify-overlay-album">Unknown Album</div>
+            </div>
+        </div>
+    </div>
 
     <!-- HUD Overlay (Top-Left) -->
     <header class="hud-container" id="hud">
         <div class="logo-area">
             <h1 class="logo-title">ETERNAL VEIL</h1>
             <span class="logo-subtitle">COSMIC FLOW GENERATOR</span>
+            <!-- Spotify Live Track Widget inside HUD -->
+            <div id="spotify-hud-info" class="spotify-hud-info hidden">
+                <span class="hud-spotify-icon">🟢</span>
+                <div class="hud-spotify-text">
+                    <div id="spotify-hud-title" class="hud-track-title">-</div>
+                    <div id="spotify-hud-artist" class="hud-track-artist">-</div>
+                </div>
+            </div>
         </div>
         
         <!-- Live Diagnostic Details -->

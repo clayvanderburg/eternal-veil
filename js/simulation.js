@@ -209,9 +209,21 @@ class Particle {
         // Calculate standard noise turbulence
         const tVal = simplexNoise((this.x / scaleRef) * 0.015, (this.y / scaleRef) * 0.015 + globalTime * 0.1);
         
-        // Scale vector forces by scaleRef to prevent speed feeling too fast on mobile and slow on 4K
-        let targetVx = (curl.vx * organic + tVal * (1 - organic) * turb) * speed * 0.26 * scaleRef;
-        let targetVy = (curl.vy * organic + tVal * (1 - organic) * turb) * speed * 0.26 * scaleRef;
+        // Base flow targets scaled by music reactivity when active (trebleIntensity / sizePulse)
+        // If trebleIntensity is active (>0.01), it forces particle trajectories to sync with musical transients.
+        const speedBoost = 1.0 + (settings.trebleIntensity || 0) * 1.5;
+        const turbBoost = 1.0 + (settings.trebleIntensity || 0) * 1.2;
+        
+        let targetVx = (curl.vx * organic + tVal * (1 - organic) * (turb * turbBoost)) * (speed * speedBoost) * 0.26 * scaleRef;
+        let targetVy = (curl.vy * organic + tVal * (1 - organic) * (turb * turbBoost)) * (speed * speedBoost) * 0.26 * scaleRef;
+
+        // Music overrides particle motion direction: heavy beats push particles to slide or swell randomly
+        if (settings.trebleIntensity > 0.1) {
+            // Apply slight turbulence offset or directional wind matching the current treble intensity
+            const windAngle = globalTime * 0.05 + this.effectPhase;
+            targetVx += Math.cos(windAngle) * (settings.trebleIntensity * 1.6) * scaleRef;
+            targetVy += Math.sin(windAngle) * (settings.trebleIntensity * 1.6) * scaleRef;
+        }
 
         if (settings.particleShape === "ocean") {
             if (this.effectRole < 0.70) {
