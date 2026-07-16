@@ -470,6 +470,7 @@ document.addEventListener("DOMContentLoaded", () => {
         spotifyArtistName: document.getElementById("spotify-artist-name"),
         spotifySyncTempo: document.getElementById("spotify-sync-tempo"),
         spotifyStatusLed: document.getElementById("spotify-status-led"),
+        spotifyLiveAudioBtn: document.getElementById("spotify-live-audio-btn"),
         spotifyQuickBtn: document.getElementById("spotify-quick-btn"),
         spotifyModal: document.getElementById("spotify-modal"),
         spotifyModalCloseBtn: document.getElementById("spotify-modal-close-btn"),
@@ -535,6 +536,50 @@ document.addEventListener("DOMContentLoaded", () => {
             elements.spotifyModalCloseBtn.addEventListener("click", () => {
                 elements.spotifyModal.classList.add("hidden");
             });
+
+            if (elements.spotifyLiveAudioBtn) {
+                elements.spotifyLiveAudioBtn.addEventListener("click", () => this.toggleLiveAudioCapture());
+            }
+        },
+
+        hasLiveAudioCapture() {
+            return Boolean(window.CosmicSynth && window.CosmicSynth.visualizerMode !== "none");
+        },
+
+        updateLiveAudioButton() {
+            if (!elements.spotifyLiveAudioBtn) return;
+            const active = this.hasLiveAudioCapture();
+            elements.spotifyLiveAudioBtn.textContent = active ? "Disable Live Audio Reaction" : "Enable Live Audio Reaction";
+            elements.spotifyLiveAudioBtn.classList.toggle("highlight", active);
+        },
+
+        async toggleLiveAudioCapture() {
+            const synth = window.CosmicSynth;
+            if (!synth) return;
+
+            try {
+                synth.init();
+                if (synth.visualizerMode === "system") {
+                    synth.stopMusicReactivity();
+                    this.updateLiveAudioButton();
+                    showToast("Live Spotify audio reaction disabled.");
+                    return;
+                }
+
+                const success = await synth.toggleSystemAudioReactivity();
+                this.updateLiveAudioButton();
+                if (success) {
+                    // Keep Eternal Veil's own tones silent while allowing the
+                    // independent capture analyser to remain active.
+                    synth.setMute(true);
+                    showToast("Live audio reaction active — play Spotify now.");
+                    CosmicLogger.info("[SpotifySync] Live device-audio analysis active.");
+                }
+            } catch (error) {
+                this.updateLiveAudioButton();
+                showToast(error.message || "Audio sharing was cancelled.");
+                CosmicLogger.warn("[SpotifySync] Live audio capture failed: " + error.message);
+            }
         },
 
         // --- PKCE HELPERS ---
@@ -680,7 +725,7 @@ document.addEventListener("DOMContentLoaded", () => {
             
             // Mute all local synthesizers (binaural drone, ASMR, chimes) to avoid clashing
             window.CosmicSynth.setMute(true);
-            window.CosmicSynth.stopMusicReactivity(); // disable mic/screen audio inputs
+            this.updateLiveAudioButton();
             
             // Graphically set the top-right audio icon to active playing state (since Spotify is playing)
             const muteIcon = elements.audioToggleBtn.querySelector(".audio-muted-icon");
@@ -737,6 +782,7 @@ document.addEventListener("DOMContentLoaded", () => {
             this.currentlyPlayingTrackId = null;
             this.audioAnalysis = null;
             this.trackInfo = null;
+            this.updateLiveAudioButton();
         },
         
         startPolling() {
@@ -916,6 +962,9 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // Tick method to query current playhead position and execute beats / pitch effects
         updateFrame() {
+            // Real captured audio is more accurate than Spotify's deprecated
+            // analysis endpoint or the procedural timing fallback.
+            if (this.hasLiveAudioCapture()) return;
             if (!this.isPlaying || !this.audioAnalysis || !this.audioAnalysis.beats) return;
             
             // Calculate current interpolated playhead time in milliseconds
@@ -2247,7 +2296,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (bars.length === 0) return;
 
         // If Spotify is active, synthesize the visualizer bars directly using the currently active pitches and loudness
-        if (SpotifySyncEngine.accessToken && SpotifySyncEngine.isPlaying && SpotifySyncEngine.audioAnalysis) {
+        if (!SpotifySyncEngine.hasLiveAudioCapture() && SpotifySyncEngine.accessToken && SpotifySyncEngine.isPlaying && SpotifySyncEngine.audioAnalysis) {
             // Find current playhead segment
             const elapsedSinceFetch = Date.now() - SpotifySyncEngine.lastFetchLocalTime;
             const currentPlayheadMs = SpotifySyncEngine.lastFetchProgressMs + elapsedSinceFetch;
@@ -3392,7 +3441,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let moodL = 0;
 
     function processMusicReactivity() {
-        if (SpotifySyncEngine && SpotifySyncEngine.accessToken) {
+        if (SpotifySyncEngine && SpotifySyncEngine.accessToken && !SpotifySyncEngine.hasLiveAudioCapture()) {
             return; // Let Spotify handle all visual modulations
         }
         if (!window.CosmicSynth) return;

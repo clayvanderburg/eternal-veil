@@ -539,7 +539,10 @@ class BinauralBeatEngine {
 
     // Retrieve visualizer data for HUD Equalizer bounces (falls back to music visualizer if active)
     getVisualizerData() {
-        if (!this.initialized || this.isMuted) return null;
+        // Muting Eternal Veil's local synth must not mute an external music
+        // capture that is connected directly to the music analyser.
+        if (!this.initialized) return null;
+        if (this.visualizerMode === "none" && this.isMuted) return null;
         
         const activeAnalyser = (this.visualizerMode !== "none" && this.musicAnalyser) ? this.musicAnalyser : this.analyser;
         const dataArray = new Uint8Array(activeAnalyser.frequencyBinCount);
@@ -561,7 +564,7 @@ class BinauralBeatEngine {
 
     // Query bass and treble normalized levels
     getMusicAnalysis() {
-        if (!this.musicAnalyser || this.visualizerMode === "none" || this.isMuted) return null;
+        if (!this.musicAnalyser || this.visualizerMode === "none") return null;
         const dataArray = new Uint8Array(this.musicAnalyser.frequencyBinCount);
         this.musicAnalyser.getByteFrequencyData(dataArray);
         
