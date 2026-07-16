@@ -534,14 +534,33 @@ class NativeFlowSimulation3D {
                         seededZ * 0.23 + sin(radial * 0.042 + t * 0.31 + petal) * 28.0
                     );
                 } else if (uEffectMode > 4.5) {
-                    // Neon Conduits: six orthogonal segments close into a true
-                    // 3D Manhattan loop. Swizzled route families make the pipe
-                    // network travel through X, Y, and Z instead of reading flat.
-                    float pipeLane = floor(aPhase * 8.0);
+                    // Conduit family: every variation follows true 3D Manhattan
+                    // segments, while lane count, scale, and placement create
+                    // dense circuitry, monumental frames, or nested shrines.
+                    float isTight = step(5.5, uEffectMode) * (1.0 - step(6.5, uEffectMode));
+                    float isCathedral = step(6.5, uEffectMode) * (1.0 - step(7.5, uEffectMode));
+                    float isShrine = step(7.5, uEffectMode);
+                    float laneCount = mix(8.0, 18.0, isTight);
+                    laneCount = mix(laneCount, 4.0, isCathedral);
+                    laneCount = mix(laneCount, 9.0, isShrine);
+                    float pipeLane = floor(aPhase * laneCount);
                     float hx = 58.0 + abs(aSeed.y) * 58.0;
                     float hy = 48.0 + abs(aSeed.z) * 52.0;
                     float hz = 52.0 + abs(aSeed.x) * 64.0;
-                    float pipeProgress = fract((aSeed.x * 0.5 + 0.5) + t * (0.042 + abs(aSeed.y) * 0.018));
+                    hx = mix(hx, 25.0 + abs(aSeed.y) * 25.0, isTight);
+                    hy = mix(hy, 22.0 + abs(aSeed.z) * 24.0, isTight);
+                    hz = mix(hz, 26.0 + abs(aSeed.x) * 28.0, isTight);
+                    hx = mix(hx, 120.0 + abs(aSeed.y) * 48.0, isCathedral);
+                    hy = mix(hy, 155.0 + abs(aSeed.z) * 62.0, isCathedral);
+                    hz = mix(hz, 92.0 + abs(aSeed.x) * 42.0, isCathedral);
+                    float shrineScale = 0.32 + (pipeLane / max(1.0, laneCount - 1.0)) * 1.18;
+                    hx = mix(hx, 92.0 * shrineScale, isShrine);
+                    hy = mix(hy, 70.0 * shrineScale, isShrine);
+                    hz = mix(hz, 76.0 * shrineScale, isShrine);
+                    float travelRate = mix(0.042, 0.064, isTight);
+                    travelRate = mix(travelRate, 0.024, isCathedral);
+                    travelRate = mix(travelRate, 0.032, isShrine);
+                    float pipeProgress = fract((aSeed.x * 0.5 + 0.5) + t * (travelRate + abs(aSeed.y) * 0.018));
                     if (role >= 0.965) {
                         pipeProgress = floor((aSeed.y * 0.5 + 0.5) * 6.0) / 6.0;
                     }
@@ -575,6 +594,9 @@ class NativeFlowSimulation3D {
                         cos(pipeLane * 1.41) * uVolumeRadius * 0.31,
                         (fract(pipeLane * 0.37) - 0.5) * uDepth * 0.36
                     );
+                    pipeCenter *= 1.0 - isShrine;
+                    pipeCenter *= mix(1.0, 0.58, isTight);
+                    pipeCenter *= mix(1.0, 0.34, isCathedral);
                     result = pipeCenter + pipePoint;
                 } else {
                     // A small subset passes very close to the viewer for genuine depth/fly-bys.
@@ -1276,7 +1298,7 @@ class NativeFlowSimulation3D {
         );
         this.sharedUniforms.uTurbulence.value = Math.max(0.0, Math.min(5.0, s.turbulence ?? 0.65));
         this.sharedUniforms.uOrganic.value = Math.max(0.0, Math.min(2.0, s.flowOrganic ?? 0.85));
-        const effectModes = { ocean: 1, aurora: 2, orbitals: 3, lotus: 4, pipes: 5 };
+        const effectModes = { ocean: 1, aurora: 2, orbitals: 3, lotus: 4, pipes: 5, pipesTight: 6, pipesCathedral: 7, pipesShrine: 8 };
         this.sharedUniforms.uEffectMode.value = effectModes[s.particleShape] || 0;
         const lightingStyles = { glow: 0, reactive: 1, pearl: 2 };
         this.sharedUniforms.uLightingStyle.value = lightingStyles[s.particleLighting] || 0;

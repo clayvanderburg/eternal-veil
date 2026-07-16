@@ -148,13 +148,39 @@ class Particle {
 
     getPipeRoutePoint(progress) {
         const wrapped = ((progress % 1) + 1) % 1;
-        const route = Math.min(5, Math.floor(this.effectLane * 6));
-        const column = route % 3;
-        const row = Math.floor(route / 3);
-        const centerX = this.w * (0.18 + column * 0.32 + (row ? -0.025 : 0.025));
-        const centerY = this.h * (0.27 + row * 0.46);
-        const halfW = this.w * (0.095 + (route % 2) * 0.022);
-        const halfH = this.h * (0.105 + ((route + 1) % 3) * 0.018);
+        const variant = this.activeEffectShape || "pipes";
+        let routeCount = 6;
+        if (variant === "pipesTight") routeCount = 15;
+        else if (variant === "pipesCathedral") routeCount = 3;
+        else if (variant === "pipesShrine") routeCount = 8;
+        const route = Math.min(routeCount - 1, Math.floor(this.effectLane * routeCount));
+        let centerX, centerY, halfW, halfH;
+        if (variant === "pipesTight") {
+            const column = route % 5;
+            const row = Math.floor(route / 5);
+            centerX = this.w * (0.10 + column * 0.20 + (row % 2 ? 0.012 : -0.012));
+            centerY = this.h * (0.17 + row * 0.33);
+            halfW = this.w * (0.044 + (route % 3) * 0.006);
+            halfH = this.h * (0.058 + ((route + 1) % 3) * 0.007);
+        } else if (variant === "pipesCathedral") {
+            centerX = this.w * (0.18 + route * 0.32);
+            centerY = this.h * 0.50;
+            halfW = this.w * (0.13 + (route === 1 ? 0.025 : 0));
+            halfH = this.h * (0.32 + (route % 2) * 0.07);
+        } else if (variant === "pipesShrine") {
+            const scale = 0.055 + route * 0.038;
+            centerX = this.w * 0.5;
+            centerY = this.h * 0.5;
+            halfW = this.w * scale;
+            halfH = this.h * scale * 0.78;
+        } else {
+            const column = route % 3;
+            const row = Math.floor(route / 3);
+            centerX = this.w * (0.18 + column * 0.32 + (row ? -0.025 : 0.025));
+            centerY = this.h * (0.27 + row * 0.46);
+            halfW = this.w * (0.095 + (route % 2) * 0.022);
+            halfH = this.h * (0.105 + ((route + 1) % 3) * 0.018);
+        }
         const segmentFloat = wrapped * 8;
         const segment = Math.min(7, Math.floor(segmentFloat));
         const u = segmentFloat - segment;
@@ -183,7 +209,11 @@ class Particle {
         this.lastY = this.y;
         this.lastPipeSegment = this.pipeSegment;
 
-        const isJunction = this.effectRole >= 0.965;
+        const junctionThreshold = this.activeEffectShape === "pipesTight" ? 0.985
+            : this.activeEffectShape === "pipesCathedral" ? 0.94
+            : this.activeEffectShape === "pipesShrine" ? 0.972
+            : 0.965;
+        const isJunction = this.effectRole >= junctionThreshold;
         const phase = this.effectPhase / (Math.PI * 2);
         const progress = isJunction
             ? Math.floor(phase * 8) / 8
@@ -238,9 +268,10 @@ class Particle {
             const radius = Math.min(this.w, this.h) * (0.08 + this.effectRole * 0.40);
             this.x = this.w * 0.5 + Math.cos(angle) * radius;
             this.y = this.h * 0.52 + Math.sin(angle) * radius;
-        } else if (shape === "pipes") {
+        } else if (shape.startsWith("pipes")) {
             const phase = this.effectPhase / (Math.PI * 2);
-            const progress = this.effectRole >= 0.965 ? Math.floor(phase * 8) / 8 : phase;
+            const threshold = shape === "pipesTight" ? 0.985 : shape === "pipesCathedral" ? 0.94 : shape === "pipesShrine" ? 0.972 : 0.965;
+            const progress = this.effectRole >= threshold ? Math.floor(phase * 8) / 8 : phase;
             const point = this.getPipeRoutePoint(progress);
             this.x = point.x;
             this.y = point.y;
@@ -265,7 +296,7 @@ class Particle {
         const flowFreq = 0.007 / zoom;
         const organic = settings.flowOrganic ?? 0.85;
         const turb = settings.turbulence ?? 0.65;
-        const authoredShapes = ["ocean", "aurora", "orbitals", "lotus", "pipes"];
+        const authoredShapes = ["ocean", "aurora", "orbitals", "lotus", "pipes", "pipesTight", "pipesCathedral", "pipesShrine"];
         if (authoredShapes.includes(settings.particleShape)) {
             if (this.activeEffectShape !== settings.particleShape) {
                 this.configureAuthoredEffect(settings.particleShape, globalTime);
@@ -274,7 +305,7 @@ class Particle {
             this.activeEffectShape = null;
         }
 
-        if (settings.particleShape === "pipes") {
+        if (settings.particleShape.startsWith("pipes")) {
             this.updatePipeMotion(settings, globalTime, dt);
             return;
         }
@@ -718,7 +749,7 @@ class Particle {
             return true;
         }
 
-        if (shape === "pipes") {
+        if (shape.startsWith("pipes")) {
             if (this.effectRole >= 0.965) {
                 if (this.effectRole > 0.997) {
                     this.drawLitOrb(ctx, drawSize * 6.2, drawAlpha * 0.86, settings);
