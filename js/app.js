@@ -3960,10 +3960,24 @@ document.addEventListener("DOMContentLoaded", () => {
                         if (lightInput) lightInput.value = hsl.l;
                         if (satVal) satVal.textContent = `${hsl.s}%`;
                         if (lightVal) lightVal.textContent = `${hsl.l}%`;
-                        
-                        // Sync visual tab highlights
-                        updateHarmonies();
                     }
+                    
+                    // Update preview swatches in the designer to show the saved colors
+                    if (previewRow) {
+                        const swatchDivs = previewRow.querySelectorAll(".preview-swatch-item");
+                        swatchDivs.forEach((div, idx) => {
+                            if (item.colors[idx]) {
+                                div.style.backgroundColor = item.colors[idx];
+                                div.setAttribute("title", item.colors[idx]);
+                                div.style.display = "block";
+                            } else {
+                                div.style.display = "none";
+                            }
+                        });
+                    }
+                    
+                    generatedColors = [...item.colors];
+
                     setOptionToManual("colors");
                     turnOffPsychedelicMode();
                     startPaletteMorph(item.colors, 4000);
@@ -3990,8 +4004,13 @@ document.addEventListener("DOMContentLoaded", () => {
                     return;
                 }
 
-                if (generatedColors.length === 0) {
-                    showToast("Generate a palette first");
+                // Prioritize active simulation palette (includes custom added colors)
+                const colorsToSave = sim && sim.palette && sim.palette.length > 0 
+                    ? [...sim.palette] 
+                    : [...generatedColors];
+
+                if (colorsToSave.length === 0) {
+                    showToast("Generate or create a palette first");
                     return;
                 }
 
@@ -4004,7 +4023,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const newItem = {
                     id: Date.now().toString(),
                     name: name.substring(0, 20),
-                    colors: [...generatedColors]
+                    colors: colorsToSave
                 };
 
                 lib.unshift(newItem); // prepend new item
