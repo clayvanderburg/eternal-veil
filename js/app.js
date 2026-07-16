@@ -549,7 +549,7 @@ document.addEventListener("DOMContentLoaded", () => {
             sessionStorage.setItem("spotify_pkce_verifier", verifier);
 
             const scopes = "user-read-currently-playing user-read-playback-state";
-            const redirectUri = window.location.origin + window.location.pathname;
+            const redirectUri = "https://eternal-veil.netlify.app";
             const params = new URLSearchParams({
                 client_id: this.clientId,
                 response_type: "code",
@@ -573,7 +573,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!verifier) return;
 
             try {
-                const redirectUri = window.location.origin + window.location.pathname;
+                const redirectUri = "https://eternal-veil.netlify.app";
                 const body = new URLSearchParams({
                     client_id: this.clientId,
                     grant_type: "authorization_code",
