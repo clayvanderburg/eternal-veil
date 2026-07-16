@@ -470,7 +470,7 @@ document.addEventListener("DOMContentLoaded", () => {
         spotifyArtistName: document.getElementById("spotify-artist-name"),
         spotifySyncTempo: document.getElementById("spotify-sync-tempo"),
         spotifyStatusLed: document.getElementById("spotify-status-led"),
-        spotifyQuickBtn: document.getElementById("spotify-quick-btn"),
+        musicReactQuickBtn: document.getElementById("music-react-quick-btn"),
         spotifyModal: document.getElementById("spotify-modal"),
         spotifyModalCloseBtn: document.getElementById("spotify-modal-close-btn"),
         spotifyModalClientId: document.getElementById("spotify-modal-client-id"),
@@ -1200,7 +1200,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         ConfigHistory.init();
-        SpotifySyncEngine.init();
+        // Spotify integration retired; device-audio reaction is now the direct music path.
+        ["spotify_access_token", "spotify_access_token_expires_at", "spotify_refresh_token", "spotify_pkce_verifier", "spotify_pre_auth_state"]
+            .forEach(key => sessionStorage.removeItem(key));
         setupTabs();
         setupFlowToggles();
         buildPresetCards();
@@ -2765,7 +2767,24 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         };
 
-        elements.systemReactBtn.onclick = async () => {
+        const setDeviceAudioUi = (active, busy = false) => {
+            elements.systemReactBtn.classList.toggle("highlight", active);
+            elements.systemReactBtn.textContent = busy ? "💻 Capturing..." : "💻 Device Audio";
+            elements.musicReactQuickBtn.classList.toggle("music-react-active", active);
+            elements.musicReactQuickBtn.classList.toggle("music-react-busy", busy);
+            elements.musicReactQuickBtn.setAttribute("data-tooltip", busy
+                ? "Choose an audio source and enable audio sharing"
+                : active ? "Device Audio Reaction Active (Click to Stop)" : "React to Device Audio");
+
+            if (active) {
+                elements.visualizerStatus.textContent = "Status: Device Audio Active 💻";
+                elements.visualizerStatus.style.display = "block";
+            } else if (!busy && window.CosmicSynth.visualizerMode === "none") {
+                elements.visualizerStatus.style.display = "none";
+            }
+        };
+
+        const toggleDeviceAudioReactivity = async () => {
             const synth = window.CosmicSynth;
             const currentMode = synth.visualizerMode;
             
@@ -2773,30 +2792,40 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (currentMode === "system") {
                     synth.stopMusicReactivity();
                     clearVisualizerHighlights();
-                    elements.visualizerStatus.style.display = "none";
+                    setDeviceAudioUi(false);
                     showToast("Device audio visualizer disabled");
                     CosmicLogger.info("Device audio reactivity visualizer disabled.");
                 } else {
-                    elements.systemReactBtn.textContent = "💻 Capturing...";
+                    setDeviceAudioUi(false, true);
                     const success = await synth.toggleSystemAudioReactivity();
                     if (success) {
                         clearVisualizerHighlights();
-                        elements.systemReactBtn.classList.add("highlight");
-                        elements.visualizerStatus.textContent = "Status: Device Audio Active 💻";
-                        elements.visualizerStatus.style.display = "block";
-                        showToast("Device audio capture active! Play Spotify/sounds now.");
+                        setDeviceAudioUi(true);
+                        showToast("Device audio capture active! Play music or other sounds now.");
                         CosmicLogger.info("Device audio stream capture active. Internal ambient chimes auto-muted.");
+
+                        const audioTrack = synth.systemStream?.getAudioTracks?.()[0];
+                        if (audioTrack) {
+                            audioTrack.addEventListener("ended", () => {
+                                if (synth.visualizerMode === "system") synth.stopMusicReactivity();
+                                clearVisualizerHighlights();
+                                setDeviceAudioUi(false);
+                                showToast("Device audio sharing ended.");
+                            }, { once: true });
+                        }
                         
                         if (synth.isMuted) toggleAudio(true);
                     }
                 }
             } catch (err) {
+                setDeviceAudioUi(false);
                 showToast(err.message || "Device audio sharing cancelled");
                 CosmicLogger.warn("Device audio stream capture cancelled or failed: " + err.message);
-            } finally {
-                elements.systemReactBtn.textContent = "💻 Device Audio";
             }
         };
+
+        elements.systemReactBtn.onclick = toggleDeviceAudioReactivity;
+        elements.musicReactQuickBtn.onclick = toggleDeviceAudioReactivity;
 
         elements.uploadReactBtn.onclick = () => {
             const synth = window.CosmicSynth;

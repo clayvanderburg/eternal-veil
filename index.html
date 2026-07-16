@@ -150,8 +150,8 @@
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
         </button>
 
-        <!-- Spotify Sync Toggle -->
-        <button class="icon-btn tool-tip" id="spotify-quick-btn" data-tooltip="Connect Spotify Playback Sync" style="color: #1ed760; border-color: rgba(30, 215, 96, 0.4); background: rgba(30, 215, 96, 0.05);">
+        <!-- Device Audio Reaction Toggle -->
+        <button class="icon-btn tool-tip" id="music-react-quick-btn" data-tooltip="React to Device Audio">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
         </button>
 
@@ -694,26 +694,6 @@
                     </div>
                 </div>
 
-                <!-- Spotify Sync -->
-                <div class="setting-group border-top">
-                    <span class="setting-label-header">SPOTIFY CHROMA SYNC (BETA)</span>
-                    <p class="setting-desc">Connect Spotify to display your current song and drive a timing-based visual flow. Just click connect and log in. 🎧 <strong>A song must be playing on an active Spotify device.</strong></p>
-
-                    <button class="btn btn-secondary" id="spotify-connect-btn" style="width: 100%; margin-top: 10px; background: rgba(30, 215, 96, 0.15); border: 1px solid rgba(30, 215, 96, 0.4); color: #1ed760;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="button-icon"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
-                        Connect Spotify
-                    </button>
-
-                    <div id="spotify-status-container" style="display: none; margin-top: 10px; padding: 10px; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); text-align: center;">
-                        <div style="font-size: 10px; color: #94a3b8; letter-spacing: 0.5px; text-transform: uppercase;">Currently Syncing:</div>
-                        <div id="spotify-track-name" style="font-weight: 700; font-size: 12px; margin-top: 4px; color: #1ed760; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</div>
-                        <div id="spotify-artist-name" style="font-size: 11px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;">-</div>
-                        <div style="font-size: 9px; color: #3b82f6; margin-top: 6px; display: flex; align-items: center; justify-content: center; gap: 4px;">
-                            <span id="spotify-status-led" class="pulse-dot" style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #1ed760; box-shadow: 0 0 8px #1ed760;"></span> <span id="spotify-sync-tempo">-</span>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- Share Configuration State -->
                 <div class="setting-group border-top">
                     <span class="setting-label-header">COSMIC SEED SHARING</span>
@@ -802,27 +782,6 @@
         </div>
     </div>
 
-      <!-- Spotify Connect Modal -->
-    <div class="modal-overlay hidden" id="spotify-modal">
-        <div class="modal-card" style="max-width: 380px; border-color: #1ed760; background: rgba(5, 5, 10, 0.96); box-shadow: 0 0 40px rgba(30, 215, 96, 0.2);">
-            <div class="modal-header" style="border-bottom: 1px solid rgba(30, 215, 96, 0.15); padding-bottom: 12px;">
-                <h3 style="color: #1ed760; letter-spacing: 1px; font-family: var(--font-secondary); font-weight: 800; font-size: 15px;">SPOTIFY CHROMA SYNC</h3>
-                <button class="modal-close-btn" id="spotify-modal-close-btn">&times;</button>
-            </div>
-            <div class="modal-body" style="padding-top: 18px; line-height: 1.6; text-align: center;">
-                <div style="font-size: 38px; margin-bottom: 12px;">🎧</div>
-                <p style="font-size: 13px; color: var(--text-primary); margin: 0 0 8px 0; font-weight: 600;">Sync your visuals to Spotify</p>
-                <p style="font-size: 11.5px; color: #94a3b8; margin: 0 0 22px 0;">
-                    Click below to log in with your Spotify account. Eternal Veil will read your currently playing track to sync beats, energy, and pitch to the visuals in real time.
-                </p>
-                <button class="btn btn-primary" id="spotify-modal-submit-btn" style="width: 100%; background: #1ed760; border-color: #1ed760; color: #000; font-weight: 800; font-size: 13px; padding: 12px; border-radius: 8px; letter-spacing: 0.5px;">
-                    Log in with Spotify
-                </button>
-                <p style="font-size: 10px; color: #475569; margin-top: 14px;">You will be redirected to Spotify's secure login. No personal data is stored.</p>
-            </div>
-        </div>
-    </div>
-
     <!-- New Features Announcement Modal Overlay -->
     <div class="modal-overlay hidden" id="new-features-modal">
         <div class="modal-card features-card" style="max-width: 480px; border-color: var(--accent-color);">
@@ -902,12 +861,12 @@
     <script src="js/state-schema.js?v=authored-effects-1"></script>
     <script src="js/render-quality.js?v=90375e6"></script>
     <script src="js/presets.js?v=authored-effects-1"></script>
-    <script src="js/synth.js?v=spotify-playback-2"></script>
+    <script src="js/synth.js?v=device-audio-quick-1"></script>
     <script src="js/exporter.js?v=90375e6"></script>
     <script src="js/url-sync.js?v=90375e6"></script>
     <script src="js/simulation.js?v=authored-effects-1"></script>
     <script src="js/simulation3d.js?v=90375e6"></script>
     <script src="js/simulation3d-native.js?v=authored-effects-1"></script>
-    <script src="js/app.js?v=spotify-playback-2"></script>
+    <script src="js/app.js?v=device-audio-quick-1"></script>
 </body>
 </html>
