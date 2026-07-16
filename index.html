@@ -307,6 +307,82 @@
                     <p class="micro-tip">Click swatch to delete. Max 6 colors. Falls back to default.</p>
                 </div>
 
+                <!-- Harmonic Palette Designer accordion -->
+                <div class="harmonic-designer-container" style="margin-bottom: 20px;">
+                    <div class="harmonic-designer-header" id="harmonic-designer-toggle" aria-expanded="false" role="button" tabindex="0">
+                        <span class="harmonic-designer-title">HARMONIC COLOR WHEEL</span>
+                        <span class="harmonic-designer-arrow">▼</span>
+                    </div>
+                    <div class="harmonic-designer-content" id="harmonic-designer-panel" aria-hidden="true">
+                        <!-- Harmony selectors -->
+                        <div class="harmony-rule-tabs" id="harmony-rule-tabs">
+                            <button class="harmony-tab active" data-rule="mono">Mono</button>
+                            <button class="harmony-tab" data-rule="analogous">Analog</button>
+                            <button class="harmony-tab" data-rule="complementary">Comp</button>
+                            <button class="harmony-tab" data-rule="triad">Triad</button>
+                            <button class="harmony-tab" data-rule="tetrad">Tetrad</button>
+                        </div>
+                        
+                        <!-- HSL controls -->
+                        <div class="setting-item">
+                            <span class="setting-label">Base Hue</span>
+                            <input type="range" id="harmonic-hue" class="hue-slider-track" min="0" max="360" value="220">
+                        </div>
+                        
+                        <div class="setting-item" style="margin-top: 8px;">
+                            <div class="slider-header">
+                                <span class="setting-label">Saturation</span>
+                                <span class="slider-value" id="harmonic-sat-val">85%</span>
+                            </div>
+                            <input type="range" id="harmonic-sat" class="slider-input" min="0" max="100" value="85">
+                        </div>
+                        
+                        <div class="setting-item" style="margin-top: 8px;">
+                            <div class="slider-header">
+                                <span class="setting-label">Lightness</span>
+                                <span class="slider-value" id="harmonic-light-val">50%</span>
+                            </div>
+                            <input type="range" id="harmonic-light" class="slider-input" min="5" max="95" value="50">
+                        </div>
+                        
+                        <!-- Real-time Preview row -->
+                        <div class="harmonic-preview-row" id="harmonic-preview-row">
+                            <div class="preview-swatch-item"></div>
+                            <div class="preview-swatch-item"></div>
+                            <div class="preview-swatch-item"></div>
+                            <div class="preview-swatch-item"></div>
+                            <div class="preview-swatch-item"></div>
+                        </div>
+                        
+                        <!-- Toggle Live Preview -->
+                        <div class="setting-switch" style="margin-bottom: 10px; margin-top: 8px; justify-content: space-between;">
+                            <span class="setting-label" style="font-size: 11px;">Live Preview on Drag</span>
+                            <label class="switch small">
+                                <input type="checkbox" id="harmonic-live-preview" checked>
+                                <span class="switch-slider"></span>
+                            </label>
+                        </div>
+                        
+                        <!-- Action buttons -->
+                        <div style="display: flex; gap: 6px; margin-top: 8px;">
+                            <button class="btn btn-primary" id="btn-apply-harmonic" style="flex: 1; padding: 8px;">Apply to Veil</button>
+                        </div>
+                        
+                        <!-- Save to Swatches Library -->
+                        <div class="saved-swatches-library">
+                            <span class="setting-label-header">MY THEME LIBRARY</span>
+                            <div class="save-swatch-form">
+                                <input type="text" id="save-swatch-name" class="save-swatch-input" placeholder="Theme Name" maxlength="20">
+                                <button class="btn btn-secondary" id="btn-save-swatch" style="padding: 6px 12px; font-size: 11px;">Save</button>
+                            </div>
+                            
+                            <div class="saved-swatches-grid" id="saved-swatches-grid">
+                                <!-- User saved swatch sets render here dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Custom Background Color -->
                 <div class="setting-group">
                     <span class="setting-label-header">BACKGROUND SETTING</span>
@@ -860,6 +936,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="js/state-schema.js?v=authored-effects-1"></script>
     <script src="js/render-quality.js?v=90375e6"></script>
+    <script src="js/color-theory.js?v=Paletton-1"></script>
     <script src="js/presets.js?v=authored-effects-1"></script>
     <script src="js/synth.js?v=device-audio-quick-2"></script>
     <script src="js/exporter.js?v=90375e6"></script>

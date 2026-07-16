@@ -1197,8 +1197,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 </div>
             `;
             throw new Error("Domain lock triggered: unauthorized hostname mirror.");
-        }
-
         ConfigHistory.init();
         // Spotify integration retired; device-audio reaction is now the direct music path.
         ["spotify_access_token", "spotify_access_token_expires_at", "spotify_refresh_token", "spotify_pkce_verifier", "spotify_pre_auth_state"]
@@ -1206,6 +1204,7 @@ document.addEventListener("DOMContentLoaded", () => {
         setupTabs();
         setupFlowToggles();
         buildPresetCards();
+        setupHarmonicDesigner();
         
         // Initialize master volume to 40% (comfortable default, starts muted)
         elements.synthVolumeSlider.value = 40;
@@ -1831,7 +1830,7 @@ document.addEventListener("DOMContentLoaded", () => {
             showToast("Autopilot co-pilot engaged.");
         } else {
             document.body.classList.remove("autopilot-active");
-            elements.autopilotSettings.classList.add("hidden");
+            elements.autopilotSettings.classList.hidden = true;
             stopAutopilotIntervals();
             showToast("Autopilot co-pilot disengaged.");
         }
@@ -3770,6 +3769,247 @@ document.addEventListener("DOMContentLoaded", () => {
         updateHudWaveform();
 
         requestAnimationFrame(tickLoop);
+    }
+
+    function setupHarmonicDesigner() {
+        const toggle = document.getElementById("harmonic-designer-toggle");
+        const panel = document.getElementById("harmonic-designer-panel");
+        const hueInput = document.getElementById("harmonic-hue");
+        const satInput = document.getElementById("harmonic-sat");
+        const satVal = document.getElementById("harmonic-sat-val");
+        const lightInput = document.getElementById("harmonic-light");
+        const lightVal = document.getElementById("harmonic-light-val");
+        const previewRow = document.getElementById("harmonic-preview-row");
+        const livePreviewToggle = document.getElementById("harmonic-live-preview");
+        const btnApply = document.getElementById("btn-apply-harmonic");
+        const saveNameInput = document.getElementById("save-swatch-name");
+        const btnSave = document.getElementById("btn-save-swatch");
+        const savedGrid = document.getElementById("saved-swatches-grid");
+        const ruleTabs = document.getElementById("harmony-rule-tabs");
+
+        let activeRule = "mono";
+        let generatedColors = [];
+
+        // 1. Accordion Toggle
+        if (toggle && panel) {
+            toggle.onclick = () => {
+                const expanded = toggle.getAttribute("aria-expanded") === "true";
+                toggle.setAttribute("aria-expanded", !expanded);
+                toggle.classList.toggle("expanded", !expanded);
+                panel.setAttribute("aria-hidden", expanded);
+            };
+            
+            // Allow keyboard activation (Space/Enter)
+            toggle.onkeydown = (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    toggle.click();
+                }
+            };
+        }
+
+        // 2. Rule Tabs Click Handler
+        if (ruleTabs) {
+            ruleTabs.querySelectorAll(".harmony-tab").forEach(tab => {
+                tab.onclick = () => {
+                    ruleTabs.querySelectorAll(".harmony-tab").forEach(t => t.classList.remove("active"));
+                    tab.classList.add("active");
+                    activeRule = tab.getAttribute("data-rule");
+                    updateHarmonies();
+                };
+            });
+        }
+
+        // 3. Update preview swatches and morph active colors if Live Preview is checked
+        function updateHarmonies() {
+            if (!hueInput || !satInput || !lightInput) return;
+            const h = parseInt(hueInput.value, 10);
+            const s = parseInt(satInput.value, 10);
+            const l = parseInt(lightInput.value, 10);
+
+            if (satVal) satVal.textContent = `${s}%`;
+            if (lightVal) lightVal.textContent = `${l}%`;
+
+            if (window.ColorTheory && window.ColorTheory.generateHarmony) {
+                // Generate HSL strings using ColorTheory helper
+                const hslColors = window.ColorTheory.generateHarmony(h, s, l, activeRule);
+                // Convert to HEX for application and display
+                generatedColors = hslColors.map(c => window.ColorTheory.hslToHex(c));
+
+                // Update preview swatch divs
+                if (previewRow) {
+                    const swatchDivs = previewRow.querySelectorAll(".preview-swatch-item");
+                    swatchDivs.forEach((div, idx) => {
+                        if (generatedColors[idx]) {
+                            div.style.backgroundColor = generatedColors[idx];
+                            div.setAttribute("title", generatedColors[idx]);
+                        }
+                    });
+                }
+
+                // If live preview is active, apply directly to simulation
+                if (livePreviewToggle && livePreviewToggle.checked) {
+                    startPaletteMorph(generatedColors, 2000);
+                }
+            }
+        }
+
+        // Bind slider inputs
+        [hueInput, satInput, lightInput].forEach(slider => {
+            if (slider) {
+                slider.oninput = () => {
+                    updateHarmonies();
+                };
+            }
+        });
+
+        // 4. Apply to simulation explicitly
+        if (btnApply) {
+            btnApply.onclick = () => {
+                if (generatedColors.length > 0) {
+                    startPaletteMorph(generatedColors, 4000);
+                    // Also trigger swatch history save
+                    if (typeof ConfigHistory !== "undefined" && ConfigHistory.push) {
+                        ConfigHistory.push({
+                            palette: [...generatedColors]
+                        });
+                    }
+                    showToast("Harmonic palette applied");
+                }
+            };
+        }
+
+        // 5. Save Swatch Set to localStorage Library
+        function getLibrary() {
+            try {
+                return JSON.parse(localStorage.getItem("eternal_veil_custom_palettes")) || [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function saveLibrary(lib) {
+            localStorage.setItem("eternal_veil_custom_palettes", JSON.stringify(lib));
+        }
+
+        function renderLibrary() {
+            if (!savedGrid) return;
+            const lib = getLibrary();
+            savedGrid.innerHTML = "";
+
+            if (lib.length === 0) {
+                savedGrid.innerHTML = `<div style="font-size: 10px; color: var(--text-muted); text-align: center; padding: 10px 0;">No custom palettes saved yet.</div>`;
+                return;
+            }
+
+            lib.forEach(item => {
+                const card = document.createElement("div");
+                card.className = "saved-swatch-card";
+                card.setAttribute("role", "button");
+                card.setAttribute("tabindex", "0");
+                
+                const meta = document.createElement("div");
+                meta.className = "saved-swatch-meta";
+                
+                const name = document.createElement("span");
+                name.className = "saved-swatch-name";
+                name.textContent = item.name;
+                
+                const colorsContainer = document.createElement("div");
+                colorsContainer.className = "saved-swatch-colors";
+                item.colors.forEach(col => {
+                    const circle = document.createElement("div");
+                    circle.className = "saved-swatch-circle";
+                    circle.style.backgroundColor = col;
+                    colorsContainer.appendChild(circle);
+                });
+                
+                meta.appendChild(name);
+                meta.appendChild(colorsContainer);
+                
+                const btnDelete = document.createElement("button");
+                btnDelete.className = "btn-delete-swatch";
+                btnDelete.innerHTML = "&times;";
+                btnDelete.setAttribute("title", "Delete from library");
+                btnDelete.setAttribute("aria-label", `Delete palette ${item.name}`);
+                
+                btnDelete.onclick = (e) => {
+                    e.stopPropagation(); // prevent loading on click
+                    const updatedLib = getLibrary().filter(x => x.id !== item.id);
+                    saveLibrary(updatedLib);
+                    renderLibrary();
+                    showToast("Palette deleted");
+                };
+
+                card.appendChild(meta);
+                card.appendChild(btnDelete);
+                
+                // Click to apply the saved theme
+                card.onclick = () => {
+                    const firstColor = item.colors[0];
+                    if (firstColor && window.ColorTheory && window.ColorTheory.hexToHsl) {
+                        const hsl = window.ColorTheory.hexToHsl(firstColor);
+                        if (hueInput) hueInput.value = hsl.h;
+                        if (satInput) satInput.value = hsl.s;
+                        if (lightInput) lightInput.value = hsl.l;
+                        if (satVal) satVal.textContent = `${hsl.s}%`;
+                        if (lightVal) lightVal.textContent = `${hsl.l}%`;
+                        
+                        // Sync visual tab highlights
+                        updateHarmonies();
+                    }
+                    startPaletteMorph(item.colors, 4000);
+                    showToast(`Loaded palette: ${item.name}`);
+                };
+
+                // Accessibility Keyboard support
+                card.onkeydown = (e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        card.click();
+                    }
+                };
+
+                savedGrid.appendChild(card);
+            });
+        }
+
+        if (btnSave) {
+            btnSave.onclick = () => {
+                const name = saveNameInput.value.trim();
+                if (!name) {
+                    showToast("Please enter a name for the palette");
+                    return;
+                }
+
+                if (generatedColors.length === 0) {
+                    showToast("Generate a palette first");
+                    return;
+                }
+
+                const lib = getLibrary();
+                if (lib.length >= 12) {
+                    showToast("Library full (max 12 saved palettes)");
+                    return;
+                }
+
+                const newItem = {
+                    id: Date.now().toString(),
+                    name: name.substring(0, 20),
+                    colors: [...generatedColors]
+                };
+
+                lib.unshift(newItem); // prepend new item
+                saveLibrary(lib);
+                saveNameInput.value = "";
+                renderLibrary();
+                showToast(`Palette "${newItem.name}" saved!`);
+            };
+        }
+
+        // Initialize designer swatches and grid
+        updateHarmonies();
+        renderLibrary();
     }
 
     // Boot
