@@ -504,9 +504,9 @@ document.addEventListener("DOMContentLoaded", () => {
         // Beat tracking variables for tickLoop
         lastBeatIndex: -1,
         
-        init() {
-            // Handle PKCE callback from Spotify (code in URL query params)
-            this.handlePKCECallback();
+        async init() {
+            // Handle PKCE callback from Spotify (awaits token exchange if code is in URL)
+            await this.handlePKCECallback();
 
             // Restore session token if still valid
             this.accessToken = sessionStorage.getItem("spotify_access_token") || null;
@@ -638,7 +638,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
 
                 showToast("Connected to Spotify! ✓");
-                this.onConnected();
             } catch (e) {
                 console.error("[SpotifySync] PKCE token exchange error:", e);
                 showToast("Spotify login error. Check console for details.");
@@ -657,31 +656,58 @@ document.addEventListener("DOMContentLoaded", () => {
 
         
         onConnected() {
-            elements.spotifyConnectBtn.textContent = "Disconnect Spotify";
-            elements.spotifyConnectBtn.style.background = "rgba(239, 68, 68, 0.15)";
-            elements.spotifyConnectBtn.style.borderColor = "rgba(239, 68, 68, 0.4)";
-            elements.spotifyConnectBtn.style.color = "#ef4444";
-            elements.spotifyStatusContainer.style.display = "block";
-            elements.spotifyStatusLed.classList.add("pulse-green-active");
+            if (elements.spotifyConnectBtn) {
+                elements.spotifyConnectBtn.textContent = "Disconnect Spotify";
+                elements.spotifyConnectBtn.style.background = "rgba(239, 68, 68, 0.15)";
+                elements.spotifyConnectBtn.style.borderColor = "rgba(239, 68, 68, 0.4)";
+                elements.spotifyConnectBtn.style.color = "#ef4444";
+            }
+            if (elements.spotifyStatusContainer) {
+                elements.spotifyStatusContainer.style.display = "block";
+            }
+            if (elements.spotifyStatusLed) {
+                elements.spotifyStatusLed.classList.add("pulse-green-active");
+            }
             
             // Highlight quick header button
-            elements.spotifyQuickBtn.style.background = "#1ed760";
-            elements.spotifyQuickBtn.style.color = "#000000";
-            elements.spotifyQuickBtn.style.borderColor = "#1ed760";
-            elements.spotifyQuickBtn.classList.add("pulse-green-active");
-            elements.spotifyQuickBtn.setAttribute("data-tooltip", "Spotify Sync Active (Click to Disconnect)");
+            if (elements.spotifyQuickBtn) {
+                elements.spotifyQuickBtn.style.background = "#1ed760";
+                elements.spotifyQuickBtn.style.color = "#000000";
+                elements.spotifyQuickBtn.style.borderColor = "#1ed760";
+                elements.spotifyQuickBtn.classList.add("pulse-green-active");
+                elements.spotifyQuickBtn.setAttribute("data-tooltip", "Spotify Sync Active (Click to Disconnect)");
+            }
             
+            // Mute all local synthesizers (binaural drone, ASMR, chimes) to avoid clashing
+            window.CosmicSynth.setMute(true);
+            window.CosmicSynth.stopMusicReactivity(); // disable mic/screen audio inputs
+            
+            // Graphically set the top-right audio icon to active playing state (since Spotify is playing)
+            const muteIcon = elements.audioToggleBtn.querySelector(".audio-muted-icon");
+            const playIcon = elements.audioToggleBtn.querySelector(".audio-playing-icon");
+            if (muteIcon) muteIcon.classList.add("hide");
+            if (playIcon) playIcon.classList.remove("hide");
+            elements.audioToggleBtn.classList.add("highlight");
+            if (elements.soundEnableToggle) elements.soundEnableToggle.checked = true;
+            if (elements.audioSettingsSliders) elements.audioSettingsSliders.classList.add("disabled-element");
+
             // Start polling playback state
             this.startPolling();
         },
         
         onDisconnected() {
-            elements.spotifyConnectBtn.textContent = "Connect Spotify";
-            elements.spotifyConnectBtn.style.background = "rgba(30, 215, 96, 0.15)";
-            elements.spotifyConnectBtn.style.borderColor = "rgba(30, 215, 96, 0.4)";
-            elements.spotifyConnectBtn.style.color = "#1ed760";
-            elements.spotifyStatusContainer.style.display = "none";
-            elements.spotifyStatusLed.classList.remove("pulse-green-active");
+            if (elements.spotifyConnectBtn) {
+                elements.spotifyConnectBtn.textContent = "Connect Spotify";
+                elements.spotifyConnectBtn.style.background = "rgba(30, 215, 96, 0.15)";
+                elements.spotifyConnectBtn.style.borderColor = "rgba(30, 215, 96, 0.4)";
+                elements.spotifyConnectBtn.style.color = "#1ed760";
+            }
+            if (elements.spotifyStatusContainer) {
+                elements.spotifyStatusContainer.style.display = "none";
+            }
+            if (elements.spotifyStatusLed) {
+                elements.spotifyStatusLed.classList.remove("pulse-green-active");
+            }
             
             // Hide HUD track widget
             if (elements.spotifyHudInfo) {
@@ -689,11 +715,23 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             
             // Reset quick header button
-            elements.spotifyQuickBtn.style.background = "rgba(30, 215, 96, 0.05)";
-            elements.spotifyQuickBtn.style.color = "#1ed760";
-            elements.spotifyQuickBtn.style.borderColor = "rgba(30, 215, 96, 0.4)";
-            elements.spotifyQuickBtn.classList.remove("pulse-green-active");
-            elements.spotifyQuickBtn.setAttribute("data-tooltip", "Connect Spotify Playback Sync");
+            if (elements.spotifyQuickBtn) {
+                elements.spotifyQuickBtn.style.background = "rgba(30, 215, 96, 0.05)";
+                elements.spotifyQuickBtn.style.color = "#1ed760";
+                elements.spotifyQuickBtn.style.borderColor = "rgba(30, 215, 96, 0.4)";
+                elements.spotifyQuickBtn.classList.remove("pulse-green-active");
+                elements.spotifyQuickBtn.setAttribute("data-tooltip", "Connect Spotify Playback Sync");
+            }
+
+            // Restore normal audio control state (start muted by default)
+            window.CosmicSynth.setMute(true);
+            const muteIcon = elements.audioToggleBtn.querySelector(".audio-muted-icon");
+            const playIcon = elements.audioToggleBtn.querySelector(".audio-playing-icon");
+            if (muteIcon) muteIcon.classList.remove("hide");
+            if (playIcon) playIcon.classList.add("hide");
+            elements.audioToggleBtn.classList.remove("highlight");
+            if (elements.soundEnableToggle) elements.soundEnableToggle.checked = false;
+            if (elements.audioSettingsSliders) elements.audioSettingsSliders.classList.remove("disabled-element");
             
             this.stopPolling();
             this.currentlyPlayingTrackId = null;
@@ -826,12 +864,54 @@ document.addEventListener("DOMContentLoaded", () => {
                     this.lastBeatIndex = -1;
                     CosmicLogger.info(`[SpotifySync] Successfully loaded audio analysis for: ${this.trackInfo.name}`);
                 } else {
-                    if (elements.spotifySyncTempo) elements.spotifySyncTempo.textContent = "Analysis unavailable";
+                    CosmicLogger.warn(`[SpotifySync] Audio analysis endpoint returned status ${response.status}. Engaging procedural fallback.`);
+                    this.generateSyntheticAnalysis();
                 }
             } catch (error) {
                 console.error("[SpotifySync] Fetching audio analysis failed:", error);
-                if (elements.spotifySyncTempo) elements.spotifySyncTempo.textContent = "Sync failed";
+                this.generateSyntheticAnalysis();
             }
+        },
+
+        generateSyntheticAnalysis() {
+            // Synthesize a default 122 BPM beat structure (typical electronic/dance tempo)
+            const bpm = 122;
+            const beatDuration = 60 / bpm; // 0.4918s per beat
+            const trackDuration = 240; // 4 minutes fallback
+            
+            const beats = [];
+            for (let t = 0; t < trackDuration; t += beatDuration) {
+                beats.push({
+                    start: t,
+                    duration: beatDuration,
+                    confidence: 0.8 + Math.random() * 0.2
+                });
+            }
+            
+            const segments = [];
+            const segDuration = 0.25; // 250ms segments
+            for (let t = 0; t < trackDuration; t += segDuration) {
+                // Generate a cyclic/wavy loudness profile and pitch distribution
+                const loudness = -14 + Math.sin(t * 0.3) * 8; // -22dB to -6dB
+                const pitches = Array.from({ length: 12 }, (_, i) => 
+                    0.25 + Math.abs(Math.sin(t * 0.4 + i * 0.28)) * 0.75
+                );
+                
+                segments.push({
+                    start: t,
+                    duration: segDuration,
+                    loudness_max: loudness,
+                    pitches: pitches
+                });
+            }
+            
+            this.audioAnalysis = { beats, segments };
+            this.lastBeatIndex = -1;
+            
+            if (elements.spotifySyncTempo) {
+                elements.spotifySyncTempo.textContent = `Synced • ${bpm} BPM (Procedural)`;
+            }
+            CosmicLogger.info("[SpotifySync] Engaged restricted API fallback: procedurally synthesizing beats and chroma values.");
         },
         
         // Tick method to query current playhead position and execute beats / pitch effects
@@ -3101,6 +3181,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function toggleAudio(active) {
+        if (SpotifySyncEngine && SpotifySyncEngine.accessToken) {
+            showToast("Local synth disabled while Spotify is connected.");
+            return;
+        }
         const synth = window.CosmicSynth;
         const state = (active !== undefined) ? !active : !synth.isMuted;
         
