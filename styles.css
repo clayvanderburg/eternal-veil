@@ -1989,7 +1989,7 @@ body:not(.autopilot-active) .flow-toggle-group {
 }
 
 .harmonic-designer-header.expanded + .harmonic-designer-content {
-    max-height: 380px;
+    max-height: 800px;
     padding: 12px 10px;
     border-color: var(--border-glass-muted);
 }

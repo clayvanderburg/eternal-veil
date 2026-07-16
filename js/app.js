@@ -3773,6 +3773,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function setupHarmonicDesigner() {
+        let isInitialLoad = true;
         const toggle = document.getElementById("harmonic-designer-toggle");
         const panel = document.getElementById("harmonic-designer-panel");
         const hueInput = document.getElementById("harmonic-hue");
@@ -3849,7 +3850,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
 
                 // If live preview is active, apply directly to simulation
-                if (livePreviewToggle && livePreviewToggle.checked) {
+                if (!isInitialLoad && livePreviewToggle && livePreviewToggle.checked) {
+                    setOptionToManual("colors");
+                    turnOffPsychedelicMode();
                     startPaletteMorph(generatedColors, 2000);
                 }
             }
@@ -3868,6 +3871,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (btnApply) {
             btnApply.onclick = () => {
                 if (generatedColors.length > 0) {
+                    setOptionToManual("colors");
+                    turnOffPsychedelicMode();
                     startPaletteMorph(generatedColors, 4000);
                     // Also trigger swatch history save
                     if (typeof ConfigHistory !== "undefined" && ConfigHistory.push) {
@@ -3959,6 +3964,8 @@ document.addEventListener("DOMContentLoaded", () => {
                         // Sync visual tab highlights
                         updateHarmonies();
                     }
+                    setOptionToManual("colors");
+                    turnOffPsychedelicMode();
                     startPaletteMorph(item.colors, 4000);
                     showToast(`Loaded palette: ${item.name}`);
                 };
@@ -4011,6 +4018,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Initialize designer swatches and grid
         updateHarmonies();
         renderLibrary();
+        isInitialLoad = false;
     }
 
     // Boot

@@ -221,6 +221,7 @@
         <!-- Panel Tabs Navigation -->
         <nav class="panel-tabs">
             <button class="tab-btn active" data-tab="tab-presets">Presets</button>
+            <button class="tab-btn" data-tab="tab-colors">Colors</button>
             <button class="tab-btn" data-tab="tab-physics">Physics</button>
             <button class="tab-btn" data-tab="tab-dynamics">Dynamics</button>
             <button class="tab-btn" data-tab="tab-share">Audio & Share</button>
@@ -298,6 +299,10 @@
                     </div>
                 </div>
 
+            </section>
+
+            <!-- TAB 2: COLORS & HARMONIES -->
+            <section class="tab-content" id="tab-colors">
                 <!-- Custom Color Swatches -->
                 <div class="setting-group">
                     <div class="flex-header">
@@ -319,11 +324,11 @@
 
                 <!-- Harmonic Palette Designer accordion -->
                 <div class="harmonic-designer-container" style="margin-bottom: 20px;">
-                    <div class="harmonic-designer-header" id="harmonic-designer-toggle" aria-expanded="false" role="button" tabindex="0">
+                    <div class="harmonic-designer-header expanded" id="harmonic-designer-toggle" aria-expanded="true" role="button" tabindex="0">
                         <span class="harmonic-designer-title">HARMONIC COLOR WHEEL</span>
                         <span class="harmonic-designer-arrow">▼</span>
                     </div>
-                    <div class="harmonic-designer-content" id="harmonic-designer-panel" aria-hidden="true">
+                    <div class="harmonic-designer-content" id="harmonic-designer-panel" aria-hidden="false">
                         <!-- Harmony selectors -->
                         <div class="harmony-rule-tabs" id="harmony-rule-tabs">
                             <button class="harmony-tab active" data-rule="mono">Mono</button>
