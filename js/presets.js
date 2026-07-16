@@ -437,6 +437,31 @@ const StylePresets = {
         kaleidoscopeEnabled: false,
         bilateralEnabled: true,
         asmrEnabled: true
+    },
+    neonConduits: {
+        name: "Neon Conduits",
+        desc: "Luminous energy pipes traverse a geometric labyrinth, snapping through deliberate 90° turns and glowing junctions.",
+        speed: 0.48,
+        turbulence: 0.0,
+        curl: 1.0,
+        density: 1450,
+        dissipation: 0.009,
+        zoom: 0.92,
+        size: 3.6,
+        sizeVar: 1.25,
+        stretch: 2.8,
+        interaction: 0.0,
+        rotationSpeed: 0.0,
+        wobble: 0.0,
+        colors: ["#22d3ee", "#60a5fa", "#a78bfa", "#f472b6", "#fbbf24", "#4ade80"],
+        particleShape: "pipes",
+        particleLighting: "reactive",
+        psychedelicMode: false,
+        morphingBg: false,
+        spinningKaleido: false,
+        kaleidoscopeEnabled: false,
+        bilateralEnabled: true,
+        asmrEnabled: true
     }
 };
 

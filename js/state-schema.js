@@ -11,7 +11,7 @@ const StateSchema = {
     // Valid particle rendering shapes
     VALID_PARTICLE_SHAPES: new Set([
         "ellipse", "drop", "ring", "aquatic", "acid", "nebula", "brush", "cluster",
-        "ocean", "aurora", "orbitals", "lotus"
+        "ocean", "aurora", "orbitals", "lotus", "pipes"
     ]),
 
     VALID_PARTICLE_LIGHTING: new Set(["glow", "reactive", "pearl"]),

@@ -146,6 +146,67 @@ class Particle {
         return this.palette[this.colorIndex];
     }
 
+    getPipeRoutePoint(progress) {
+        const wrapped = ((progress % 1) + 1) % 1;
+        const route = Math.min(5, Math.floor(this.effectLane * 6));
+        const column = route % 3;
+        const row = Math.floor(route / 3);
+        const centerX = this.w * (0.18 + column * 0.32 + (row ? -0.025 : 0.025));
+        const centerY = this.h * (0.27 + row * 0.46);
+        const halfW = this.w * (0.095 + (route % 2) * 0.022);
+        const halfH = this.h * (0.105 + ((route + 1) % 3) * 0.018);
+        const segmentFloat = wrapped * 8;
+        const segment = Math.min(7, Math.floor(segmentFloat));
+        const u = segmentFloat - segment;
+
+        let ax = -halfW, ay = -halfH, bx = 0, by = -halfH;
+        switch (segment) {
+            case 1: ax = 0; ay = -halfH; bx = 0; by = -halfH * 0.34; break;
+            case 2: ax = 0; ay = -halfH * 0.34; bx = halfW; by = -halfH * 0.34; break;
+            case 3: ax = halfW; ay = -halfH * 0.34; bx = halfW; by = halfH; break;
+            case 4: ax = halfW; ay = halfH; bx = 0; by = halfH; break;
+            case 5: ax = 0; ay = halfH; bx = 0; by = halfH * 0.34; break;
+            case 6: ax = 0; ay = halfH * 0.34; bx = -halfW; by = halfH * 0.34; break;
+            case 7: ax = -halfW; ay = halfH * 0.34; bx = -halfW; by = -halfH; break;
+        }
+
+        return {
+            x: centerX + ax + (bx - ax) * u,
+            y: centerY + ay + (by - ay) * u,
+            segment,
+            segmentT: u
+        };
+    }
+
+    updatePipeMotion(settings, globalTime, dt) {
+        this.lastX = this.x;
+        this.lastY = this.y;
+        this.lastPipeSegment = this.pipeSegment;
+
+        const isJunction = this.effectRole >= 0.965;
+        const phase = this.effectPhase / (Math.PI * 2);
+        const progress = isJunction
+            ? Math.floor(phase * 8) / 8
+            : phase + globalTime * 0.00115 * (0.72 + (settings.speed || 1) * 0.72 + this.effectRole * 0.18);
+        const point = this.getPipeRoutePoint(progress);
+        this.x = point.x;
+        this.y = point.y;
+        this.pipeSegment = point.segment;
+        this.pipeSegmentT = point.segmentT;
+        this.vx = (this.x - this.lastX) / Math.max(0.001, dt);
+        this.vy = (this.y - this.lastY) / Math.max(0.001, dt);
+
+        const headingAngle = Math.atan2(this.vy, this.vx);
+        this.perpX = -Math.sin(headingAngle);
+        this.perpY = Math.cos(headingAngle);
+
+        this.life -= dt;
+        if (this.life <= 0) {
+            if (this.isBurst) this.dead = true;
+            else this.reset();
+        }
+    }
+
     configureAuthoredEffect(shape, globalTime = 0) {
         this.activeEffectShape = shape;
         this.effectRole = Math.random();
@@ -177,6 +238,15 @@ class Particle {
             const radius = Math.min(this.w, this.h) * (0.08 + this.effectRole * 0.40);
             this.x = this.w * 0.5 + Math.cos(angle) * radius;
             this.y = this.h * 0.52 + Math.sin(angle) * radius;
+        } else if (shape === "pipes") {
+            const phase = this.effectPhase / (Math.PI * 2);
+            const progress = this.effectRole >= 0.965 ? Math.floor(phase * 8) / 8 : phase;
+            const point = this.getPipeRoutePoint(progress);
+            this.x = point.x;
+            this.y = point.y;
+            this.pipeSegment = point.segment;
+            this.lastPipeSegment = point.segment;
+            this.pipeSegmentT = point.segmentT;
         }
 
         this.lastX = this.x;
@@ -195,13 +265,18 @@ class Particle {
         const flowFreq = 0.007 / zoom;
         const organic = settings.flowOrganic ?? 0.85;
         const turb = settings.turbulence ?? 0.65;
-        const authoredShapes = ["ocean", "aurora", "orbitals", "lotus"];
+        const authoredShapes = ["ocean", "aurora", "orbitals", "lotus", "pipes"];
         if (authoredShapes.includes(settings.particleShape)) {
             if (this.activeEffectShape !== settings.particleShape) {
                 this.configureAuthoredEffect(settings.particleShape, globalTime);
             }
         } else {
             this.activeEffectShape = null;
+        }
+
+        if (settings.particleShape === "pipes") {
+            this.updatePipeMotion(settings, globalTime, dt);
+            return;
         }
 
         // Calculate curl at scaled virtual coordinates to make swirls size-invariant
@@ -639,6 +714,61 @@ class Particle {
                 ctx.beginPath();
                 ctx.ellipse(this.x, this.y, drawSize * 1.8, drawSize * 0.42, angle, 0, Math.PI * 2);
                 ctx.fill();
+            }
+            return true;
+        }
+
+        if (shape === "pipes") {
+            if (this.effectRole >= 0.965) {
+                if (this.effectRole > 0.997) {
+                    this.drawLitOrb(ctx, drawSize * 6.2, drawAlpha * 0.86, settings);
+                } else {
+                    const radius = Math.max(2.4, drawSize * (1.65 + this.effectLane * 0.8));
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    ctx.fillStyle = this.color;
+                    ctx.globalAlpha = drawAlpha * 0.20;
+                    ctx.fillRect(-radius * 1.55, -radius * 1.55, radius * 3.1, radius * 3.1);
+                    ctx.globalAlpha = drawAlpha * 0.88;
+                    ctx.lineWidth = Math.max(0.8, drawSize * 0.32);
+                    ctx.strokeStyle = this.color;
+                    ctx.strokeRect(-radius, -radius, radius * 2, radius * 2);
+                    ctx.globalAlpha = drawAlpha * 0.72;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, radius * 0.48, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+            } else {
+                const turnedCorner = this.pipeSegment !== this.lastPipeSegment
+                    ? this.getPipeRoutePoint(this.pipeSegment / 8)
+                    : null;
+                const tracePipeStep = () => {
+                    ctx.beginPath();
+                    ctx.moveTo(this.lastX, this.lastY);
+                    if (turnedCorner) ctx.lineTo(turnedCorner.x, turnedCorner.y);
+                    ctx.lineTo(this.x, this.y);
+                    ctx.stroke();
+                };
+                ctx.strokeStyle = this.color;
+                ctx.lineCap = "square";
+                ctx.lineJoin = "miter";
+                ctx.globalAlpha = drawAlpha * 0.14;
+                ctx.lineWidth = Math.max(3, drawSize * 3.8);
+                tracePipeStep();
+
+                ctx.globalAlpha = drawAlpha * 0.94;
+                ctx.lineWidth = Math.max(0.9, drawSize * 0.62);
+                tracePipeStep();
+
+                const atCorner = this.pipeSegment !== this.lastPipeSegment || this.pipeSegmentT < 0.045;
+                if (atCorner) {
+                    ctx.globalAlpha = drawAlpha * 0.82;
+                    ctx.lineWidth = Math.max(0.8, drawSize * 0.28);
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, Math.max(1.5, drawSize * 1.15), 0, Math.PI * 2);
+                    ctx.stroke();
+                }
             }
             return true;
         }

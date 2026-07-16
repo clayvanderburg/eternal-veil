@@ -520,7 +520,7 @@ class NativeFlowSimulation3D {
                     p.yz = mat2(ct, -st, st, ct) * p.yz;
                     p.z += aSeed.z * 115.0;
                     result = p;
-                } else if (uEffectMode > 3.5) {
+                } else if (uEffectMode > 3.5 && uEffectMode < 4.5) {
                     // Lotus Pulse: ten petal lanes open and close around a softly
                     // breathing center, with real depth between the layers.
                     float petal = floor(aPhase * 10.0);
@@ -533,6 +533,49 @@ class NativeFlowSimulation3D {
                         sin(angle) * radial,
                         seededZ * 0.23 + sin(radial * 0.042 + t * 0.31 + petal) * 28.0
                     );
+                } else if (uEffectMode > 4.5) {
+                    // Neon Conduits: six orthogonal segments close into a true
+                    // 3D Manhattan loop. Swizzled route families make the pipe
+                    // network travel through X, Y, and Z instead of reading flat.
+                    float pipeLane = floor(aPhase * 8.0);
+                    float hx = 58.0 + abs(aSeed.y) * 58.0;
+                    float hy = 48.0 + abs(aSeed.z) * 52.0;
+                    float hz = 52.0 + abs(aSeed.x) * 64.0;
+                    float pipeProgress = fract((aSeed.x * 0.5 + 0.5) + t * (0.042 + abs(aSeed.y) * 0.018));
+                    if (role >= 0.965) {
+                        pipeProgress = floor((aSeed.y * 0.5 + 0.5) * 6.0) / 6.0;
+                    }
+                    float segmentFloat = pipeProgress * 6.0;
+                    float segment = floor(segmentFloat);
+                    float segmentT = fract(segmentFloat);
+                    vec3 fromPoint = vec3(-hx, -hy, -hz);
+                    vec3 toPoint = vec3(hx, -hy, -hz);
+                    if (segment > 0.5 && segment < 1.5) {
+                        fromPoint = vec3(hx, -hy, -hz);
+                        toPoint = vec3(hx, hy, -hz);
+                    } else if (segment > 1.5 && segment < 2.5) {
+                        fromPoint = vec3(hx, hy, -hz);
+                        toPoint = vec3(hx, hy, hz);
+                    } else if (segment > 2.5 && segment < 3.5) {
+                        fromPoint = vec3(hx, hy, hz);
+                        toPoint = vec3(-hx, hy, hz);
+                    } else if (segment > 3.5 && segment < 4.5) {
+                        fromPoint = vec3(-hx, hy, hz);
+                        toPoint = vec3(-hx, -hy, hz);
+                    } else if (segment > 4.5) {
+                        fromPoint = vec3(-hx, -hy, hz);
+                        toPoint = vec3(-hx, -hy, -hz);
+                    }
+                    vec3 pipePoint = mix(fromPoint, toPoint, segmentT);
+                    float family = mod(pipeLane, 3.0);
+                    if (family > 0.5 && family < 1.5) pipePoint = pipePoint.yzx;
+                    else if (family > 1.5) pipePoint = pipePoint.zxy;
+                    vec3 pipeCenter = vec3(
+                        sin(pipeLane * 2.17) * uVolumeRadius * 0.43,
+                        cos(pipeLane * 1.41) * uVolumeRadius * 0.31,
+                        (fract(pipeLane * 0.37) - 0.5) * uDepth * 0.36
+                    );
+                    result = pipeCenter + pipePoint;
                 } else {
                     // A small subset passes very close to the viewer for genuine depth/fly-bys.
                 float seedRadius = 0.035 + pow(abs(aSeed.x), 1.08) * 0.965;
@@ -605,8 +648,14 @@ class NativeFlowSimulation3D {
                     vEffectClass = 3.0;
                 } else if (uEffectMode > 2.5 && uEffectMode < 3.5) {
                     vEffectClass = effectRole > 0.992 ? 2.0 : 4.0;
-                } else if (uEffectMode > 3.5) {
+                } else if (uEffectMode > 3.5 && uEffectMode < 4.5) {
                     vEffectClass = effectRole > 0.994 ? 2.0 : 5.0;
+                } else if (uEffectMode > 4.5) {
+                    vEffectClass = effectRole < 0.965 ? 6.0 : (effectRole < 0.997 ? 7.0 : 8.0);
+                }
+
+                if (uEffectMode > 4.5 && effectRole >= 0.965) {
+                    vAlpha *= ${isTrail ? "0.0" : "1.0"};
                 }
 
                 float effectScale = 1.0;
@@ -615,6 +664,9 @@ class NativeFlowSimulation3D {
                 if (vEffectClass > 1.8 && vEffectClass < 2.2) effectScale = ${isTrail ? "2.2" : "8.5"};
                 if (vEffectClass > 2.8 && vEffectClass < 3.2) effectScale = 1.32;
                 if (vEffectClass > 3.8 && vEffectClass < 5.2) effectScale = 0.92;
+                if (vEffectClass > 5.8 && vEffectClass < 6.2) effectScale = 0.74;
+                if (vEffectClass > 6.8 && vEffectClass < 7.2) effectScale = ${isTrail ? "0.01" : "3.2"};
+                if (vEffectClass > 7.8) effectScale = ${isTrail ? "0.01" : "7.2"};
 
                 ${isTrail ? `
                     gl_Position = projectionMatrix * mvPosition;
@@ -636,6 +688,7 @@ class NativeFlowSimulation3D {
                     // still respected automatically by WebGL.
                     float sizeCeiling = mix(144.0, 432.0, aHero);
                     sizeCeiling = vEffectClass > 1.8 && vEffectClass < 2.2 ? 620.0 : sizeCeiling;
+                    sizeCeiling = vEffectClass > 7.8 ? 560.0 : sizeCeiling;
                     vRenderedSize = clamp(uPointSize * aScale * effectScale * perspective * pulse, 1.0, sizeCeiling);
                     gl_PointSize = vRenderedSize;
                 `}
@@ -1223,7 +1276,7 @@ class NativeFlowSimulation3D {
         );
         this.sharedUniforms.uTurbulence.value = Math.max(0.0, Math.min(5.0, s.turbulence ?? 0.65));
         this.sharedUniforms.uOrganic.value = Math.max(0.0, Math.min(2.0, s.flowOrganic ?? 0.85));
-        const effectModes = { ocean: 1, aurora: 2, orbitals: 3, lotus: 4 };
+        const effectModes = { ocean: 1, aurora: 2, orbitals: 3, lotus: 4, pipes: 5 };
         this.sharedUniforms.uEffectMode.value = effectModes[s.particleShape] || 0;
         const lightingStyles = { glow: 0, reactive: 1, pearl: 2 };
         this.sharedUniforms.uLightingStyle.value = lightingStyles[s.particleLighting] || 0;
