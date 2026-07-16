@@ -1134,6 +1134,14 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.personalityButtons?.forEach(button => {
             button.classList.toggle("active", button.dataset.personality === flowPersonality);
         });
+        if (flowPersonality === "serene") {
+            const sereneCaps = { speed: 0.9, turbulence: 0.48, density: 1600, baseSize: 4.8, sizeVariation: 1.6, stretch: 1.8, rotationSpeed: 0.1, wobble: 0.22 };
+            Object.entries(sereneCaps).forEach(([key, maximum]) => {
+                if (isFlowEnabled(key) && Number(sim.settings[key]) > maximum) {
+                    startMorph(key, maximum, 4200);
+                }
+            });
+        }
         if (restart && isAutopilot) startAutopilotIntervals();
         if (announce) showToast(`${flowPersonality[0].toUpperCase() + flowPersonality.slice(1)} Flow selected.`);
     }
@@ -1307,10 +1315,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const serenePatterns = [
             "ellipse", "drop", "ring", "nebula", "aquatic",
-            "ocean", "aurora", "orbitals", "lotus", "spiral"
+            "aurora", "lotus", "spiral"
         ];
         const alivePatterns = [
-            ...serenePatterns, "brush", "cluster", "pipes",
+            ...serenePatterns, "ocean", "orbitals", "brush", "cluster", "pipes",
             "pipesTight", "pipesCathedral", "pipesShrine"
         ];
         const wildPatterns = [...alivePatterns, "acid"];
@@ -1360,13 +1368,13 @@ document.addEventListener("DOMContentLoaded", () => {
             wobble: [0.05, 0.62, 0.1, 0.0, 0.95]
         };
         const sereneFields = {
-            speed: [0.12, 1.25, 0.2, 0.12, 1.25], turbulence: [0.04, 0.72, 0.15, 0.04, 0.72],
-            density: [650, 2200, 260, 650, 2200, true], flowOrganic: [0.45, 1.25, 0.13, 0.45, 1.25],
-            dissipation: [0.007, 0.035, 0.004, 0.007, 0.035], zoom: [0.7, 2.6, 0.3, 0.7, 2.6],
-            baseSize: [0.8, 6.2, 0.65, 0.8, 6.2], sizeVariation: [0.2, 2.4, 0.36, 0.2, 2.4],
-            stretch: [0.15, 2.7, 0.34, 0.15, 2.7], interaction: [0.1, 1.45, 0.2, 0.1, 1.45],
-            mouseInfluence: [0.25, 2, 0.3, 0.25, 2], rotationSpeed: [0, 0.16, 0.03, 0, 0.16],
-            wobble: [0.03, 0.38, 0.06, 0.03, 0.38]
+            speed: [0.1, 0.9, 0.12, 0.1, 0.9], turbulence: [0.02, 0.48, 0.09, 0.02, 0.48],
+            density: [550, 1600, 170, 550, 1600, true], flowOrganic: [0.5, 1.15, 0.09, 0.5, 1.15],
+            dissipation: [0.009, 0.032, 0.003, 0.009, 0.032], zoom: [0.8, 2.25, 0.2, 0.8, 2.25],
+            baseSize: [0.7, 4.8, 0.42, 0.7, 4.8], sizeVariation: [0.15, 1.6, 0.22, 0.15, 1.6],
+            stretch: [0.1, 1.8, 0.22, 0.1, 1.8], interaction: [0.08, 1.1, 0.14, 0.08, 1.1],
+            mouseInfluence: [0.2, 1.5, 0.2, 0.2, 1.5], rotationSpeed: [0, 0.1, 0.018, 0, 0.1],
+            wobble: [0.02, 0.22, 0.035, 0.02, 0.22]
         };
         const wildFields = {
             speed: [0.18, 3.3, 0.6, 0.05, 5], turbulence: [0.08, 2.1, 0.4, 0, 3.8],

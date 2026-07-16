@@ -23,6 +23,8 @@ for (const personality of ["serene", "alive", "wild"]) {
 }
 check(app.includes("effectivePersonality") && app.includes("sereneFields") && app.includes("wildFields"), "personality-specific Flow ranges are missing");
 check(app.includes("chooseNextFlowPattern") && app.includes('shape !== currentShape'), "pattern interval must guarantee a different Flow geometry");
+check(app.includes("sereneCaps") && app.includes('speed: [0.1, 0.9'), "Serene must enforce a genuinely calm ceiling");
+check(html.includes("feature-3d-button") && styles.includes("feature3DOrbit"), "3D feature beacon is missing");
 check(html.includes("Chooses a visibly different pattern every interval"), "pattern interval behavior is not explained in the UI");
 check(app.includes("favoritePresetKeys") && app.includes("releaseActivePreset") && app.includes("getPresetSignatureKeys"), "preset favorites or lock/release behavior is missing");
 check(presets.includes('particleShape: "spiral"'), "Hypnotic Spiral does not select authored geometry");

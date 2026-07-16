@@ -346,6 +346,63 @@ body {
     display: none;
 }
 
+/* The native 3D experience is now a headline feature, not a utility icon. */
+.feature-3d-button {
+    width: 48px;
+    height: 48px;
+    margin: -5px 2px -5px -5px;
+    isolation: isolate;
+    border: 2px solid rgba(129, 140, 248, 0.72);
+    background: radial-gradient(circle at 35% 28%, rgba(129, 140, 248, 0.26), rgba(7, 9, 20, 0.94) 68%);
+    color: #f8fafc;
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.42), inset 0 0 12px rgba(34, 211, 238, 0.12);
+}
+
+.feature-3d-button::before {
+    content: "";
+    position: absolute;
+    inset: -5px;
+    z-index: -1;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, #22d3ee, #818cf8, #d946ef, #f59e0b, #22d3ee);
+    box-shadow: 0 0 18px rgba(34, 211, 238, 0.36);
+    animation: feature3DOrbit 5.5s linear infinite;
+}
+
+.feature-3d-button::before {
+    -webkit-mask: radial-gradient(circle, transparent 61%, #000 64%);
+    mask: radial-gradient(circle, transparent 61%, #000 64%);
+}
+
+.feature-3d-label {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    text-shadow: 0 0 8px rgba(34, 211, 238, 0.82), 0 0 15px rgba(129, 140, 248, 0.65);
+    animation: feature3DBreathe 2.8s ease-in-out infinite;
+}
+
+.feature-3d-button:hover {
+    transform: translateY(-2px) scale(1.06);
+    color: #ffffff;
+    box-shadow: 0 0 25px rgba(34, 211, 238, 0.6), inset 0 0 16px rgba(129, 140, 248, 0.2);
+}
+
+.feature-3d-button.highlight {
+    background: radial-gradient(circle at 35% 28%, rgba(34, 211, 238, 0.34), rgba(7, 9, 20, 0.96) 68%);
+    border-color: rgba(34, 211, 238, 0.9);
+}
+
+@keyframes feature3DOrbit {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes feature3DBreathe {
+    0%, 100% { transform: scale(0.94); opacity: 0.82; }
+    50% { transform: scale(1.08); opacity: 1; }
+}
+
 /* Tooltips */
 .tool-tip::after {
     content: attr(data-tooltip);
@@ -1507,7 +1564,9 @@ body.comfort-mode .ambient-glow {
 
 body.comfort-mode .warning-headphones,
 body.comfort-mode .sidebar-edge-handle,
-body.comfort-mode .icon-btn.highlight svg {
+body.comfort-mode .icon-btn.highlight svg,
+body.comfort-mode .feature-3d-button::before,
+body.comfort-mode .feature-3d-label {
     animation: none !important;
 }
 
@@ -1515,7 +1574,9 @@ body.comfort-mode .icon-btn.highlight svg {
     .splash-card,
     .warning-headphones,
     .sidebar-edge-handle,
-    .icon-btn svg {
+    .icon-btn svg,
+    .feature-3d-button::before,
+    .feature-3d-label {
         animation: none !important;
     }
 }
