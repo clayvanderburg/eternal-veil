@@ -521,18 +521,27 @@ class NativeFlowSimulation3D {
                     p.z += aSeed.z * 115.0;
                     result = p;
                 } else if (uEffectMode > 3.5 && uEffectMode < 4.5) {
-                    // Lotus Pulse: ten petal lanes open and close around a softly
-                    // breathing center, with real depth between the layers.
+                    // Lotus Pulse: a true pinwheel that breathes, rotates, and
+                    // wanders through all three axes instead of sitting at origin.
                     float petal = floor(aPhase * 10.0);
                     float baseAngle = petal * (PI * 2.0 / 10.0);
-                    float breath = 0.86 + 0.14 * sin(t * 0.25 + aSeed.y * 5.0);
-                    float radial = (28.0 + (aSeed.x * 0.5 + 0.5) * uVolumeRadius * 0.78) * breath;
-                    float angle = baseAngle + aSeed.y * 0.19 + sin(t * 0.14) * 0.06;
-                    result = vec3(
+                    float petalProgress = aSeed.x * 0.5 + 0.5;
+                    float breath = 0.79 + 0.21 * sin(t * 0.35);
+                    float radial = (24.0 + petalProgress * uVolumeRadius * 0.80) * breath;
+                    float angle = baseAngle + petalProgress * 0.62 + aSeed.y * 0.12 + t * 0.30;
+                    vec3 lotusCenter = vec3(
+                        sin(t * 0.12) * 72.0 + sin(t * 0.047 + 1.3) * 24.0,
+                        cos(t * 0.095 + 0.6) * 52.0,
+                        sin(t * 0.073 + 2.2) * 78.0
+                    );
+                    vec3 lotusPoint = vec3(
                         cos(angle) * radial,
                         sin(angle) * radial,
-                        seededZ * 0.23 + sin(radial * 0.042 + t * 0.31 + petal) * 28.0
+                        seededZ * 0.20 + sin(angle * 1.7 + petal) * (16.0 + petalProgress * 42.0)
                     );
+                    float lotusTilt = 0.28 + sin(t * 0.061) * 0.09;
+                    lotusPoint.yz = mat2(cos(lotusTilt), -sin(lotusTilt), sin(lotusTilt), cos(lotusTilt)) * lotusPoint.yz;
+                    result = lotusCenter + lotusPoint;
                 } else if (uEffectMode > 4.5 && uEffectMode < 8.5) {
                     // Conduit family: every variation follows true 3D Manhattan
                     // segments, while lane count, scale, and placement create

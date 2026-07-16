@@ -414,7 +414,7 @@ const StylePresets = {
     },
     lotusPulse: {
         name: "Lotus Pulse",
-        desc: "Ten luminous petals repeatedly open and settle around a breathing center of light.",
+        desc: "Ten curved luminous petals spin like a breathing pinwheel while the whole bloom slowly wanders.",
         speed: 0.46,
         turbulence: 0.08,
         curl: 0.98,
@@ -425,7 +425,7 @@ const StylePresets = {
         sizeVar: 1.6,
         stretch: 2.0,
         interaction: 0.4,
-        rotationSpeed: 0.0,
+        rotationSpeed: 0.08,
         wobble: 0.10,
         colors: ["#fb7185", "#f472b6", "#c084fc", "#818cf8", "#67e8f9", "#fde68a"],
         particleShape: "lotus",

@@ -264,10 +264,15 @@ class Particle {
             this.y = this.h * 0.5 + Math.sin(angle) * radius * 0.68;
         } else if (shape === "lotus") {
             const petal = Math.floor(this.effectLane * 10);
-            const angle = petal * Math.PI * 0.2 + (this.effectRole - 0.5) * 0.24;
+            const centerX = this.w * (0.5 + Math.sin(globalTime * 0.0009) * 0.10);
+            const centerY = this.h * (0.5 + Math.cos(globalTime * 0.00073) * 0.08);
+            const spin = globalTime * 0.0024;
+            const angle = petal * Math.PI * 0.2 + spin + (this.effectRole - 0.5) * 0.86;
             const radius = Math.min(this.w, this.h) * (0.08 + this.effectRole * 0.40);
-            this.x = this.w * 0.5 + Math.cos(angle) * radius;
-            this.y = this.h * 0.52 + Math.sin(angle) * radius;
+            this.lotusCenterX = centerX;
+            this.lotusCenterY = centerY;
+            this.x = centerX + Math.cos(angle) * radius;
+            this.y = centerY + Math.sin(angle) * radius;
         } else if (shape === "spiral") {
             const arm = Math.floor(this.effectLane * 6);
             const progress = (this.effectRole + globalTime * 0.0007) % 1;
@@ -369,16 +374,29 @@ class Particle {
             targetVy = (targetY - this.y) * 0.028;
         } else if (settings.particleShape === "lotus") {
             const petal = Math.floor(this.effectLane * 10);
-            const breathe = 0.86 + Math.sin(globalTime * 0.012 + this.effectPhase) * 0.14;
+            const breathe = 0.82 + Math.sin(globalTime * 0.0042) * 0.18;
+            const centerX = this.w * (
+                0.5
+                + Math.sin(globalTime * 0.0009) * 0.10
+                + Math.sin(globalTime * 0.00037 + 1.4) * 0.035
+            );
+            const centerY = this.h * (
+                0.5
+                + Math.cos(globalTime * 0.00073) * 0.08
+                + Math.sin(globalTime * 0.00043 + 2.1) * 0.025
+            );
+            const spin = globalTime * (0.0024 + (settings.rotationSpeed || 0) * 0.012);
             const petalAngle = petal * Math.PI * 0.2
-                + (this.effectRole - 0.5) * 0.26
-                + Math.sin(globalTime * 0.006) * 0.08;
+                + spin
+                + (this.effectRole - 0.5) * 0.86;
             const radius = Math.min(this.w, this.h)
                 * (0.07 + this.effectRole * 0.42) * breathe;
-            const targetX = this.w * 0.5 + Math.cos(petalAngle) * radius;
-            const targetY = this.h * 0.52 + Math.sin(petalAngle) * radius;
-            targetVx = (targetX - this.x) * 0.032;
-            targetVy = (targetY - this.y) * 0.032;
+            const targetX = centerX + Math.cos(petalAngle) * radius;
+            const targetY = centerY + Math.sin(petalAngle) * radius;
+            this.lotusCenterX = centerX;
+            this.lotusCenterY = centerY;
+            targetVx = (targetX - this.x) * 0.042;
+            targetVy = (targetY - this.y) * 0.042;
         } else if (settings.particleShape === "spiral") {
             const arm = Math.floor(this.effectLane * 6);
             const travelerSpeed = 0.00055 + speed * 0.00034;
@@ -754,7 +772,9 @@ class Particle {
             if (this.effectRole > 0.995) {
                 this.drawLitOrb(ctx, drawSize * 6.5, drawAlpha, settings);
             } else {
-                const angle = Math.atan2(this.y - this.h * 0.52, this.x - this.w * 0.5);
+                const centerX = this.lotusCenterX ?? this.w * 0.5;
+                const centerY = this.lotusCenterY ?? this.h * 0.5;
+                const angle = Math.atan2(this.y - centerY, this.x - centerX) + 0.34;
                 ctx.fillStyle = this.color;
                 ctx.globalAlpha = drawAlpha * 0.22;
                 ctx.beginPath();

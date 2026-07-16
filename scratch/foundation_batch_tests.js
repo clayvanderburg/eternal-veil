@@ -30,6 +30,8 @@ check(app.includes("favoritePresetKeys") && app.includes("releaseActivePreset") 
 check(presets.includes('particleShape: "spiral"'), "Hypnotic Spiral does not select authored geometry");
 check(schema.includes('"spiral"'), "Spiral is not accepted by shared-state validation");
 check(simulation.includes('shape === "spiral"') && simulation.includes('"lotus", "spiral"'), "2D Spiral motion or rendering is missing");
+check(simulation.includes("lotusCenterX") && simulation.includes("const spin = globalTime"), "2D Lotus must spin and wander");
+check(native3d.includes("lotusCenter") && native3d.includes("petalProgress * 0.62"), "native 3D Lotus must spin and wander in depth");
 check(native3d.includes("spiral: 9") && native3d.includes("uEffectMode > 8.5"), "native 3D Spiral mode is missing");
 check(html.includes("foundation-batch-1"), "first-batch assets are not cache-busted together");
 
