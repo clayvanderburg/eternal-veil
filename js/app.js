@@ -2756,7 +2756,9 @@ document.addEventListener("DOMContentLoaded", () => {
                         showToast("Microphone visualizer active!");
                         CosmicLogger.info("Microphone reactivity visualizer active. Internal ambient chimes auto-muted.");
                         
-                        if (synth.isMuted) toggleAudio(true);
+                        // Silence Eternal Veil's local tones without silencing
+                        // the independent device-audio analyser.
+                        synth.setMute(true);
                     }
                 }
             } catch (err) {
@@ -2814,7 +2816,9 @@ document.addEventListener("DOMContentLoaded", () => {
                             }, { once: true });
                         }
                         
-                        if (synth.isMuted) toggleAudio(true);
+                        // Keep local ambient tones silent; captured audio still
+                        // feeds the independent analyser while muted.
+                        synth.setMute(true);
                     }
                 }
             } catch (err) {
