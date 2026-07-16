@@ -676,14 +676,7 @@
                 <!-- Spotify Sync -->
                 <div class="setting-group border-top">
                     <span class="setting-label-header">SPOTIFY CHROMA SYNC (BETA)</span>
-                    <p class="setting-desc">Connect directly to your Spotify player for latency-free, millisecond-perfect visual beat sync and pitch-to-color harmonies. 🎧 <strong>Plays must be active on Spotify!</strong></p>
-                    
-                    <div class="control-item" style="margin-top: 10px;">
-                        <div class="slider-header" style="margin-bottom: 4px;">
-                            <span class="setting-label" style="font-size: 11px;">Spotify Client ID</span>
-                        </div>
-                        <input type="text" id="spotify-client-id-input" class="dropdown-select" style="width: 100%; font-size: 11px; padding: 6px; font-family: monospace; background: rgba(0,0,0,0.4);" placeholder="Paste Client ID from Spotify Dashboard">
-                    </div>
+                    <p class="setting-desc">Connect your Spotify account for latency-free beat sync and pitch-to-color harmonies. Just click connect and log in — no setup required. 🎧 <strong>A song must be playing in Spotify!</strong></p>
 
                     <button class="btn btn-secondary" id="spotify-connect-btn" style="width: 100%; margin-top: 10px; background: rgba(30, 215, 96, 0.15); border: 1px solid rgba(30, 215, 96, 0.4); color: #1ed760;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="button-icon"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
@@ -788,27 +781,23 @@
         </div>
     </div>
 
-    <!-- Spotify Client ID Input Modal -->
+      <!-- Spotify Connect Modal -->
     <div class="modal-overlay hidden" id="spotify-modal">
-        <div class="modal-card" style="max-width: 400px; border-color: #1ed760; background: rgba(5, 5, 10, 0.95); box-shadow: 0 0 25px rgba(30, 215, 96, 0.25);">
-            <div class="modal-header" style="border-bottom: 1px solid rgba(30, 215, 96, 0.2); padding-bottom: 10px;">
-                <h3 style="color: #1ed760; letter-spacing: 1px; font-family: var(--font-secondary); font-weight: 800; font-size: 16px;">CONNECT SPOTIFY SYNC</h3>
-                <button class="modal-close-btn" id="spotify-modal-close-btn" style="color: #94a3b8; font-size: 20px; background: none; border: none; cursor: pointer;">&times;</button>
+        <div class="modal-card" style="max-width: 380px; border-color: #1ed760; background: rgba(5, 5, 10, 0.96); box-shadow: 0 0 40px rgba(30, 215, 96, 0.2);">
+            <div class="modal-header" style="border-bottom: 1px solid rgba(30, 215, 96, 0.15); padding-bottom: 12px;">
+                <h3 style="color: #1ed760; letter-spacing: 1px; font-family: var(--font-secondary); font-weight: 800; font-size: 15px;">SPOTIFY CHROMA SYNC</h3>
+                <button class="modal-close-btn" id="spotify-modal-close-btn">&times;</button>
             </div>
-            <div class="modal-body" style="line-height: 1.5; padding-top: 15px;">
-                <p style="margin: 0 0 16px 0; font-size: 12.5px; color: var(--text-primary); opacity: 0.9; text-align: center;">
-                    Paste your Spotify **Client ID** below to link your player. This is a one-time connection stored securely in your local browser storage.
+            <div class="modal-body" style="padding-top: 18px; line-height: 1.6; text-align: center;">
+                <div style="font-size: 38px; margin-bottom: 12px;">🎧</div>
+                <p style="font-size: 13px; color: var(--text-primary); margin: 0 0 8px 0; font-weight: 600;">Sync your visuals to Spotify</p>
+                <p style="font-size: 11.5px; color: #94a3b8; margin: 0 0 22px 0;">
+                    Click below to log in with your Spotify account. Eternal Veil will read your currently playing track to sync beats, energy, and pitch to the visuals in real time.
                 </p>
-                <div class="control-item" style="margin-bottom: 16px;">
-                    <input type="text" id="spotify-modal-client-id" class="dropdown-select" style="width: 100%; font-size: 12px; padding: 10px; font-family: monospace; background: rgba(0,0,0,0.5); text-align: center; border: 1px solid rgba(30, 215, 96, 0.25); border-radius: 6px; color: #fff;" placeholder="Paste Client ID here">
-                </div>
-                <div style="font-size: 11px; color: #94a3b8; margin-bottom: 20px; text-align: center; line-height: 1.45;">
-                    Don't have a Client ID? Create one at the <a href="https://developer.spotify.com/dashboard" target="_blank" style="color: #1ed760; text-decoration: underline; font-weight: 600;">Spotify Developer Dashboard</a> with redirect URI:
-                    <div style="background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 10.5px; color: #fff; margin-top: 5px; border: 1px solid rgba(255,255,255,0.05); user-select: all;">https://eternal-veil.netlify.app/</div>
-                </div>
-                <button class="btn btn-primary" id="spotify-modal-submit-btn" style="width: 100%; background: #1ed760; border-color: #1ed760; color: #000; font-weight: 800; padding: 10px; border-radius: 6px; cursor: pointer; transition: all 0.2s ease;">
-                    Authenticate & Connect
+                <button class="btn btn-primary" id="spotify-modal-submit-btn" style="width: 100%; background: #1ed760; border-color: #1ed760; color: #000; font-weight: 800; font-size: 13px; padding: 12px; border-radius: 8px; letter-spacing: 0.5px;">
+                    Log in with Spotify
                 </button>
+                <p style="font-size: 10px; color: #475569; margin-top: 14px;">You will be redirected to Spotify's secure login. No personal data is stored.</p>
             </div>
         </div>
     </div>

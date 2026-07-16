@@ -479,8 +479,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- SPOTIFY SYNC ENGINE ---
     const SpotifySyncEngine = {
+        // Hardcoded app Client ID — users log in with their own Spotify account
+        clientId: "14ba7e82514945efa75a866cc7c3f223",
         accessToken: null,
-        clientId: null,
         playbackInterval: null,
         currentlyPlayingTrackId: null,
         audioAnalysis: null,
@@ -495,17 +496,10 @@ document.addEventListener("DOMContentLoaded", () => {
         lastBeatIndex: -1,
         
         init() {
-            // Restore Client ID from localStorage
-            this.clientId = localStorage.getItem("spotify_client_id") || "";
-            if (this.clientId) {
-                elements.spotifyClientIdInput.value = this.clientId;
-                elements.spotifyModalClientId.value = this.clientId;
-            }
-            
-            // Check for hash access token
+            // Check for hash access token on return from Spotify auth
             this.extractTokenFromHash();
             
-            // Restore session token if valid
+            // Restore session token if still valid
             this.accessToken = sessionStorage.getItem("spotify_access_token") || null;
             const tokenExpiresAt = Number(sessionStorage.getItem("spotify_access_token_expires_at") || 0);
             if (this.accessToken && Date.now() < tokenExpiresAt) {
@@ -514,56 +508,23 @@ document.addEventListener("DOMContentLoaded", () => {
                 this.onDisconnected();
             }
 
-            // Sync input changes
-            elements.spotifyClientIdInput.addEventListener("input", () => {
-                this.clientId = elements.spotifyClientIdInput.value.trim();
-                elements.spotifyModalClientId.value = this.clientId;
-                localStorage.setItem("spotify_client_id", this.clientId);
-            });
-            elements.spotifyModalClientId.addEventListener("input", () => {
-                this.clientId = elements.spotifyModalClientId.value.trim();
-                elements.spotifyClientIdInput.value = this.clientId;
-                localStorage.setItem("spotify_client_id", this.clientId);
-            });
-            
-            // Tab 4 button action
+            // Tab 4 panel button
             elements.spotifyConnectBtn.addEventListener("click", () => {
-                if (this.accessToken) {
-                    this.disconnect();
-                } else {
-                    this.connect();
-                }
+                if (this.accessToken) { this.disconnect(); } else { this.connect(); }
             });
 
-            // Quick button action (top right header)
+            // Top-right quick button — one click, straight to Spotify auth
             elements.spotifyQuickBtn.addEventListener("click", () => {
-                if (this.accessToken) {
-                    this.disconnect();
-                } else {
-                    this.clientId = localStorage.getItem("spotify_client_id") || "";
-                    if (!this.clientId) {
-                        elements.spotifyModal.classList.remove("hidden");
-                    } else {
-                        this.connect();
-                    }
-                }
+                if (this.accessToken) { this.disconnect(); } else { this.connect(); }
             });
 
-            // Modal UI actions
-            elements.spotifyModalCloseBtn.addEventListener("click", () => {
-                elements.spotifyModal.classList.add("hidden");
-            });
-
+            // Modal connect / close
             elements.spotifyModalSubmitBtn.addEventListener("click", () => {
-                this.clientId = elements.spotifyModalClientId.value.trim();
-                if (!this.clientId) {
-                    showToast("Please enter a Client ID to connect.");
-                    return;
-                }
-                localStorage.setItem("spotify_client_id", this.clientId);
-                elements.spotifyClientIdInput.value = this.clientId;
                 elements.spotifyModal.classList.add("hidden");
                 this.connect();
+            });
+            elements.spotifyModalCloseBtn.addEventListener("click", () => {
+                elements.spotifyModal.classList.add("hidden");
             });
         },
         
@@ -598,20 +559,9 @@ document.addEventListener("DOMContentLoaded", () => {
         },
         
         connect() {
-            this.clientId = elements.spotifyClientIdInput.value.trim();
-            if (!this.clientId) {
-                showToast("Please enter a valid Spotify Client ID first.");
-                return;
-            }
-            
-            localStorage.setItem("spotify_client_id", this.clientId);
-            
             const scopes = "user-read-currently-playing user-read-playback-state";
             const redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
-            
-            const authUrl = `https://accounts.spotify.com/authorize?client_id=${this.clientId}&response_type=token&redirect_uri=${redirectUri}&scope=${encodeURIComponent(scopes)}&show_dialog=true`;
-            
-            // Redirect user to Spotify authorization page
+            const authUrl = `https://accounts.spotify.com/authorize?client_id=${this.clientId}&response_type=token&redirect_uri=${redirectUri}&scope=${encodeURIComponent(scopes)}`;
             window.location.href = authUrl;
         },
         
