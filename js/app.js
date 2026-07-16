@@ -710,9 +710,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 
                 if (response.status === 204 || response.status === 404) {
                     // Nothing playing
-                    elements.spotifyTrackName.textContent = "No active song";
-                    elements.spotifyArtistName.textContent = "Play a song in Spotify";
-                    elements.spotifySyncTempo.textContent = "Waiting for playback...";
+                    if (elements.spotifyTrackName) elements.spotifyTrackName.textContent = "No active song";
+                    if (elements.spotifyArtistName) elements.spotifyArtistName.textContent = "Play a song in Spotify";
+                    if (elements.spotifySyncTempo) elements.spotifySyncTempo.textContent = "Waiting for playback...";
                     this.isPlaying = false;
                     
                     if (elements.spotifyHudInfo) {
@@ -732,9 +732,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 this.lastFetchLocalTime = Date.now();
                 
                 const track = data.item;
-                elements.spotifyTrackName.textContent = track.name;
-                elements.spotifyArtistName.textContent = track.artists.map(a => a.name).join(", ");
-                elements.spotifyQuickBtn.setAttribute("data-tooltip", `Synced: ${track.name} - ${track.artists[0].name} (Click to Disconnect)`);
+                if (elements.spotifyTrackName) elements.spotifyTrackName.textContent = track.name;
+                if (elements.spotifyArtistName) elements.spotifyArtistName.textContent = track.artists.map(a => a.name).join(", ");
+                if (elements.spotifyQuickBtn) elements.spotifyQuickBtn.setAttribute("data-tooltip", `Synced: ${track.name} - ${track.artists[0].name} (Click to Disconnect)`);
                 
                 if (track.id !== this.currentlyPlayingTrackId) {
                     this.currentlyPlayingTrackId = track.id;
@@ -782,7 +782,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!this.accessToken) return;
             
             try {
-                elements.spotifySyncTempo.textContent = "Analyzing track blueprint...";
+                if (elements.spotifySyncTempo) elements.spotifySyncTempo.textContent = "Analyzing track blueprint...";
                 const response = await fetch(`https://api.spotify.com/v1/audio-analysis/${trackId}`, {
                     headers: {
                         "Authorization": `Bearer ${this.accessToken}`
@@ -796,18 +796,18 @@ document.addEventListener("DOMContentLoaded", () => {
                     // Display tempo info
                     if (data && data.track) {
                         const bpm = Math.round(data.track.tempo);
-                        elements.spotifySyncTempo.textContent = `Synced • ${bpm} BPM`;
+                        if (elements.spotifySyncTempo) elements.spotifySyncTempo.textContent = `Synced • ${bpm} BPM`;
                     }
                     
                     // Reset beat state
                     this.lastBeatIndex = -1;
                     CosmicLogger.info(`[SpotifySync] Successfully loaded audio analysis for: ${this.trackInfo.name}`);
                 } else {
-                    elements.spotifySyncTempo.textContent = "Analysis unavailable";
+                    if (elements.spotifySyncTempo) elements.spotifySyncTempo.textContent = "Analysis unavailable";
                 }
             } catch (error) {
                 console.error("[SpotifySync] Fetching audio analysis failed:", error);
-                elements.spotifySyncTempo.textContent = "Sync failed";
+                if (elements.spotifySyncTempo) elements.spotifySyncTempo.textContent = "Sync failed";
             }
         },
         
