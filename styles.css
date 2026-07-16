@@ -319,13 +319,27 @@ body {
 .icon-btn.highlight svg {
     animation: none;
 }
-.icon-btn.highlight:hover svg {
-    animation: rotateGear 6s linear infinite;
+.icon-btn.highlight:hover .slider-notch-1 {
+    animation: slideNotch1 1.0s ease-in-out infinite alternate;
+}
+.icon-btn.highlight:hover .slider-notch-2 {
+    animation: slideNotch2 1.0s ease-in-out infinite alternate;
+}
+.icon-btn.highlight:hover .slider-notch-3 {
+    animation: slideNotch3 1.0s ease-in-out infinite alternate;
 }
 
-@keyframes rotateGear {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+@keyframes slideNotch1 {
+    0% { transform: translateY(0px); }
+    100% { transform: translateY(-4px); }
+}
+@keyframes slideNotch2 {
+    0% { transform: translateY(0px); }
+    100% { transform: translateY(4px); }
+}
+@keyframes slideNotch3 {
+    0% { transform: translateY(0px); }
+    100% { transform: translateY(-2.5px); }
 }
 
 .icon-btn .hide {
