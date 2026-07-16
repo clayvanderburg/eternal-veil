@@ -1197,6 +1197,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 </div>
             `;
             throw new Error("Domain lock triggered: unauthorized hostname mirror.");
+        }
         ConfigHistory.init();
         // Spotify integration retired; device-audio reaction is now the direct music path.
         ["spotify_access_token", "spotify_access_token_expires_at", "spotify_refresh_token", "spotify_pkce_verifier", "spotify_pre_auth_state"]
@@ -1830,7 +1831,7 @@ document.addEventListener("DOMContentLoaded", () => {
             showToast("Autopilot co-pilot engaged.");
         } else {
             document.body.classList.remove("autopilot-active");
-            elements.autopilotSettings.classList.hidden = true;
+            elements.autopilotSettings.classList.add("hidden");
             stopAutopilotIntervals();
             showToast("Autopilot co-pilot disengaged.");
         }
