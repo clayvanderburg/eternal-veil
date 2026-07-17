@@ -53,6 +53,13 @@ document.addEventListener("DOMContentLoaded", () => {
     let flowPersonality = localStorage.getItem("eternalVeilFlowPersonality") || "serene";
     if (!validFlowPersonalities.includes(flowPersonality)) flowPersonality = "serene";
     let isComfortMode = localStorage.getItem("eternalVeilComfortMode") === "true";
+    const validExperienceModes = ["flow", "meditation", "solid"];
+    let experienceMode = localStorage.getItem("eternalVeilExperienceMode") || "flow";
+    if (!validExperienceModes.includes(experienceMode)) experienceMode = "flow";
+    let breathingRhythm = localStorage.getItem("eternalVeilBreathingRhythm") || "relaxed";
+    if (!["relaxed", "box", "deep"].includes(breathingRhythm)) breathingRhythm = "relaxed";
+    let breathingCycleStartedAt = Date.now();
+    let autopilotBeforeMeditation = true;
     let activePresetLocks = [];
     let favoritePresetKeys = new Set();
     try {
@@ -396,6 +403,14 @@ document.addEventListener("DOMContentLoaded", () => {
         comfortModeToggle: document.getElementById("comfort-mode-toggle"),
         personalityButtons: document.querySelectorAll(".personality-btn"),
         flowPersonalityDescription: document.getElementById("flow-personality-description"),
+        experienceModeButtons: document.querySelectorAll(".experience-mode-btn"),
+        experienceModeDescription: document.getElementById("experience-mode-description"),
+        meditationControls: document.getElementById("meditation-controls"),
+        breathingRhythmSelect: document.getElementById("breathing-rhythm-select"),
+        breathingGuideToggle: document.getElementById("breathing-guide-toggle"),
+        breathingGuide: document.getElementById("breathing-guide"),
+        breathingPhase: document.getElementById("breathing-phase"),
+        breathingCountdown: document.getElementById("breathing-countdown"),
         
         // Sliders & Controls
         speedSlider: document.getElementById("speed-slider"),
@@ -563,6 +578,7 @@ document.addEventListener("DOMContentLoaded", () => {
             randomizeAllParameters();
             CosmicLogger.info("Autopilot enabled and parameters randomized on launch.");
         }
+        setExperienceMode(experienceMode, { persist: false, announce: false, initial: true });
         captureHistoryState();
         
         setupEventListeners();
@@ -1093,6 +1109,101 @@ document.addEventListener("DOMContentLoaded", () => {
     function isFlowEnabled(key) {
         if (!isAutopilot) return false;
         return optionModes[key] !== "manual";
+    }
+
+    const breathingRhythms = {
+        relaxed: [
+            { name: "BREATHE IN", duration: 4, from: 0, to: 1 },
+            { name: "BREATHE OUT", duration: 6, from: 1, to: 0 }
+        ],
+        box: [
+            { name: "BREATHE IN", duration: 4, from: 0, to: 1 },
+            { name: "HOLD", duration: 4, from: 1, to: 1 },
+            { name: "BREATHE OUT", duration: 4, from: 1, to: 0 },
+            { name: "REST", duration: 4, from: 0, to: 0 }
+        ],
+        deep: [
+            { name: "BREATHE IN", duration: 5, from: 0, to: 1 },
+            { name: "HOLD", duration: 1, from: 1, to: 1 },
+            { name: "BREATHE OUT", duration: 7, from: 1, to: 0 },
+            { name: "REST", duration: 1, from: 0, to: 0 }
+        ]
+    };
+
+    function setExperienceMode(mode, { persist = true, announce = true, initial = false } = {}) {
+        experienceMode = validExperienceModes.includes(mode) ? mode : "flow";
+        if (persist) localStorage.setItem("eternalVeilExperienceMode", experienceMode);
+        document.body.classList.toggle("meditation-mode", experienceMode === "meditation");
+        document.body.classList.toggle("show-breathing-guide", experienceMode === "meditation" && elements.breathingGuideToggle.checked);
+        elements.experienceModeButtons.forEach(button => {
+            button.classList.toggle("active", button.dataset.experienceMode === experienceMode);
+        });
+        elements.meditationControls.classList.toggle("hidden", experienceMode !== "meditation");
+
+        const descriptions = {
+            flow: "Living visuals that continuously discover new configurations.",
+            meditation: "A coherent breathing sanctuary layered over any visual preset.",
+            solid: "A still field of uninterrupted color for ambient focus and chakra work."
+        };
+        elements.experienceModeDescription.textContent = descriptions[experienceMode];
+
+        if (experienceMode === "meditation") {
+            autopilotBeforeMeditation = isAutopilot;
+            if (isAutopilot) toggleAutopilot(false);
+            sim.isSolidMode = false;
+            elements.solidModeToggle.checked = false;
+            breathingCycleStartedAt = Date.now();
+            startMorph("speed", Math.min(sim.settings.speed, 0.42), 4200);
+            startMorph("turbulence", Math.min(sim.settings.turbulence, 0.22), 4200);
+            startMorph("rotationSpeed", Math.min(sim.settings.rotationSpeed, 0.055), 4200);
+            startMorph("wobble", Math.min(sim.settings.wobble, 0.12), 4200);
+        } else if (experienceMode === "solid") {
+            autopilotBeforeMeditation = isAutopilot;
+            if (isAutopilot) toggleAutopilot(false);
+            sim.isSolidMode = true;
+            elements.solidModeToggle.checked = true;
+            document.body.classList.remove("show-breathing-guide");
+            if (is3DMode) toggle3DMode(false);
+        } else {
+            sim.isSolidMode = false;
+            elements.solidModeToggle.checked = false;
+            document.body.classList.remove("show-breathing-guide");
+            if (!initial && autopilotBeforeMeditation && !isAutopilot) toggleAutopilot(true);
+        }
+        if (experienceMode !== "meditation") {
+            elements.canvas2D.style.transform = "";
+            elements.webglCanvas.style.transform = "";
+            if (sim3D?.world) sim3D.world.scale.setScalar(1);
+        }
+        elements.hudMode.textContent = experienceMode === "meditation" ? "MEDITATE" : (experienceMode === "solid" ? "SOLID" : "FLOW");
+        if (announce) showToast(`${experienceMode === "meditation" ? "Meditation" : experienceMode[0].toUpperCase() + experienceMode.slice(1)} mode active.`);
+    }
+
+    function processMeditationMode() {
+        if (experienceMode !== "meditation") return;
+        const phases = breathingRhythms[breathingRhythm] || breathingRhythms.relaxed;
+        const total = phases.reduce((sum, phase) => sum + phase.duration, 0);
+        let cursor = ((Date.now() - breathingCycleStartedAt) / 1000) % total;
+        let phase = phases[0];
+        for (const candidate of phases) {
+            if (cursor <= candidate.duration) { phase = candidate; break; }
+            cursor -= candidate.duration;
+        }
+        const progress = Math.max(0, Math.min(1, cursor / phase.duration));
+        const eased = 0.5 - Math.cos(progress * Math.PI) * 0.5;
+        const breathLevel = phase.from + (phase.to - phase.from) * eased;
+        const scale = 0.982 + breathLevel * 0.036;
+        elements.breathingGuide.style.setProperty("--breath-level", breathLevel.toFixed(3));
+        elements.breathingPhase.textContent = phase.name;
+        elements.breathingCountdown.textContent = Math.max(1, Math.ceil(phase.duration - cursor));
+        elements.canvas2D.style.transform = `scale(${scale.toFixed(4)})`;
+        if (is3DMode && sim3D?.usesFlowTexture === false && sim3D.world) {
+            elements.webglCanvas.style.transform = "";
+            sim3D.world.scale.setScalar(0.985 + breathLevel * 0.03);
+        } else {
+            elements.webglCanvas.style.transform = `scale(${scale.toFixed(4)})`;
+        }
+        elements.hudMode.textContent = is3DMode ? "MEDITATE 3D" : "MEDITATE";
     }
 
     function setOptionToManual(key) {
@@ -1680,6 +1791,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 lastRenderTime = now;
 
                 processMusicReactivity();
+                processMeditationMode();
                 processMorphs();
                 
                 // Track music pulse and treble intensity in both renderers
@@ -1920,6 +2032,19 @@ document.addEventListener("DOMContentLoaded", () => {
             button.onclick = () => setFlowPersonality(button.dataset.personality);
         });
         elements.comfortModeToggle.onchange = () => setComfortMode(elements.comfortModeToggle.checked);
+        elements.experienceModeButtons.forEach(button => {
+            button.onclick = () => setExperienceMode(button.dataset.experienceMode);
+        });
+        elements.breathingRhythmSelect.value = breathingRhythm;
+        elements.breathingRhythmSelect.onchange = () => {
+            const requested = elements.breathingRhythmSelect.value;
+            breathingRhythm = breathingRhythms[requested] ? requested : "relaxed";
+            localStorage.setItem("eternalVeilBreathingRhythm", breathingRhythm);
+            breathingCycleStartedAt = Date.now();
+        };
+        elements.breathingGuideToggle.onchange = () => {
+            document.body.classList.toggle("show-breathing-guide", experienceMode === "meditation" && elements.breathingGuideToggle.checked);
+        };
         elements.autopilotColorToggle.onchange = () => {
             if (isAutopilot) startAutopilotIntervals();
         };
@@ -1984,10 +2109,7 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("ambient-glow").style.background = 
                 `radial-gradient(circle, ${sim.backgroundColor}88 0%, transparent 70%)`;
         };
-        elements.solidModeToggle.onchange = () => {
-            sim.isSolidMode = elements.solidModeToggle.checked;
-            elements.hudMode.textContent = sim.isSolidMode ? "SOLID" : "FLOW";
-        };
+        elements.solidModeToggle.onchange = () => setExperienceMode(elements.solidModeToggle.checked ? "solid" : "flow");
 
         // Bind Sliders to settings parameters
         const bindSlider = (slider, valText, settingKey, isDensity = false) => {
@@ -3154,6 +3276,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // Run real-time music reactivity modulation
         processMusicReactivity();
+        processMeditationMode();
         
         // Run physics morph morph transitions
         processMorphs();

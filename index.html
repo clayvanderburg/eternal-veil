@@ -30,13 +30,16 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     
     <!-- Custom Style Sheet -->
-    <link rel="stylesheet" href="styles.css?v=foundation-batch-1">
+    <link rel="stylesheet" href="styles.css?v=meditation-beta-1">
 </head>
 <body>
     <!-- Entry Splash Screen Overlay -->
     <div id="splash-screen" class="splash-overlay">
         <div class="splash-card">
-            <h1 class="splash-title">ETERNAL VEIL</h1>
+            <div class="splash-title-row">
+                <h1 class="splash-title">ETERNAL VEIL</h1>
+                <span class="beta-badge beta-badge-splash">BETA</span>
+            </div>
             <span class="splash-subtitle">IMMERSIVE GENERATIVE SANCTUARY</span>
             
             <p class="splash-text">
@@ -67,6 +70,12 @@
     <!-- Glowing Background Ambient Gradients -->
     <div class="ambient-glow" id="ambient-glow"></div>
 
+    <div class="breathing-guide" id="breathing-guide" aria-live="polite">
+        <div class="breathing-orbit"><div class="breathing-core"></div></div>
+        <span class="breathing-phase" id="breathing-phase">BREATHE IN</span>
+        <span class="breathing-countdown" id="breathing-countdown">4</span>
+    </div>
+
     <!-- Headphones Overlay Warning Prompt -->
     <div id="headphones-prompt" class="headphones-prompt hidden">
         <span class="prompt-icon">🎧</span> Wear headphones for full binaural effect
@@ -75,7 +84,10 @@
     <!-- HUD Overlay (Top-Left) -->
     <header class="hud-container" id="hud">
         <div class="logo-area">
-            <h1 class="logo-title">ETERNAL VEIL</h1>
+            <div class="logo-title-row">
+                <h1 class="logo-title">ETERNAL VEIL</h1>
+                <span class="beta-badge">BETA</span>
+            </div>
             <span class="logo-subtitle">COSMIC FLOW GENERATOR</span>
         </div>
         
@@ -250,6 +262,34 @@
                         <input type="checkbox" id="comfort-mode-toggle">
                         <span class="switch-slider"></span>
                     </label>
+                </div>
+
+                <div class="setting-group experience-mode-control">
+                    <span class="setting-label-header">EXPERIENCE MODE</span>
+                    <div class="experience-mode-segments" role="group" aria-label="Experience mode">
+                        <button class="experience-mode-btn active" data-experience-mode="flow">Flow</button>
+                        <button class="experience-mode-btn" data-experience-mode="meditation">Meditate</button>
+                        <button class="experience-mode-btn" data-experience-mode="solid">Solid</button>
+                    </div>
+                    <p class="setting-desc" id="experience-mode-description">Living visuals that continuously discover new configurations.</p>
+                    <div class="meditation-controls hidden" id="meditation-controls">
+                        <label class="meditation-rhythm-label" for="breathing-rhythm-select">Breathing rhythm</label>
+                        <select id="breathing-rhythm-select" class="dropdown-select">
+                            <option value="relaxed">Relaxed · 4 in / 6 out</option>
+                            <option value="box">Box · 4 / 4 / 4 / 4</option>
+                            <option value="deep">Deep · 5 in / 1 / 7 out / 1</option>
+                        </select>
+                        <div class="control-row meditation-guide-row">
+                            <div class="control-row-info">
+                                <span class="setting-label">Show breathing guide</span>
+                                <p class="setting-desc">Hide it anytime for uninterrupted visual meditation.</p>
+                            </div>
+                            <label class="switch small">
+                                <input type="checkbox" id="breathing-guide-toggle" checked>
+                                <span class="switch-slider"></span>
+                            </label>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="setting-sub-group hidden" id="autopilot-settings">
@@ -911,6 +951,6 @@
     <script src="js/simulation.js?v=lotus-pinwheel-1"></script>
     <script src="js/simulation3d.js?v=90375e6"></script>
     <script src="js/simulation3d-native.js?v=lotus-pinwheel-1"></script>
-    <script src="js/app.js?v=serene-3d-beacon-1"></script>
+    <script src="js/app.js?v=meditation-beta-1"></script>
 </body>
 </html>
