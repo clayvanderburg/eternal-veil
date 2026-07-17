@@ -1305,7 +1305,7 @@ class NativeFlowSimulation3D {
         const inXR = this.renderer.xr.isPresenting;
         // Preserve the control's range while biasing native 3D toward a calmer,
         // more readable drift. Fast presets still accelerate, just less violently.
-        const targetSpeed = requestedSpeed * (inXR ? 0.42 : 0.58);
+        const targetSpeed = requestedSpeed * (inXR ? 0.42 : 0.58) * (s.meditationMotionScale || 1.0);
         this.sharedUniforms.uSpeed.value = THREE.MathUtils.lerp(
             this.sharedUniforms.uSpeed.value,
             targetSpeed,
@@ -1344,7 +1344,7 @@ class NativeFlowSimulation3D {
         this.sharedUniforms.uPointSize.value = (1.5 + Math.pow(sizePosition, 1.5) * 38.5) * meditationParticleScale;
         // Larger particles need longer spatial separation between glow samples;
         // otherwise a dramatic tail compresses into one fuzzy blob.
-        this.sharedUniforms.uTrailLength.value = 0.62 + sizePosition * 0.9;
+        this.sharedUniforms.uTrailLength.value = (0.62 + sizePosition * 0.9) * (s.meditationTailScale || 1.0);
 
         const density = Math.max(100, Math.min(8000, s.density ?? 1200));
         const densityPosition = (density - 100) / 7900;
@@ -1357,10 +1357,10 @@ class NativeFlowSimulation3D {
         // Dynamically budget glow energy as sprites get larger and more numerous.
         // This keeps contrast in the busiest presets before bounded blending has
         // to do all of the highlight protection by itself.
-        this.sharedUniforms.uGlowEnergy.value = Math.max(
+        this.sharedUniforms.uGlowEnergy.value = Math.min(1.08, Math.max(
             0.46,
             0.94 - densityPosition * 0.28 - sizePosition * 0.2
-        );
+        ) * (s.meditationGlowScale || 1.0));
         if (Math.abs(desiredCount - this.activeParticles) > 160) {
             this.setActiveParticleCount(desiredCount);
         }

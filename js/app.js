@@ -54,8 +54,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!validFlowPersonalities.includes(flowPersonality)) flowPersonality = "serene";
     let isComfortMode = localStorage.getItem("eternalVeilComfortMode") === "true";
     const validExperienceModes = ["flow", "meditation", "solid"];
-    let experienceMode = localStorage.getItem("eternalVeilExperienceMode") || "flow";
-    if (!validExperienceModes.includes(experienceMode)) experienceMode = "flow";
+    // Always open in the approachable general-purpose Flow experience. Modes are
+    // intentional session choices; Meditation must never surprise a returning user.
+    let experienceMode = "flow";
     let breathingRhythm = localStorage.getItem("eternalVeilBreathingRhythm") || "relaxed";
     if (!["relaxed", "box", "deep"].includes(breathingRhythm)) breathingRhythm = "relaxed";
     let breathingCycleStartedAt = Date.now();
@@ -1132,7 +1133,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function setExperienceMode(mode, { persist = true, announce = true, initial = false } = {}) {
         experienceMode = validExperienceModes.includes(mode) ? mode : "flow";
-        if (persist) localStorage.setItem("eternalVeilExperienceMode", experienceMode);
+        if (persist) localStorage.removeItem("eternalVeilExperienceMode");
         document.body.classList.toggle("meditation-mode", experienceMode === "meditation");
         document.body.classList.toggle("show-breathing-guide", experienceMode === "meditation" && elements.breathingGuideToggle.checked);
         elements.experienceModeButtons.forEach(button => {
@@ -1173,6 +1174,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (experienceMode !== "meditation") {
             delete sim.settings.meditationBreathLevel;
             delete sim.settings.meditationFieldScale;
+            delete sim.settings.meditationTailScale;
+            delete sim.settings.meditationGlowScale;
+            delete sim.settings.meditationMotionScale;
             elements.canvas2D.style.transform = "";
             elements.webglCanvas.style.transform = "";
             if (sim3D?.world) sim3D.world.scale.setScalar(1);
@@ -1194,9 +1198,14 @@ document.addEventListener("DOMContentLoaded", () => {
         const progress = Math.max(0, Math.min(1, cursor / phase.duration));
         const eased = 0.5 - Math.cos(progress * Math.PI) * 0.5;
         const breathLevel = phase.from + (phase.to - phase.from) * eased;
-        const scale = 0.90 + breathLevel * 0.22;
+        // Camera zoom never drops below 100%, so breathing cannot uncover an edge.
+        // Most of the visible breath comes from the particles themselves below.
+        const scale = 1.0 + breathLevel * 0.075;
         sim.settings.meditationBreathLevel = breathLevel;
         sim.settings.meditationFieldScale = scale;
+        sim.settings.meditationTailScale = 0.72 + breathLevel * 0.58;
+        sim.settings.meditationGlowScale = 0.72 + breathLevel * 0.42;
+        sim.settings.meditationMotionScale = 0.78 + breathLevel * 0.34;
         elements.breathingGuide.style.setProperty("--breath-level", breathLevel.toFixed(3));
         elements.breathingPhase.textContent = phase.name;
         elements.breathingCountdown.textContent = Math.max(1, Math.ceil(phase.duration - cursor));
@@ -1206,7 +1215,7 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.canvas2D.style.transform = "";
         elements.webglCanvas.style.transform = "";
         if (is3DMode && sim3D?.usesFlowTexture === false && sim3D.world) {
-            sim3D.world.scale.setScalar(0.91 + breathLevel * 0.21);
+            sim3D.world.scale.setScalar(scale);
         }
         elements.hudMode.textContent = is3DMode ? "MEDITATE 3D" : "MEDITATE";
     }

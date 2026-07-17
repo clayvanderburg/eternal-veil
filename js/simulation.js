@@ -304,7 +304,7 @@ class Particle {
         
         // Get natural flow forces (Curl vs Turbulence)
         const zoom = settings.zoom || 1.0;
-        const speed = settings.speed || 1.0;
+        const speed = (settings.speed || 1.0) * (settings.meditationMotionScale || 1.0);
         const flowFreq = 0.007 / zoom;
         const organic = settings.flowOrganic ?? 0.85;
         const turb = settings.turbulence ?? 0.65;
@@ -880,8 +880,9 @@ class Particle {
         const scaleRef = Math.max(0.4, this.viewportScale || 1.0);
         
         // Dynamic transparency fades based on age and particle preset styles
-        const alpha = lifeRatio * 0.78;
-        const stretch = settings.stretch ?? 1.6;
+        const meditationGlowScale = settings.meditationGlowScale || 1.0;
+        const alpha = lifeRatio * 0.78 * meditationGlowScale;
+        const stretch = (settings.stretch ?? 1.6) * (settings.meditationTailScale || 1.0);
         let shape = settings.particleShape || "ellipse";
         
         // Base sizes scaled proportionally to screen width (using cached randomSizeOffset to save CPU)
