@@ -1200,12 +1200,12 @@ document.addEventListener("DOMContentLoaded", () => {
         const breathLevel = phase.from + (phase.to - phase.from) * eased;
         // Camera zoom never drops below 100%, so breathing cannot uncover an edge.
         // Most of the visible breath comes from the particles themselves below.
-        const scale = 1.0 + breathLevel * 0.075;
+        const scale = 1.0 + breathLevel * 0.06;
         sim.settings.meditationBreathLevel = breathLevel;
         sim.settings.meditationFieldScale = scale;
-        sim.settings.meditationTailScale = 0.72 + breathLevel * 0.58;
-        sim.settings.meditationGlowScale = 0.72 + breathLevel * 0.42;
-        sim.settings.meditationMotionScale = 0.78 + breathLevel * 0.34;
+        sim.settings.meditationTailScale = 0.52 + breathLevel * 1.08;
+        sim.settings.meditationGlowScale = 0.58 + breathLevel * 0.76;
+        sim.settings.meditationMotionScale = 0.62 + breathLevel * 0.68;
         elements.breathingGuide.style.setProperty("--breath-level", breathLevel.toFixed(3));
         elements.breathingPhase.textContent = phase.name;
         elements.breathingCountdown.textContent = Math.max(1, Math.ceil(phase.duration - cursor));

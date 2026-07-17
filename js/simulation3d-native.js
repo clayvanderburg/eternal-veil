@@ -410,6 +410,7 @@ class NativeFlowSimulation3D {
             uGlowEnergy: { value: 0.78 },
             uEffectMode: { value: 0 },
             uLightingStyle: { value: 0 },
+            uMeditationBreath: { value: -1 },
             uPalette: { value: colors }
         };
     }
@@ -441,6 +442,7 @@ class NativeFlowSimulation3D {
             uniform float uShock;
             uniform float uShockRadius;
             uniform float uEffectMode;
+            uniform float uMeditationBreath;
             uniform vec3 uPalette[6];
 
             varying vec3 vColor;
@@ -463,7 +465,14 @@ class NativeFlowSimulation3D {
                 c = mix(c, uPalette[4], step(3.5, indexValue));
                 c = mix(c, uPalette[5], step(4.5, indexValue));
                 // Lift dark palettes into emissive VR space without destroying hue.
-                return pow(max(c, vec3(0.001)), vec3(0.62));
+                vec3 lifted = pow(max(c, vec3(0.001)), vec3(0.62));
+                if (uMeditationBreath < 0.0) return lifted;
+                float breath = clamp(uMeditationBreath, 0.0, 1.0);
+                float luminance = dot(lifted, vec3(0.2126, 0.7152, 0.0722));
+                float saturation = mix(1.30, 0.92, breath);
+                vec3 saturated = mix(vec3(luminance), lifted, saturation);
+                vec3 temperature = mix(vec3(0.80, 0.94, 1.16), vec3(1.16, 1.03, 0.82), breath);
+                return saturated * temperature * mix(0.72, 1.28, breath);
             }
 
             vec3 flowPosition(float trailAmount) {
@@ -1338,9 +1347,10 @@ class NativeFlowSimulation3D {
         const baseSize = Math.max(0.1, Math.min(14.0, s.baseSize ?? 2.8));
         const sizePosition = (baseSize - 0.1) / 13.9;
         const meditationBreath = Math.max(0, Math.min(1, s.meditationBreathLevel || 0));
+        this.sharedUniforms.uMeditationBreath.value = s.meditationBreathLevel === undefined ? -1 : meditationBreath;
         const meditationParticleScale = s.meditationBreathLevel === undefined
             ? 1
-            : 0.76 + meditationBreath * 0.72;
+            : 0.56 + meditationBreath * 1.28;
         this.sharedUniforms.uPointSize.value = (1.5 + Math.pow(sizePosition, 1.5) * 38.5) * meditationParticleScale;
         // Larger particles need longer spatial separation between glow samples;
         // otherwise a dramatic tail compresses into one fuzzy blob.

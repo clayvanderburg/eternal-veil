@@ -889,7 +889,7 @@ class Particle {
         const meditationBreath = Math.max(0, Math.min(1, settings.meditationBreathLevel || 0));
         const meditationParticleScale = settings.meditationBreathLevel === undefined
             ? 1
-            : 0.76 + meditationBreath * 0.72;
+            : 0.56 + meditationBreath * 1.28;
         const size = Math.max(0.4, (settings.baseSize + this.randomSizeOffset * settings.sizeVariation) * (0.6 + lifeRatio * 0.5))
             * scaleRef * meditationParticleScale;
         
@@ -1416,6 +1416,18 @@ class FlowSimulation {
             this.ctx.globalAlpha = Math.max(0.001, Math.min(1.0, dissipationFactor));
             this.ctx.fillRect(0, 0, this.width, this.height);
             this.ctx.globalAlpha = 1.0;
+
+            // Color-temperature breathing belongs to the particles, not the
+            // background: exhale is darker/cooler/more saturated; inhale becomes
+            // brighter, warmer, and slightly softer. Canvas filters apply to all
+            // authored particle forms without per-particle color parsing overhead.
+            if (this.settings.meditationBreathLevel !== undefined) {
+                const colorBreath = Math.max(0, Math.min(1, this.settings.meditationBreathLevel));
+                const brightness = 0.72 + colorBreath * 0.56;
+                const saturation = 1.34 - colorBreath * 0.34;
+                const hueRotation = 10 - colorBreath * 18;
+                this.ctx.filter = `brightness(${brightness.toFixed(3)}) saturate(${saturation.toFixed(3)}) hue-rotate(${hueRotation.toFixed(2)}deg)`;
+            }
 
             // Meditation breathes the rendered world, not the canvas element.
             // The full-viewport background above therefore remains seamless at
