@@ -1171,6 +1171,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!initial && autopilotBeforeMeditation && !isAutopilot) toggleAutopilot(true);
         }
         if (experienceMode !== "meditation") {
+            delete sim.settings.meditationBreathLevel;
             elements.canvas2D.style.transform = "";
             elements.webglCanvas.style.transform = "";
             if (sim3D?.world) sim3D.world.scale.setScalar(1);
@@ -1192,14 +1193,15 @@ document.addEventListener("DOMContentLoaded", () => {
         const progress = Math.max(0, Math.min(1, cursor / phase.duration));
         const eased = 0.5 - Math.cos(progress * Math.PI) * 0.5;
         const breathLevel = phase.from + (phase.to - phase.from) * eased;
-        const scale = 0.982 + breathLevel * 0.036;
+        const scale = 0.90 + breathLevel * 0.22;
+        sim.settings.meditationBreathLevel = breathLevel;
         elements.breathingGuide.style.setProperty("--breath-level", breathLevel.toFixed(3));
         elements.breathingPhase.textContent = phase.name;
         elements.breathingCountdown.textContent = Math.max(1, Math.ceil(phase.duration - cursor));
         elements.canvas2D.style.transform = `scale(${scale.toFixed(4)})`;
         if (is3DMode && sim3D?.usesFlowTexture === false && sim3D.world) {
             elements.webglCanvas.style.transform = "";
-            sim3D.world.scale.setScalar(0.985 + breathLevel * 0.03);
+            sim3D.world.scale.setScalar(0.91 + breathLevel * 0.21);
         } else {
             elements.webglCanvas.style.transform = `scale(${scale.toFixed(4)})`;
         }

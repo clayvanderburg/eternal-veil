@@ -885,7 +885,12 @@ class Particle {
         let shape = settings.particleShape || "ellipse";
         
         // Base sizes scaled proportionally to screen width (using cached randomSizeOffset to save CPU)
-        const size = Math.max(0.4, (settings.baseSize + this.randomSizeOffset * settings.sizeVariation) * (0.6 + lifeRatio * 0.5)) * scaleRef;
+        const meditationBreath = Math.max(0, Math.min(1, settings.meditationBreathLevel || 0));
+        const meditationParticleScale = settings.meditationBreathLevel === undefined
+            ? 1
+            : 0.76 + meditationBreath * 0.72;
+        const size = Math.max(0.4, (settings.baseSize + this.randomSizeOffset * settings.sizeVariation) * (0.6 + lifeRatio * 0.5))
+            * scaleRef * meditationParticleScale;
         
         let drawSize = size;
         let drawAlpha = alpha;

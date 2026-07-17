@@ -1337,7 +1337,11 @@ class NativeFlowSimulation3D {
         // range: 1.5px–40px before distance, random scale, and music pulses.
         const baseSize = Math.max(0.1, Math.min(14.0, s.baseSize ?? 2.8));
         const sizePosition = (baseSize - 0.1) / 13.9;
-        this.sharedUniforms.uPointSize.value = 1.5 + Math.pow(sizePosition, 1.5) * 38.5;
+        const meditationBreath = Math.max(0, Math.min(1, s.meditationBreathLevel || 0));
+        const meditationParticleScale = s.meditationBreathLevel === undefined
+            ? 1
+            : 0.76 + meditationBreath * 0.72;
+        this.sharedUniforms.uPointSize.value = (1.5 + Math.pow(sizePosition, 1.5) * 38.5) * meditationParticleScale;
         // Larger particles need longer spatial separation between glow samples;
         // otherwise a dramatic tail compresses into one fuzzy blob.
         this.sharedUniforms.uTrailLength.value = 0.62 + sizePosition * 0.9;
