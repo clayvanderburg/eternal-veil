@@ -3,6 +3,7 @@ const fs = require("fs");
 const html = fs.readFileSync("index.html", "utf8");
 const app = fs.readFileSync("js/app.js", "utf8");
 const css = fs.readFileSync("styles.css", "utf8");
+const presets = fs.readFileSync("js/presets.js", "utf8");
 
 function check(condition, message) {
     if (!condition) throw new Error(message);
@@ -23,6 +24,10 @@ check(app.includes("breathingPalette"), "2D palette-level color-temperature brea
 check(!fs.readFileSync("js/simulation.js", "utf8").includes("this.ctx.filter ="), "Meditation must not use an expensive full-canvas filter");
 check(fs.readFileSync("js/simulation3d-native.js", "utf8").includes("uMeditationBreath"), "native 3D color-temperature breathing is missing");
 check(css.includes(".meditation-controls.hidden"), "Meditation controls must be hidden outside Meditation mode");
+check(presets.includes("breathSanctuary"), "Dedicated Breath Sanctuary preset is missing");
+check(presets.includes('particleShape: "lotus"'), "Breath Sanctuary should use the authored lotus composition");
+check(app.includes('loadPreset("breathSanctuary")'), "Meditation must default to Breath Sanctuary");
+check(app.includes("preMeditationState"), "Leaving Meditation should restore the prior Flow configuration");
 check(app.includes('let experienceMode = "flow"'), "Eternal Veil must always start in Flow mode");
 check(app.includes('elements.canvas2D.style.transform = ""'), "Meditation must keep the 2D canvas covering the viewport");
 check(fs.readFileSync("js/simulation.js", "utf8").includes("this.ctx.scale(meditationFieldScale, meditationFieldScale)"), "2D breathing should scale the rendered world internally");

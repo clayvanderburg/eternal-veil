@@ -3,6 +3,32 @@
 // ==========================================================================
 
 const StylePresets = {
+    breathSanctuary: {
+        name: "Breath Sanctuary",
+        desc: "A spacious lotus field composed specifically for Meditation's inhale, hold, exhale, and rest cycle.",
+        meditationPreset: true,
+        speed: 0.30,
+        turbulence: 0.08,
+        curl: 0.98,
+        density: 1050,
+        dissipation: 0.016,
+        zoom: 0.92,
+        size: 4.2,
+        sizeVar: 1.25,
+        stretch: 0.72,
+        interaction: 0.55,
+        rotationSpeed: 0.025,
+        wobble: 0.08,
+        colors: ["#312e81", "#4f46e5", "#7c3aed", "#0f766e", "#5eead4", "#f0abfc"],
+        particleShape: "lotus",
+        particleLighting: "reactive",
+        psychedelicMode: false,
+        morphingBg: false,
+        spinningKaleido: false,
+        kaleidoscopeEnabled: false,
+        bilateralEnabled: false,
+        asmrEnabled: false
+    },
     ethereal: {
         name: "Ethereal Aura",
         desc: "Slow-drifting, highly fading cosmic mist with indigo-violet whispers.",

@@ -173,6 +173,16 @@ body.meditation-mode.show-breathing-guide .breathing-guide { opacity: 0.86; }
 .experience-mode-btn.active { color: #eef2ff; background: linear-gradient(135deg, rgba(99,102,241,.55), rgba(168,85,247,.35)); box-shadow: 0 0 18px rgba(129,140,248,.16); }
 .meditation-controls { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.07); }
 .meditation-controls.hidden { display: none !important; }
+.meditation-preset-badge {
+    margin-left: auto;
+    padding: 2px 6px;
+    border: 1px solid rgba(196, 181, 253, 0.28);
+    border-radius: 999px;
+    color: #c4b5fd;
+    background: rgba(124, 58, 237, 0.14);
+    font: 600 8px/1 var(--font-mono);
+    letter-spacing: 0.12em;
+}
 .meditation-rhythm-label { display: block; margin-bottom: 6px; color: var(--text-secondary); font-size: 10px; }
 .meditation-guide-row { margin-top: 10px; }
 @media (prefers-reduced-motion: reduce) { .breathing-orbit { transition: none; } }

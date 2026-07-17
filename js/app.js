@@ -61,6 +61,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!["relaxed", "box", "deep"].includes(breathingRhythm)) breathingRhythm = "relaxed";
     let breathingCycleStartedAt = Date.now();
     let lastMeditationPaletteUpdateAt = 0;
+    let preMeditationState = null;
     let autopilotBeforeMeditation = true;
     let activePresetLocks = [];
     let favoritePresetKeys = new Set();
@@ -873,6 +874,7 @@ document.addEventListener("DOMContentLoaded", () => {
             card.innerHTML = `
                 <div class="preset-card-heading">
                     <div class="preset-name">${p.name}</div>
+                    ${p.meditationPreset ? '<span class="meditation-preset-badge">MEDITATE</span>' : ''}
                     <button class="preset-favorite${favoritePresetKeys.has(key) ? " active" : ""}" aria-label="${favoritePresetKeys.has(key) ? "Remove" : "Add"} ${p.name} ${favoritePresetKeys.has(key) ? "from" : "to"} favorites" title="Favorite preset">★</button>
                 </div>
                 <div class="preset-desc">${p.desc}</div>
@@ -1133,6 +1135,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     function setExperienceMode(mode, { persist = true, announce = true, initial = false } = {}) {
+        const previousMode = experienceMode;
         experienceMode = validExperienceModes.includes(mode) ? mode : "flow";
         if (persist) localStorage.removeItem("eternalVeilExperienceMode");
         document.body.classList.toggle("meditation-mode", experienceMode === "meditation");
@@ -1150,15 +1153,21 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.experienceModeDescription.textContent = descriptions[experienceMode];
 
         if (experienceMode === "meditation") {
+            if (previousMode !== "meditation") {
+                preMeditationState = {
+                    settings: { ...sim.settings },
+                    palette: [...sim.palette],
+                    backgroundColor: sim.backgroundColor,
+                    isSolidMode: false,
+                    presetKey: lastPresetKey
+                };
+            }
             autopilotBeforeMeditation = isAutopilot;
             if (isAutopilot) toggleAutopilot(false);
             sim.isSolidMode = false;
             elements.solidModeToggle.checked = false;
             breathingCycleStartedAt = Date.now();
-            startMorph("speed", Math.min(sim.settings.speed, 0.42), 4200);
-            startMorph("turbulence", Math.min(sim.settings.turbulence, 0.22), 4200);
-            startMorph("rotationSpeed", Math.min(sim.settings.rotationSpeed, 0.055), 4200);
-            startMorph("wobble", Math.min(sim.settings.wobble, 0.12), 4200);
+            if (lastPresetKey !== "breathSanctuary") loadPreset("breathSanctuary");
         } else if (experienceMode === "solid") {
             autopilotBeforeMeditation = isAutopilot;
             if (isAutopilot) toggleAutopilot(false);
@@ -1170,6 +1179,17 @@ document.addEventListener("DOMContentLoaded", () => {
             sim.isSolidMode = false;
             elements.solidModeToggle.checked = false;
             document.body.classList.remove("show-breathing-guide");
+            if (preMeditationState) {
+                const restoreState = preMeditationState;
+                preMeditationState = null;
+                applyHistoryState(restoreState);
+                if (restoreState.presetKey && StylePresets[restoreState.presetKey]) {
+                    lastPresetKey = restoreState.presetKey;
+                    activePresetLocks = getPresetSignatureKeys(StylePresets[lastPresetKey]);
+                    activePresetLocks.forEach(setOptionToManual);
+                    buildPresetCards();
+                }
+            }
             if (!initial && autopilotBeforeMeditation && !isAutopilot) toggleAutopilot(true);
         }
         if (experienceMode !== "meditation") {
