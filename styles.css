@@ -5,7 +5,7 @@
 /* Design Tokens & CSS Variables */
 :root {
     /* Color Palette - Cyber Cosmic Theme */
-    --bg-main: #030305;
+    --bg-main: #000000;
     --bg-panel: rgba(8, 8, 12, 0.75);
     --border-glass: rgba(255, 255, 255, 0.06);
     --border-glass-active: rgba(255, 255, 255, 0.15);

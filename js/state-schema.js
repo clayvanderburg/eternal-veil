@@ -125,10 +125,16 @@ const StateSchema = {
 
             // Palette and Background colors
             palette: this.sanitizePalette(rawState.palette, ["#6366f1"]),
-            backgroundColor: this.sanitizeHexColor(rawState.backgroundColor, "#050507"),
+            backgroundColor: this.sanitizeHexColor(rawState.backgroundColor, "#000000"),
             isSolidMode: this.sanitizeBoolean(rawState.isSolidMode, false),
             autopilotEnabled: this.sanitizeBoolean(rawState.autopilotEnabled, true)
         };
+
+        // Migrate Eternal Veil's former near-black factory default. Exact matches
+        // are safe to upgrade; every other user-selected background is preserved.
+        if (sanitized.backgroundColor.toLowerCase() === "#050507") {
+            sanitized.backgroundColor = "#000000";
+        }
 
         // Output warning toast indicators if raw fields differed significantly from sanitized results
         let wasClamped = false;

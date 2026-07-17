@@ -37,8 +37,8 @@ class NativeFlowSimulation3D {
         }
 
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color("#020207");
-        this.scene.fog = new THREE.FogExp2("#020207", 0.00115);
+        this.scene.background = new THREE.Color("#000000");
+        this.scene.fog = new THREE.FogExp2("#000000", 0.00115);
 
         this.camera = new THREE.PerspectiveCamera(
             72,
@@ -1295,7 +1295,7 @@ class NativeFlowSimulation3D {
             const source = this.palette[i % this.palette.length];
             this.setThreeColor(this.sharedUniforms.uPalette.value[i], source);
         }
-        this.setThreeColor(this.scene.background, this.backgroundColor || "#020207", "#020207");
+        this.setThreeColor(this.scene.background, this.backgroundColor || "#000000", "#000000");
         if (this.scene.fog) this.scene.fog.color.copy(this.scene.background);
     }
 
@@ -1365,8 +1365,8 @@ class NativeFlowSimulation3D {
             this.setActiveParticleCount(desiredCount);
         }
 
-        const bg = this.backgroundColor || "#020207";
-        this.setThreeColor(this.scene.background, bg, "#020207");
+        const bg = this.backgroundColor || "#000000";
+        this.setThreeColor(this.scene.background, bg, "#000000");
         if (this.scene.fog) this.scene.fog.color.copy(this.scene.background);
     }
 

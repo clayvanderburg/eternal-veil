@@ -20,7 +20,7 @@ class FlowSimulation3D {
         this.renderer.xr.enabled = true;
         
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color("#050507");
+        this.scene.background = new THREE.Color("#000000");
         
         // Place camera at center (0,0,0) so the user is wrapped inside the parallax domes
         this.camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 1200);
@@ -191,12 +191,12 @@ class FlowSimulation3D {
     updatePalette(newPalette) {
         if (!Array.isArray(newPalette) || newPalette.length === 0) return;
         // Parse background color if available
-        const bg = this.backgroundColor || "#050507";
+        const bg = this.backgroundColor || "#000000";
         if (this.renderer) {
             try {
                 this.scene.background = new THREE.Color(bg);
             } catch (_) {
-                this.scene.background = new THREE.Color("#050507");
+                this.scene.background = new THREE.Color("#000000");
             }
         }
     }

@@ -1174,7 +1174,7 @@ class FlowSimulation {
         };
         
         this.palette = ["#6366f1", "#818cf8", "#a78bfa", "#c084fc"];
-        this.backgroundColor = "#050507";
+        this.backgroundColor = "#000000";
         this.isSolidMode = false;
         
         this.mouse = { x: this.width / 2, y: this.height / 2, active: false };
@@ -1395,9 +1395,9 @@ class FlowSimulation {
         // Morph background color slowly if morphingBg is enabled
         if (this.settings.morphingBg) {
             const bgHue = (this.globalTime * 0.08) % 360;
-            this.backgroundColor = `hsl(${bgHue}, 28%, 3.5%)`;
+            this.backgroundColor = `hsl(${bgHue}, 24%, 1.2%)`;
         } else {
-            const bgHex = document.getElementById("bg-color-picker") ? document.getElementById("bg-color-picker").value : "#050507";
+            const bgHex = document.getElementById("bg-color-picker") ? document.getElementById("bg-color-picker").value : "#000000";
             this.backgroundColor = bgHex;
         }
 
@@ -1415,6 +1415,18 @@ class FlowSimulation {
             this.ctx.globalAlpha = Math.max(0.001, Math.min(1.0, dissipationFactor));
             this.ctx.fillRect(0, 0, this.width, this.height);
             this.ctx.globalAlpha = 1.0;
+
+            // Meditation breathes the rendered world, not the canvas element.
+            // The full-viewport background above therefore remains seamless at
+            // every scale while particles retain the strong contraction/expansion.
+            const meditationFieldScale = Number(this.settings.meditationFieldScale);
+            if (Number.isFinite(meditationFieldScale) && Math.abs(meditationFieldScale - 1) > 0.0001) {
+                const breathCx = this.width / 2;
+                const breathCy = this.height / 2;
+                this.ctx.translate(breathCx, breathCy);
+                this.ctx.scale(meditationFieldScale, meditationFieldScale);
+                this.ctx.translate(-breathCx, -breathCy);
+            }
 
             // Apply global scene rotation & wobble
             if (this.settings.rotationSpeed > 0.005) {

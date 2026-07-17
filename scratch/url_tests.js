@@ -157,7 +157,14 @@ try {
     assert.strictEqual(outPalette.palette.length, 6, "Palette length must be clamped to 6 max");
     assert.strictEqual(outPalette.palette[0], "#fff", "First color should be valid hex");
     assert.strictEqual(outPalette.palette[1], "#6366f1", "Invalid color element should fall back to default hex");
-    assert.strictEqual(outPalette.backgroundColor, "#050507", "Invalid background color should fall back to default");
+    assert.strictEqual(outPalette.backgroundColor, "#000000", "Invalid background color should fall back to default");
+
+    const legacyBackground = StateSchema.sanitize({
+        v: 1,
+        settings: {},
+        backgroundColor: "#050507"
+    });
+    assert.strictEqual(legacyBackground.backgroundColor, "#000000", "Legacy near-black default should migrate to true black");
     console.log("✅ Passed: Color palettes are validated, sanitized, and sized to maximum 6 elements.");
 
     // Test Case 7: Resolution Scaling & Coordinate Scaling on Resize

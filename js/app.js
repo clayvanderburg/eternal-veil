@@ -1172,6 +1172,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         if (experienceMode !== "meditation") {
             delete sim.settings.meditationBreathLevel;
+            delete sim.settings.meditationFieldScale;
             elements.canvas2D.style.transform = "";
             elements.webglCanvas.style.transform = "";
             if (sim3D?.world) sim3D.world.scale.setScalar(1);
@@ -1195,15 +1196,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const breathLevel = phase.from + (phase.to - phase.from) * eased;
         const scale = 0.90 + breathLevel * 0.22;
         sim.settings.meditationBreathLevel = breathLevel;
+        sim.settings.meditationFieldScale = scale;
         elements.breathingGuide.style.setProperty("--breath-level", breathLevel.toFixed(3));
         elements.breathingPhase.textContent = phase.name;
         elements.breathingCountdown.textContent = Math.max(1, Math.ceil(phase.duration - cursor));
-        elements.canvas2D.style.transform = `scale(${scale.toFixed(4)})`;
+        // Keep both canvases fixed at full viewport coverage. The 2D renderer
+        // applies this as an internal world/camera scale after painting its
+        // background, so exhaling can never expose the page around the canvas.
+        elements.canvas2D.style.transform = "";
+        elements.webglCanvas.style.transform = "";
         if (is3DMode && sim3D?.usesFlowTexture === false && sim3D.world) {
-            elements.webglCanvas.style.transform = "";
             sim3D.world.scale.setScalar(0.91 + breathLevel * 0.21);
-        } else {
-            elements.webglCanvas.style.transform = `scale(${scale.toFixed(4)})`;
         }
         elements.hudMode.textContent = is3DMode ? "MEDITATE 3D" : "MEDITATE";
     }
