@@ -60,6 +60,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let breathingRhythm = localStorage.getItem("eternalVeilBreathingRhythm") || "relaxed";
     if (!["relaxed", "box", "deep"].includes(breathingRhythm)) breathingRhythm = "relaxed";
     let breathingCycleStartedAt = Date.now();
+    let lastMeditationPaletteUpdateAt = 0;
     let autopilotBeforeMeditation = true;
     let activePresetLocks = [];
     let favoritePresetKeys = new Set();
@@ -1177,6 +1178,11 @@ document.addEventListener("DOMContentLoaded", () => {
             delete sim.settings.meditationTailScale;
             delete sim.settings.meditationGlowScale;
             delete sim.settings.meditationMotionScale;
+            lastMeditationPaletteUpdateAt = 0;
+            sim.particles.forEach(particle => {
+                particle.palette = sim.palette;
+                particle.color = sim.palette[particle.colorIndex % sim.palette.length] || particle.color;
+            });
             elements.canvas2D.style.transform = "";
             elements.webglCanvas.style.transform = "";
             if (sim3D?.world) sim3D.world.scale.setScalar(1);
@@ -1206,6 +1212,27 @@ document.addEventListener("DOMContentLoaded", () => {
         sim.settings.meditationTailScale = 0.52 + breathLevel * 1.08;
         sim.settings.meditationGlowScale = 0.58 + breathLevel * 0.76;
         sim.settings.meditationMotionScale = 0.62 + breathLevel * 0.68;
+
+        // Recolor the small palette and existing particles at a modest cadence
+        // instead of filtering every screen pixel every frame. This keeps the
+        // temperature shift vivid while avoiding the severe full-canvas FPS cost.
+        const now = Date.now();
+        if (now - lastMeditationPaletteUpdateAt >= 90) {
+            lastMeditationPaletteUpdateAt = now;
+            const breathingPalette = sim.palette.map(color => {
+                const hsl = hexToHsl(parseColorToHex(color));
+                if (!hsl) return color;
+                const hue = (hsl.h + 8 - breathLevel * 16 + 360) % 360;
+                const saturation = Math.max(0, Math.min(100, hsl.s + 18 - breathLevel * 22));
+                // Exhale retains the source lightness; only inhale brightens.
+                const lightness = Math.max(0, Math.min(94, hsl.l + breathLevel * 12));
+                return hslToHex(hue, saturation, lightness);
+            });
+            sim.particles.forEach(particle => {
+                particle.palette = breathingPalette;
+                particle.color = breathingPalette[particle.colorIndex % breathingPalette.length] || particle.color;
+            });
+        }
         elements.breathingGuide.style.setProperty("--breath-level", breathLevel.toFixed(3));
         elements.breathingPhase.textContent = phase.name;
         elements.breathingCountdown.textContent = Math.max(1, Math.ceil(phase.duration - cursor));

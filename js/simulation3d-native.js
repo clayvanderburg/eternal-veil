@@ -472,7 +472,9 @@ class NativeFlowSimulation3D {
                 float saturation = mix(1.30, 0.92, breath);
                 vec3 saturated = mix(vec3(luminance), lifted, saturation);
                 vec3 temperature = mix(vec3(0.80, 0.94, 1.16), vec3(1.16, 1.03, 0.82), breath);
-                return saturated * temperature * mix(0.72, 1.28, breath);
+                // Exhale keeps baseline luminance while gaining cool saturation;
+                // inhale alone adds the brighter, warmer lift.
+                return saturated * temperature * mix(1.0, 1.28, breath);
             }
 
             vec3 flowPosition(float trailAmount) {

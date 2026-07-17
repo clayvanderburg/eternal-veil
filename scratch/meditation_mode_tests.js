@@ -19,8 +19,10 @@ check(app.includes("sim.settings.meditationFieldScale = scale"), "Meditation int
 check(app.includes("sim.settings.meditationTailScale"), "Meditation tail breathing is missing");
 check(app.includes("sim.settings.meditationGlowScale"), "Meditation glow breathing is missing");
 check(app.includes("sim.settings.meditationMotionScale"), "Meditation motion breathing is missing");
-check(fs.readFileSync("js/simulation.js", "utf8").includes("hue-rotate"), "2D color-temperature breathing is missing");
+check(app.includes("breathingPalette"), "2D palette-level color-temperature breathing is missing");
+check(!fs.readFileSync("js/simulation.js", "utf8").includes("this.ctx.filter ="), "Meditation must not use an expensive full-canvas filter");
 check(fs.readFileSync("js/simulation3d-native.js", "utf8").includes("uMeditationBreath"), "native 3D color-temperature breathing is missing");
+check(css.includes(".meditation-controls.hidden"), "Meditation controls must be hidden outside Meditation mode");
 check(app.includes('let experienceMode = "flow"'), "Eternal Veil must always start in Flow mode");
 check(app.includes('elements.canvas2D.style.transform = ""'), "Meditation must keep the 2D canvas covering the viewport");
 check(fs.readFileSync("js/simulation.js", "utf8").includes("this.ctx.scale(meditationFieldScale, meditationFieldScale)"), "2D breathing should scale the rendered world internally");
