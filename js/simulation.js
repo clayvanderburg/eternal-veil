@@ -237,7 +237,7 @@ class Particle {
         }
     }
 
-    configureAuthoredEffect(shape, globalTime = 0) {
+    configureAuthoredEffect(shape, globalTime = 0, settings = {}) {
         this.activeEffectShape = shape;
         this.effectRole = Math.random();
         this.effectLane = Math.random();
@@ -264,8 +264,13 @@ class Particle {
             this.y = this.h * 0.5 + Math.sin(angle) * radius * 0.68;
         } else if (shape === "lotus") {
             const petal = Math.floor(this.effectLane * 10);
-            const centerX = this.w * (0.5 + Math.sin(globalTime * 0.0009) * 0.10);
-            const centerY = this.h * (0.5 + Math.cos(globalTime * 0.00073) * 0.08);
+            const isMeditating = settings.meditationBreathLevel !== undefined;
+            const centerX = isMeditating
+                ? this.w * 0.5
+                : this.w * (0.5 + Math.sin(globalTime * 0.0009) * 0.10);
+            const centerY = isMeditating
+                ? this.h * 0.5
+                : this.h * (0.5 + Math.cos(globalTime * 0.00073) * 0.08);
             const spin = globalTime * 0.0024;
             const angle = petal * Math.PI * 0.2 + spin + (this.effectRole - 0.5) * 0.86;
             const radius = Math.min(this.w, this.h) * (0.08 + this.effectRole * 0.40);
@@ -311,7 +316,7 @@ class Particle {
         const authoredShapes = ["ocean", "aurora", "orbitals", "lotus", "spiral", "pipes", "pipesTight", "pipesCathedral", "pipesShrine"];
         if (authoredShapes.includes(settings.particleShape)) {
             if (this.activeEffectShape !== settings.particleShape) {
-                this.configureAuthoredEffect(settings.particleShape, globalTime);
+                this.configureAuthoredEffect(settings.particleShape, globalTime, settings);
             }
         } else {
             this.activeEffectShape = null;
@@ -375,12 +380,13 @@ class Particle {
         } else if (settings.particleShape === "lotus") {
             const petal = Math.floor(this.effectLane * 10);
             const breathe = 0.82 + Math.sin(globalTime * 0.0042) * 0.18;
-            const centerX = this.w * (
+            const isMeditating = settings.meditationBreathLevel !== undefined;
+            const centerX = isMeditating ? this.w * 0.5 : this.w * (
                 0.5
                 + Math.sin(globalTime * 0.0009) * 0.10
                 + Math.sin(globalTime * 0.00037 + 1.4) * 0.035
             );
-            const centerY = this.h * (
+            const centerY = isMeditating ? this.h * 0.5 : this.h * (
                 0.5
                 + Math.cos(globalTime * 0.00073) * 0.08
                 + Math.sin(globalTime * 0.00043 + 2.1) * 0.025
@@ -769,20 +775,22 @@ class Particle {
         }
 
         if (shape === "lotus") {
-            if (this.effectRole > 0.995) {
+            const isMeditating = settings.meditationBreathLevel !== undefined;
+            if (this.effectRole > 0.995 && !isMeditating) {
                 this.drawLitOrb(ctx, drawSize * 6.5, drawAlpha, settings);
             } else {
                 const centerX = this.lotusCenterX ?? this.w * 0.5;
                 const centerY = this.lotusCenterY ?? this.h * 0.5;
                 const angle = Math.atan2(this.y - centerY, this.x - centerX) + 0.34;
+                const sanctuaryAccent = isMeditating && this.effectRole > 0.995 ? 2.6 : 1.0;
                 ctx.fillStyle = this.color;
-                ctx.globalAlpha = drawAlpha * 0.22;
+                ctx.globalAlpha = drawAlpha * (isMeditating ? 0.16 : 0.22);
                 ctx.beginPath();
-                ctx.ellipse(this.x, this.y, drawSize * 3.8, drawSize * 1.15, angle, 0, Math.PI * 2);
+                ctx.ellipse(this.x, this.y, drawSize * 3.8 * sanctuaryAccent, drawSize * 1.15, angle, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.globalAlpha = drawAlpha * 0.72;
+                ctx.globalAlpha = drawAlpha * (isMeditating ? 0.64 : 0.72);
                 ctx.beginPath();
-                ctx.ellipse(this.x, this.y, drawSize * 1.8, drawSize * 0.42, angle, 0, Math.PI * 2);
+                ctx.ellipse(this.x, this.y, drawSize * 1.8 * sanctuaryAccent, drawSize * 0.42, angle, 0, Math.PI * 2);
                 ctx.fill();
             }
             return true;

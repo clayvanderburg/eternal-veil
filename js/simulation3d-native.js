@@ -540,11 +540,13 @@ class NativeFlowSimulation3D {
                     float breath = 0.79 + 0.21 * sin(t * 0.35);
                     float radial = (24.0 + petalProgress * uVolumeRadius * 0.80) * breath;
                     float angle = baseAngle + petalProgress * 0.62 + aSeed.y * 0.12 + t * 0.30;
-                    vec3 lotusCenter = vec3(
-                        sin(t * 0.12) * 72.0 + sin(t * 0.047 + 1.3) * 24.0,
-                        cos(t * 0.095 + 0.6) * 52.0,
-                        sin(t * 0.073 + 2.2) * 78.0
-                    );
+                    vec3 lotusCenter = uMeditationBreath < 0.0
+                        ? vec3(
+                            sin(t * 0.12) * 72.0 + sin(t * 0.047 + 1.3) * 24.0,
+                            cos(t * 0.095 + 0.6) * 52.0,
+                            sin(t * 0.073 + 2.2) * 78.0
+                        )
+                        : vec3(0.0);
                     vec3 lotusPoint = vec3(
                         cos(angle) * radial,
                         sin(angle) * radial,
@@ -709,7 +711,9 @@ class NativeFlowSimulation3D {
                 } else if (uEffectMode > 2.5 && uEffectMode < 3.5) {
                     vEffectClass = effectRole > 0.992 ? 2.0 : 4.0;
                 } else if (uEffectMode > 3.5 && uEffectMode < 4.5) {
-                    vEffectClass = effectRole > 0.994 ? 2.0 : 5.0;
+                    // Breath Sanctuary keeps every accent petal-like. The giant
+                    // roaming orbs remain available to the regular Lotus preset.
+                    vEffectClass = effectRole > 0.994 && uMeditationBreath < 0.0 ? 2.0 : 5.0;
                 } else if (uEffectMode > 4.5 && uEffectMode < 8.5) {
                     vEffectClass = effectRole < 0.965 ? 6.0 : (effectRole < 0.997 ? 7.0 : 8.0);
                 } else if (uEffectMode > 8.5) {
