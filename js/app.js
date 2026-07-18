@@ -3383,7 +3383,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function setupColorCycles() {
-        if (!elements.themeCycleButtons || elements.themeCycleButtons.length === 0) return;
+        if (!elements.themeCycleButtons || elements.themeCycleButtons.length === 0) {
+            CosmicLogger.warn("setupColorCycles: No buttons found with class .theme-cycle-btn");
+            return;
+        }
+        CosmicLogger.info(`setupColorCycles: Initialized with ${elements.themeCycleButtons.length} playlist buttons.`);
 
         const cycleDescriptions = {
             random: "Autopilot drifts across any random harmonious colors.",
@@ -3405,11 +3409,13 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.themeCycleButtons.forEach(btn => {
             btn.onclick = () => {
                 const targetCycle = btn.dataset.cycle;
+                CosmicLogger.info(`Theme cycle button clicked: ${targetCycle}`);
                 let nextCycle = targetCycle;
 
                 // Toggle click behavior: if already active and not "random", click sets it back to "random"
                 if (activeColorCycle === targetCycle && targetCycle !== "random") {
                     nextCycle = "random";
+                    CosmicLogger.info("Playlist toggled off. Reverting to random.");
                 }
 
                 // Update active state in UI buttons
