@@ -523,9 +523,16 @@ document.addEventListener("DOMContentLoaded", () => {
         CosmicLogger.info("ETERNAL VEIL initializing...");
         
         // --- DOMAIN LOCK PROTECTOR ---
-        const allowedHosts = ["localhost", "127.0.0.1", "eternal-veil.netlify.app"];
+        const allowedHosts = [
+            "localhost", 
+            "127.0.0.1", 
+            "eternal-veil.netlify.app", 
+            "eternal-void.netlify.app", 
+            "eternalvoid.io", 
+            "www.eternalvoid.io"
+        ];
         const hostname = window.location.hostname.toLowerCase();
-        const isCanonicalPreview = hostname.endsWith("--eternal-veil.netlify.app");
+        const isCanonicalPreview = hostname.endsWith("--eternal-veil.netlify.app") || hostname.endsWith("--eternal-void.netlify.app");
         const isAllowed = allowedHosts.includes(hostname) || isCanonicalPreview;
         if (!isAllowed) {
             document.body.innerHTML = `
