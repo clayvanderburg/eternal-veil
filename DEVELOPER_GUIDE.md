@@ -1,9 +1,25 @@
 # ETERNAL VOID — Project Brief & Developer Guide
 
-> **Last updated:** 2026-07-18 by Antigravity  
+> **Last updated:** 2026-07-18 by Antigravity (+ Hermes handoff paths 2026-07-17 Naela)  
 > **Live at:** [eternalvoid.io](https://eternalvoid.io) / [eternal-void.netlify.app](https://eternal-void.netlify.app)  
 > **Repo:** `github.com/clayvanderburg/eternal-veil` → deploys to Netlify  
 > **Owner:** Clay Vanderburg (MadKing)
+
+---
+
+## Multi-agent handoffs (Codex / Antigravity / Hermes / Grok)
+
+| What | Where |
+|------|--------|
+| **Dated handoffs** | `Y:\grok-shared\agents-hub\log\` (or `\\BB8\grok-shared\agents-hub\log\`) |
+| **Name pattern** | `YYYY-MM-DD-<agent>-eternal-veil-*.md` |
+| **Project desk** | `Y:\grok-shared\agents-hub\projects\eternal-void\README.md` |
+| **Rolling status** | `Y:\grok-shared\agents-hub\STATUS.md` |
+| **Code root** | this folder (`…\scratch\eternal-veil`) |
+
+**Hermes:** MCP filesystem is **read+write** on this code root and the full agents-hub at `//BB8/grok-shared/agents-hub` (not personal `me.md` / global MEMORY). Prefer UNC for hub writes — `Y:\` often Access Denied. After MCP reload (`/reload-mcp` or new chat), read newest `log/*eternal*` notes first, then write handoffs + STATUS updates the same as other agents.
+
+After non-trivial work, leave a short log file so the next agent is not blind.
 
 ---
 
