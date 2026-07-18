@@ -1,5 +1,5 @@
 // ==========================================================================
-// ETERNAL VEIL - MAIN APPLICATION CONTROLLER
+// ETERNAL VOID - MAIN APPLICATION CONTROLLER
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -50,24 +50,24 @@ document.addEventListener("DOMContentLoaded", () => {
     let lastPresetKey = null;
     let lastFlowPatternShape = null;
     const validFlowPersonalities = ["serene", "alive", "wild"];
-    let flowPersonality = localStorage.getItem("eternalVeilFlowPersonality") || "serene";
+    let flowPersonality = localStorage.getItem("eternalVoidFlowPersonality") || localStorage.getItem("eternalVeilFlowPersonality") || "serene";
     if (!validFlowPersonalities.includes(flowPersonality)) flowPersonality = "serene";
-    let isComfortMode = localStorage.getItem("eternalVeilComfortMode") === "true";
+    let isComfortMode = (localStorage.getItem("eternalVoidComfortMode") || localStorage.getItem("eternalVeilComfortMode")) === "true";
     const validExperienceModes = ["flow", "meditation", "solid"];
     // Always open in the approachable general-purpose Flow experience. Modes are
     // intentional session choices; Meditation must never surprise a returning user.
     let experienceMode = "flow";
-    let breathingRhythm = localStorage.getItem("eternalVeilBreathingRhythm") || "relaxed";
+    let breathingRhythm = localStorage.getItem("eternalVoidBreathingRhythm") || localStorage.getItem("eternalVeilBreathingRhythm") || "relaxed";
     if (!["relaxed", "box", "deep"].includes(breathingRhythm)) breathingRhythm = "relaxed";
     let breathingCycleStartedAt = Date.now();
     let lastMeditationPaletteUpdateAt = 0;
     let preMeditationState = null;
     let autopilotBeforeMeditation = true;
     let activePresetLocks = [];
-    let activeColorCycle = localStorage.getItem("eternalVeilColorCycle") || "random";
+    let activeColorCycle = localStorage.getItem("eternalVoidColorCycle") || localStorage.getItem("eternalVeilColorCycle") || "random";
     let favoritePresetKeys = new Set();
     try {
-        const savedFavorites = JSON.parse(localStorage.getItem("eternalVeilFavoritePresets") || "[]");
+        const savedFavorites = JSON.parse(localStorage.getItem("eternalVoidFavoritePresets") || localStorage.getItem("eternalVeilFavoritePresets") || "[]");
         if (Array.isArray(savedFavorites)) favoritePresetKeys = new Set(savedFavorites);
     } catch (error) {
         console.warn("Could not load preset favorites", error);
@@ -78,12 +78,12 @@ document.addEventListener("DOMContentLoaded", () => {
     let sim3D = null;
 
     function load3DStyle() {
-        const saved = localStorage.getItem("eternalVeil3DStyle");
+        const saved = localStorage.getItem("eternalVoid3DStyle") || localStorage.getItem("eternalVeil3DStyle");
         return (saved === "dome" || saved === "native") ? saved : "native";
     }
 
     function save3DStyle(style) {
-        localStorage.setItem("eternalVeil3DStyle", style);
+        localStorage.setItem("eternalVoid3DStyle", style);
     }
 
     let selected3DStyle = load3DStyle();
@@ -101,7 +101,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         init() {
             try {
-                const saved = localStorage.getItem("eternalVeilHistory");
+                const saved = localStorage.getItem("eternalVoidHistory") || localStorage.getItem("eternalVeilHistory");
                 if (saved) {
                     const parsed = JSON.parse(saved);
                     if (Array.isArray(parsed)) {
@@ -116,7 +116,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         save() {
             try {
-                localStorage.setItem("eternalVeilHistory", JSON.stringify(this.states));
+                localStorage.setItem("eternalVoidHistory", JSON.stringify(this.states));
             } catch (e) {
                 console.error("Failed to save configuration history", e);
             }
@@ -520,7 +520,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- INITIALIZATION ---
     function initialize() {
-        CosmicLogger.info("ETERNAL VEIL initializing...");
+        CosmicLogger.info("ETERNAL VOID initializing...");
         
         // --- DOMAIN LOCK PROTECTOR ---
         const allowedHosts = [
@@ -552,7 +552,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <p style="color: #94a3b8; font-size: 14px; max-width: 400px; line-height: 1.6; margin-bottom: 24px;">
                         This digital interactive art piece is hosted exclusively at the official domain.
                     </p>
-                    <a href="https://eternal-veil.netlify.app" style="
+                    <a href="https://eternalvoid.io" style="
                         background: #4f46e5; 
                         color: #ffffff; 
                         text-decoration: none; 
@@ -772,7 +772,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // Start animation loop
         requestAnimationFrame(tickLoop);
-        CosmicLogger.info("ETERNAL VEIL initialization complete. Main animation loop running.");
+        CosmicLogger.info("ETERNAL VOID initialization complete. Main animation loop running.");
     }
 
     // --- SMOOTH MORPH TRANSITIONS ---
@@ -897,7 +897,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 event.stopPropagation();
                 if (favoritePresetKeys.has(key)) favoritePresetKeys.delete(key);
                 else favoritePresetKeys.add(key);
-                localStorage.setItem("eternalVeilFavoritePresets", JSON.stringify([...favoritePresetKeys]));
+                localStorage.setItem("eternalVoidFavoritePresets", JSON.stringify([...favoritePresetKeys]));
                 buildPresetCards();
             };
             card.onclick = () => loadPreset(key);
@@ -1150,7 +1150,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function setExperienceMode(mode, { persist = true, announce = true, initial = false } = {}) {
         const previousMode = experienceMode;
         experienceMode = validExperienceModes.includes(mode) ? mode : "flow";
-        if (persist) localStorage.removeItem("eternalVeilExperienceMode");
+        if (persist) localStorage.removeItem("eternalVoidExperienceMode");
         document.body.classList.toggle("meditation-mode", experienceMode === "meditation");
         document.body.classList.toggle("show-breathing-guide", experienceMode === "meditation" && elements.breathingGuideToggle.checked);
         elements.experienceModeButtons.forEach(button => {
@@ -1306,7 +1306,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function setFlowPersonality(personality, { announce = true, restart = true } = {}) {
         flowPersonality = validFlowPersonalities.includes(personality) ? personality : "serene";
-        localStorage.setItem("eternalVeilFlowPersonality", flowPersonality);
+        localStorage.setItem("eternalVoidFlowPersonality", flowPersonality);
         document.body.dataset.flowPersonality = flowPersonality;
         const descriptions = {
             serene: "Gentle motion, harmonious colors, and smaller changes.",
@@ -1335,7 +1335,7 @@ document.addEventListener("DOMContentLoaded", () => {
         isComfortMode = Boolean(enabled);
         document.body.classList.toggle("comfort-mode", isComfortMode);
         if (elements.comfortModeToggle) elements.comfortModeToggle.checked = isComfortMode;
-        if (persist) localStorage.setItem("eternalVeilComfortMode", String(isComfortMode));
+        if (persist) localStorage.setItem("eternalVoidComfortMode", String(isComfortMode));
         if (isComfortMode) {
             const caps = { speed: 1.35, turbulence: 0.85, density: 2200, baseSize: 7, stretch: 3, rotationSpeed: 0.18, wobble: 0.38 };
             Object.entries(caps).forEach(([key, maximum]) => {
@@ -2123,7 +2123,7 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.breathingRhythmSelect.onchange = () => {
             const requested = elements.breathingRhythmSelect.value;
             breathingRhythm = breathingRhythms[requested] ? requested : "relaxed";
-            localStorage.setItem("eternalVeilBreathingRhythm", breathingRhythm);
+            localStorage.setItem("eternalVoidBreathingRhythm", breathingRhythm);
             breathingCycleStartedAt = Date.now();
         };
         elements.breathingGuideToggle.onchange = () => {
@@ -3441,7 +3441,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     });
 
                     activeColorCycle = nextCycle;
-                    localStorage.setItem("eternalVeilColorCycle", activeColorCycle);
+                    localStorage.setItem("eternalVoidColorCycle", activeColorCycle);
                     updateCycleDescription(activeColorCycle);
 
                     // Give immediate visual feedback
@@ -3464,7 +3464,7 @@ document.addEventListener("DOMContentLoaded", () => {
                                 b.classList.toggle("active", b.dataset.cycle === "random");
                             });
                             activeColorCycle = "random";
-                            localStorage.setItem("eternalVeilColorCycle", "random");
+                            localStorage.setItem("eternalVoidColorCycle", "random");
                             updateCycleDescription("random");
                         } else if (activeColorCycle === "random") {
                             // Trigger a random morph
@@ -3609,14 +3609,14 @@ document.addEventListener("DOMContentLoaded", () => {
         // 5. Save Swatch Set to localStorage Library
         function getLibrary() {
             try {
-                return JSON.parse(localStorage.getItem("eternal_veil_custom_palettes")) || [];
+                return JSON.parse(localStorage.getItem("eternal_void_custom_palettes") || localStorage.getItem("eternal_veil_custom_palettes")) || [];
             } catch (e) {
                 return [];
             }
         }
 
         function saveLibrary(lib) {
-            localStorage.setItem("eternal_veil_custom_palettes", JSON.stringify(lib));
+            localStorage.setItem("eternal_void_custom_palettes", JSON.stringify(lib));
         }
 
         function renderLibrary() {

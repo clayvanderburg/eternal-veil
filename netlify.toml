@@ -1,4 +1,4 @@
-# ETERNAL VEIL - NETLIFY CONFIGURATION FILE
+# ETERNAL VOID - NETLIFY CONFIGURATION FILE
 # Enforces HTTP header policies for assets cache revalidation.
 # Prevents browsers from combining cached old code with newly deployed releases.
 

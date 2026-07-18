@@ -1,5 +1,5 @@
 // ============================================================================
-// ETERNAL VEIL - NATIVE 3D / WEBXR PARTICLE FLOW PROTOTYPE
+// ETERNAL VOID - NATIVE 3D / WEBXR PARTICLE FLOW PROTOTYPE
 // GPU-driven volumetric particles, luminous multi-segment trails, music pulses,
 // vortex/shockwave events, desktop orbit interaction, and WebXR controllers.
 // This renderer intentionally does not depend on the hidden 2D flow texture.
@@ -234,7 +234,7 @@ class NativeFlowSimulation3D {
         ctx.textAlign = "left";
         ctx.fillStyle = "#e0f2fe";
         ctx.font = "800 42px system-ui, sans-serif";
-        ctx.fillText("ETERNAL VEIL  //  VR", 58, 70);
+        ctx.fillText("ETERNAL VOID  //  VR", 58, 70);
         ctx.fillStyle = "#94a3b8";
         ctx.font = "500 23px system-ui, sans-serif";
         ctx.fillText("Aim + trigger to select  /  Grip hides or shows this menu", 58, 116);

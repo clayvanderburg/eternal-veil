@@ -1,5 +1,5 @@
 /**
- * ETERNAL VEIL — Color Playlists & Themed Autopilot Cycles
+ * ETERNAL VOID — Color Playlists & Themed Autopilot Cycles
  * 
  * Provides predefined curated color playlists and loop selectors
  * for Autopilot color transitions.
@@ -86,7 +86,7 @@
          */
         getNextCustomPalette(currentPalette) {
             try {
-                const lib = JSON.parse(localStorage.getItem("eternal_veil_custom_palettes")) || [];
+                const lib = JSON.parse(localStorage.getItem("eternal_void_custom_palettes") || localStorage.getItem("eternal_veil_custom_palettes")) || [];
                 if (lib.length === 0) {
                     return null; // Fallback to random if empty
                 }

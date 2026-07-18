@@ -1,5 +1,5 @@
 // ==========================================================================
-// ETERNAL VEIL - PRESET CONFIGURATIONS & COLOR PALETTES (UPGRADED EXTREMES)
+// ETERNAL VOID - PRESET CONFIGURATIONS & COLOR PALETTES (UPGRADED EXTREMES)
 // ==========================================================================
 
 const StylePresets = {

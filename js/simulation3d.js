@@ -1,5 +1,5 @@
 // ==========================================================================
-// ETERNAL VEIL - 3D WEBGL & WEBXR (VR) PARALLAX FLOW DOME
+// ETERNAL VOID - 3D WEBGL & WEBXR (VR) PARALLAX FLOW DOME
 // Projects the 2D canvas visualizer onto nested, shape-shifting skybox domes.
 // Uses tiling, seam-dissolving shaders, and parallax rotations for deep VR volume.
 // ==========================================================================

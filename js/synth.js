@@ -1,5 +1,5 @@
 // ==========================================================================
-// ETERNAL VEIL - BINAURAL BEATS & COSMIC WIND GENERATOR (REPLACEMENT ENGINE)
+// ETERNAL VOID - BINAURAL BEATS & COSMIC WIND GENERATOR (REPLACEMENT ENGINE)
 // ==========================================================================
 
 class BinauralBeatEngine {
@@ -541,7 +541,7 @@ class BinauralBeatEngine {
     getVisualizerData() {
         if (!this.initialized) return null;
         // External capture feeds a separate analyser and must remain readable
-        // even while Eternal Veil's own synth output is muted.
+        // even while Eternal Void's own synth output is muted.
         if (this.visualizerMode === "none" && this.isMuted) return null;
         
         const activeAnalyser = (this.visualizerMode !== "none" && this.musicAnalyser) ? this.musicAnalyser : this.analyser;

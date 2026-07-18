@@ -1,5 +1,5 @@
 // ==========================================================================
-// ETERNAL VEIL - CORE PHYSICS & PARTICLE SIMULATION ENGINE
+// ETERNAL VOID - CORE PHYSICS & PARTICLE SIMULATION ENGINE
 // ==========================================================================
 
 // --- SIMPLEX NOISE ALGORITHM (Fast 2D Implementation) ---

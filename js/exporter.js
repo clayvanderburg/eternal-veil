@@ -1,5 +1,5 @@
 // ==========================================================================
-// ETERNAL VEIL - SCREEN CAPTURE & VIDEO RECORDING MODULE
+// ETERNAL VOID - SCREEN CAPTURE & VIDEO RECORDING MODULE
 // ==========================================================================
 
 class MediaExporter {
@@ -27,7 +27,7 @@ class MediaExporter {
             const dataUrl = this.canvas.toDataURL("image/png");
             
             const link = document.createElement("a");
-            link.download = `eternal-veil-glow-${Date.now()}.png`;
+            link.download = `eternal-void-glow-${Date.now()}.png`;
             link.href = dataUrl;
             document.body.appendChild(link);
             link.click();
@@ -154,7 +154,7 @@ class MediaExporter {
             const url = URL.createObjectURL(blob);
             
             const link = document.createElement("a");
-            link.download = `eternal-veil-render-${Date.now()}.webm`;
+            link.download = `eternal-void-render-${Date.now()}.webm`;
             link.href = url;
             document.body.appendChild(link);
             link.click();

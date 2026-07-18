@@ -1,5 +1,5 @@
 // ==========================================================================
-// ETERNAL VEIL - RENDER QUALITY CONTROLLER
+// ETERNAL VOID - RENDER QUALITY CONTROLLER
 // Defines resolution, frame rate targets, and adaptive quality profiles
 // for desktop 3D and VR headset modes. Decouples simulation ticks from renders.
 // ==========================================================================

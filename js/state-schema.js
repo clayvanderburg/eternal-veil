@@ -1,5 +1,5 @@
 // ==========================================================================
-// ETERNAL VEIL - URL CONFIGURATION VALIDATOR & STATE SCHEMA
+// ETERNAL VOID - URL CONFIGURATION VALIDATOR & STATE SCHEMA
 // Sanitizes, clamps, and secures Base64 state configurations loaded from URLs.
 // Prevents out-of-bounds, infinite, or malformed parameters from crashing the app.
 // ==========================================================================
@@ -130,7 +130,7 @@ const StateSchema = {
             autopilotEnabled: this.sanitizeBoolean(rawState.autopilotEnabled, true)
         };
 
-        // Migrate Eternal Veil's former near-black factory default. Exact matches
+        // Migrate Eternal Void's former near-black factory default. Exact matches
         // are safe to upgrade; every other user-selected background is preserved.
         if (sanitized.backgroundColor.toLowerCase() === "#050507") {
             sanitized.backgroundColor = "#000000";

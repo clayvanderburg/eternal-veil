@@ -1,5 +1,5 @@
 /**
- * ETERNAL VEIL — Color Theory Engine (Paletton-style)
+ * ETERNAL VOID — Color Theory Engine (Paletton-style)
  * 
  * Provides pure mathematical functions to compute color harmonies
  * based on a base HSL (Hue, Saturation, Lightness) color.

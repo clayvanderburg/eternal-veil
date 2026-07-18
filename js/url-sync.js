@@ -1,5 +1,5 @@
 // ==========================================================================
-// ETERNAL VEIL - URL CONFIGURATION SYNCHRONIZER (SHARE SYSTEM)
+// ETERNAL VOID - URL CONFIGURATION SYNCHRONIZER (SHARE SYSTEM)
 // ==========================================================================
 
 const UrlStateSync = {
