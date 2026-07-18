@@ -44,6 +44,12 @@
             ['#ff7f00', '#ff0000', '#ffc0cb', '#8a2be2', '#00ffff'], // Lower + heart
             ['#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#00bcd4'], // Blue / purple energy
             ['#4caf50', '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107']  // Nature energy
+        ],
+        psychedelic: [
+            ['#ff00ff', '#00ffff', '#ffff00', '#ff0000', '#00ff00'], // High Contrast RGBY
+            ['#ff00aa', '#5500ff', '#00ffcc', '#bbff00', '#ff6600'], // Acid Trip
+            ['#ff0055', '#ffea00', '#00ff55', '#0055ff', '#aa00ff'], // Neon Melt
+            ['#f0f', '#0ff', '#ff0', '#f00', '#0f0']  // Retro Psych
         ]
     };
 

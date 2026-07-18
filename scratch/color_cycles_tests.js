@@ -31,7 +31,7 @@ console.log('🧪 RUNNING COLOR PLAYLISTS ENGINE TESTS...');
 console.log('--------------------------------------------------');
 
 // 1. Verify all theme cycles exist and contain valid palette arrays
-const expectedThemes = ['cyberpunk', 'seasons', 'candy', 'goth', 'ocean', 'chakra'];
+const expectedThemes = ['cyberpunk', 'seasons', 'candy', 'goth', 'ocean', 'chakra', 'psychedelic'];
 expectedThemes.forEach(theme => {
     const playlists = ColorCycles.playlists[theme];
     assert.ok(playlists, `Theme "${theme}" should be defined`);

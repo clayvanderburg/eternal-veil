@@ -3413,6 +3413,7 @@ document.addEventListener("DOMContentLoaded", () => {
             goth: "Velvet obsidian shadows, crimson red, and deep burgundy.",
             ocean: "Swaying seafoam greens, deep sapphire, and sandy reefs.",
             chakra: "Chakra energies, crown amethyst violet, throat blue, solar yellow.",
+            psychedelic: "High contrast neon melts, acid trips, and retro psychedelic hues.",
             custom: "Loops sequentially through custom themes saved in your library."
         };
 
