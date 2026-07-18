@@ -167,7 +167,35 @@ const StylePresets = {
     },
     hypno: {
         name: "Hypnotic Spiral",
-        desc: "Six luminous arms breathe, rotate, and carry bright travelers through a deep spiral.",
+        desc: "A steady luminous coil anchors two pendulum orbs swinging through a slow trance rhythm.",
+        speed: 0.42,
+        turbulence: 0.04,
+        curl: 0.94,
+        density: 1050,
+        dissipation: 0.010,
+        zoom: 0.82,
+        size: 3.4,
+        sizeVar: 0.50,
+        stretch: 3.8,
+        interaction: 0.45,
+        rotationSpeed: 0.025,
+        wobble: 0.08,
+        colors: ["#4338ca", "#7c3aed", "#c084fc", "#67e8f9", "#ddd6fe", "#f5f3ff"],
+
+        // Custom flags for new Psychedelic Drives
+        psychedelicMode: false,
+        morphingBg: false,
+        spinningKaleido: false,
+        particleShape: "pendulumSpiral",
+        kaleidoscopeEnabled: false,
+
+        // Custom audio extensions
+        bilateralEnabled: true,
+        asmrEnabled: true
+    },
+    astralTangle: {
+        name: "Astral Tangle",
+        desc: "Six luminous threads braid through a shifting dimensional knot.",
         speed: 0.78,
         turbulence: 0.12,
         curl: 0.98,
@@ -181,15 +209,35 @@ const StylePresets = {
         rotationSpeed: 0.10,
         wobble: 0.28,
         colors: ["#7c3aed", "#c084fc", "#22d3ee", "#f0abfc", "#818cf8", "#ecfeff"],
-        
-        // Custom flags for new Psychedelic Drives
         psychedelicMode: false,
         morphingBg: false,
         spinningKaleido: false,
         particleShape: "spiral",
         kaleidoscopeEnabled: false,
-        
-        // Custom audio extensions
+        bilateralEnabled: true,
+        asmrEnabled: true
+    },
+    tightTailVortex: {
+        name: "Tight Tail Vortex",
+        desc: "A flat, living vortex: comet trails naturally fall inward, turn, and stream back out.",
+        speed: 0.58,
+        turbulence: 0.04,
+        curl: 0.98,
+        density: 2200,
+        dissipation: 0.018,
+        zoom: 0.86,
+        size: 8.0,
+        sizeVar: 0.55,
+        stretch: 2.5,
+        interaction: 0,
+        rotationSpeed: 0,
+        wobble: 0.01,
+        colors: ["#14532d", "#22c55e", "#86efac", "#84cc16", "#d9f99d"],
+        psychedelicMode: false,
+        morphingBg: false,
+        spinningKaleido: false,
+        particleShape: "tightTailVortex",
+        kaleidoscopeEnabled: false,
         bilateralEnabled: true,
         asmrEnabled: true
     },

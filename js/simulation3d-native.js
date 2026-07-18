@@ -620,8 +620,35 @@ class NativeFlowSimulation3D {
                     pipeCenter *= mix(1.0, 0.58, isTight);
                     pipeCenter *= mix(1.0, 0.34, isCathedral);
                     result = pipeCenter + pipePoint;
+                } else if (uEffectMode > 9.5) {
+                    // Hypnotic Spiral: one calm, shallow coil holds the visual
+                    // anchor while a tiny set of large particles swing through it
+                    // as opposing pendulums. Depth stays intentionally restrained.
+                    if (role > 0.9975) {
+                        float side = step(0.5, aPhase);
+                        float swing = sin(t * 0.22 + side * PI) * 0.88;
+                        float length = uVolumeRadius * (0.55 + abs(aSeed.x) * 0.12);
+                        result = vec3(
+                            sin(swing) * length,
+                            52.0 + cos(swing) * length,
+                            aSeed.z * 15.0
+                        );
+                    } else {
+                        float progress = fract((aSeed.x * 0.5 + 0.5) + t * (0.018 + abs(aSeed.y) * 0.008));
+                        float breath = 0.93 + 0.07 * sin(t * 0.16);
+                        // Match the flat renderer's endless logarithmic coil:
+                        // tight near-center turns dissolve into a vanishing point
+                        // while the far end grows beyond the visible volume.
+                        float radial = 4.0 * exp(progress * 4.6) * breath;
+                        float angle = progress * PI * 18.0 + t * 0.90;
+                        result = vec3(
+                            cos(angle) * radial,
+                            sin(angle) * radial * 0.68,
+                            aSeed.z * 24.0 + sin(angle * 1.4) * 8.0
+                        );
+                    }
                 } else if (uEffectMode > 8.5) {
-                    // Hypnotic Spiral: six coherent arms turn through a deep,
+                    // Astral Tangle: six coherent arms turn through a deep,
                     // gently tilted volume. Every trail sample follows the same
                     // parametric curve, producing ribbons instead of bead chains.
                     float arm = floor(aPhase * 6.0);
@@ -716,6 +743,8 @@ class NativeFlowSimulation3D {
                     vEffectClass = effectRole > 0.994 && uMeditationBreath < 0.0 ? 2.0 : 5.0;
                 } else if (uEffectMode > 4.5 && uEffectMode < 8.5) {
                     vEffectClass = effectRole < 0.965 ? 6.0 : (effectRole < 0.997 ? 7.0 : 8.0);
+                } else if (uEffectMode > 9.5) {
+                    vEffectClass = effectRole > 0.9975 ? 9.0 : 4.0;
                 } else if (uEffectMode > 8.5) {
                     vEffectClass = effectRole > 0.992 ? 2.0 : 4.0;
                 }
@@ -733,6 +762,7 @@ class NativeFlowSimulation3D {
                 if (vEffectClass > 5.8 && vEffectClass < 6.2) effectScale = 0.74;
                 if (vEffectClass > 6.8 && vEffectClass < 7.2) effectScale = ${isTrail ? "0.01" : "3.2"};
                 if (vEffectClass > 7.8) effectScale = ${isTrail ? "0.01" : "7.2"};
+                if (vEffectClass > 8.8) effectScale = ${isTrail ? "2.5" : "12.5"};
 
                 ${isTrail ? `
                     gl_Position = projectionMatrix * mvPosition;
@@ -1342,7 +1372,7 @@ class NativeFlowSimulation3D {
         );
         this.sharedUniforms.uTurbulence.value = Math.max(0.0, Math.min(5.0, s.turbulence ?? 0.65));
         this.sharedUniforms.uOrganic.value = Math.max(0.0, Math.min(2.0, s.flowOrganic ?? 0.85));
-        const effectModes = { ocean: 1, aurora: 2, orbitals: 3, lotus: 4, pipes: 5, pipesTight: 6, pipesCathedral: 7, pipesShrine: 8, spiral: 9 };
+        const effectModes = { ocean: 1, aurora: 2, orbitals: 3, lotus: 4, pipes: 5, pipesTight: 6, pipesCathedral: 7, pipesShrine: 8, spiral: 9, pendulumSpiral: 10 };
         this.sharedUniforms.uEffectMode.value = effectModes[s.particleShape] || 0;
         const lightingStyles = { glow: 0, reactive: 1, pearl: 2 };
         this.sharedUniforms.uLightingStyle.value = lightingStyles[s.particleLighting] || 0;

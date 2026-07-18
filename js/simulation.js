@@ -285,6 +285,34 @@ class Particle {
             const angle = arm * Math.PI / 3 + progress * Math.PI * 5.2 + globalTime * 0.003;
             this.x = this.w * 0.5 + Math.cos(angle) * radius;
             this.y = this.h * 0.5 + Math.sin(angle) * radius;
+        } else if (shape === "pendulumSpiral") {
+            const minDimension = Math.min(this.w, this.h);
+            const isPendulumOrb = this.effectRole > 0.993;
+            if (isPendulumOrb) {
+                const swing = Math.sin(globalTime * 0.00030 + (this.effectLane < 0.5 ? 0 : Math.PI)) * 0.88;
+                const length = minDimension * (0.38 + this.effectLane * 0.11);
+                this.x = this.w * 0.5 + Math.sin(swing) * length;
+                this.y = this.h * 0.20 + Math.cos(swing) * length;
+            } else {
+                const progress = (this.effectRole + globalTime * 0.000036) % 1;
+                const breath = 0.93 + Math.sin(globalTime * 0.0011) * 0.07;
+                // A logarithmic curve has no visually obvious start or finish:
+                // it vanishes into the center on one end and leaves the frame on
+                // the other, creating the feeling of an endless spiral.
+                const radius = minDimension * 0.0025 * Math.exp(progress * 5.85) * breath;
+                const angle = progress * Math.PI * 18 + globalTime * 0.00090;
+                this.x = this.w * 0.5 + Math.cos(angle) * radius;
+                this.y = this.h * 0.52 + Math.sin(angle) * radius * 0.68;
+            }
+        } else if (shape === "tightTailVortex") {
+            // Seed a broad, flat disc.  From here particles move through a real
+            // velocity field instead of being drawn along a pre-baked curve.
+            // Seed beyond the visible rectangle so the vortex feels like it
+            // continues off-screen instead of sitting inside a framed disc.
+            const radius = Math.min(this.w, this.h) * (0.05 + Math.sqrt(this.effectRole) * 1.02);
+            const angle = this.effectPhase;
+            this.x = this.w * 0.5 + Math.cos(angle) * radius;
+            this.y = this.h * 0.5 + Math.sin(angle) * radius * 0.82;
         } else if (shape.startsWith("pipes")) {
             const phase = this.effectPhase / (Math.PI * 2);
             const threshold = shape === "pipesTight" ? 0.985 : shape === "pipesCathedral" ? 0.94 : shape === "pipesShrine" ? 0.972 : 0.965;
@@ -313,7 +341,7 @@ class Particle {
         const flowFreq = 0.007 / zoom;
         const organic = settings.flowOrganic ?? 0.85;
         const turb = settings.turbulence ?? 0.65;
-        const authoredShapes = ["ocean", "aurora", "orbitals", "lotus", "spiral", "pipes", "pipesTight", "pipesCathedral", "pipesShrine"];
+        const authoredShapes = ["ocean", "aurora", "orbitals", "lotus", "spiral", "pendulumSpiral", "tightTailVortex", "pipes", "pipesTight", "pipesCathedral", "pipesShrine"];
         if (authoredShapes.includes(settings.particleShape)) {
             if (this.activeEffectShape !== settings.particleShape) {
                 this.configureAuthoredEffect(settings.particleShape, globalTime, settings);
@@ -415,6 +443,57 @@ class Particle {
             const targetY = this.h * 0.5 + Math.sin(angle) * radius;
             targetVx = (targetX - this.x) * 0.08;
             targetVy = (targetY - this.y) * 0.08;
+        } else if (settings.particleShape === "pendulumSpiral") {
+            const minDimension = Math.min(this.w, this.h);
+            const isPendulumOrb = this.effectRole > 0.993;
+            let targetX;
+            let targetY;
+            if (isPendulumOrb) {
+                const swing = Math.sin(globalTime * (0.00030 + speed * 0.000035)
+                    + (this.effectLane < 0.5 ? 0 : Math.PI)) * 0.88;
+                const length = minDimension * (0.38 + this.effectLane * 0.11);
+                targetX = this.w * 0.5 + Math.sin(swing) * length;
+                targetY = this.h * 0.20 + Math.cos(swing) * length;
+            } else {
+                const progress = (this.effectRole + globalTime * (0.000028 + speed * 0.000020)) % 1;
+                const breath = 0.93 + Math.sin(globalTime * 0.0011) * 0.07;
+                const radius = minDimension * 0.0025 * Math.exp(progress * 5.85) * breath;
+                const angle = progress * Math.PI * 18 + globalTime * (0.00090 + (settings.rotationSpeed || 0) * 0.008);
+                targetX = this.w * 0.5 + Math.cos(angle) * radius;
+                targetY = this.h * 0.52 + Math.sin(angle) * radius * 0.68;
+            }
+            targetVx = (targetX - this.x) * (isPendulumOrb ? 0.12 : 0.09);
+            targetVy = (targetY - this.y) * (isPendulumOrb ? 0.12 : 0.09);
+        } else if (settings.particleShape === "tightTailVortex") {
+            // Clean rebuild: a bounded velocity field, not a procedural line.
+            // The tangent makes a tight orbit; the gentle phase-driven radial
+            // current lets each particle dive toward the center then stream
+            // back out, exactly like the legacy site's organic vortexes.
+            const minDimension = Math.min(this.w, this.h);
+            const centerX = this.w * 0.5 + Math.sin(globalTime * 0.0017) * minDimension * 0.018;
+            const centerY = this.h * 0.5 + Math.cos(globalTime * 0.0013) * minDimension * 0.014;
+            const dx = this.x - centerX;
+            const dy = (this.y - centerY) / 0.82;
+            const distance = Math.max(1, Math.hypot(dx, dy));
+            const outerLimit = minDimension * 1.18;
+            const normalizedRadius = Math.min(1.25, distance / outerLimit);
+            const phase = globalTime * (0.010 + speed * 0.003) + this.effectPhase;
+            const tangent = (0.72 + Math.pow(Math.max(0, 1 - normalizedRadius), 1.35) * 2.15) * speed * scaleRef;
+            let radial = Math.sin(phase) * 0.72 * speed * scaleRef;
+
+            // Soft boundaries keep the field framed and prevent a clump at the
+            // singularity, while still allowing the deep in/out tunnel motion.
+            if (normalizedRadius > 0.93) radial -= (normalizedRadius - 0.93) * 3.2 * speed * scaleRef;
+            if (normalizedRadius < 0.075) radial += (0.075 - normalizedRadius) * 8.0 * speed * scaleRef;
+
+            const organicWobble = getCurlNoise(
+                this.x / scaleRef,
+                this.y / scaleRef,
+                globalTime * 0.14,
+                0.0045 / zoom
+            );
+            targetVx = (-dy / distance) * tangent + (dx / distance) * radial + organicWobble.vx * 0.024 * scaleRef;
+            targetVy = ((dx / distance) * tangent + (dy / distance) * radial) * 0.82 + organicWobble.vy * 0.020 * scaleRef;
         }
         
         // Inject Aquatic Flow split velocity physics overrides
@@ -603,6 +682,7 @@ class Particle {
         
         this.x += this.vx * dt;
         this.y += this.vy * dt;
+
 
         // Calculate new perpendicular unit vector based on current velocity heading
         const headingAngle = Math.atan2(this.vy, this.vx);
@@ -820,6 +900,43 @@ class Particle {
                     ctx.stroke();
                 }
             }
+            return true;
+        }
+
+        if (shape === "pendulumSpiral") {
+            const isPendulumOrb = this.effectRole > 0.993;
+            if (isPendulumOrb) {
+                this.drawLitOrb(ctx, drawSize * (10.5 + this.effectLane * 4.5), drawAlpha * 0.54, settings);
+            } else {
+                const trailX = this.x + (this.lastX - this.x) * 0.28;
+                const trailY = this.y + (this.lastY - this.y) * 0.28;
+                ctx.strokeStyle = this.color;
+                ctx.lineCap = "round";
+                ctx.globalAlpha = drawAlpha * 0.24;
+                ctx.lineWidth = Math.max(1.4, drawSize * 3.2);
+                ctx.beginPath();
+                ctx.moveTo(trailX, trailY);
+                ctx.lineTo(this.x, this.y);
+                ctx.stroke();
+                ctx.globalAlpha = drawAlpha * 0.92;
+                ctx.lineWidth = Math.max(0.65, drawSize * 0.38);
+                ctx.stroke();
+            }
+            return true;
+        }
+
+        if (shape === "tightTailVortex") {
+            // The canvas persistence supplies the long curved tails over many
+            // frames. A single rich stroke keeps them organic and solid; the
+            // old inner highlight line made them read like translucent tubes.
+            ctx.strokeStyle = this.color;
+            ctx.lineCap = "round";
+            ctx.globalAlpha = drawAlpha * 0.30;
+            ctx.lineWidth = Math.max(1.15, drawSize * 2.15);
+            ctx.beginPath();
+            ctx.moveTo(this.lastX, this.lastY);
+            ctx.lineTo(this.x, this.y);
+            ctx.stroke();
             return true;
         }
 
