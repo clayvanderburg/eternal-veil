@@ -3404,13 +3404,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
         elements.themeCycleButtons.forEach(btn => {
             btn.onclick = () => {
-                elements.themeCycleButtons.forEach(b => b.classList.remove("active"));
-                btn.classList.add("active");
-                activeColorCycle = btn.dataset.cycle;
+                const targetCycle = btn.dataset.cycle;
+                let nextCycle = targetCycle;
+
+                // Toggle click behavior: if already active and not "random", click sets it back to "random"
+                if (activeColorCycle === targetCycle && targetCycle !== "random") {
+                    nextCycle = "random";
+                }
+
+                // Update active state in UI buttons
+                elements.themeCycleButtons.forEach(b => {
+                    b.classList.toggle("active", b.dataset.cycle === nextCycle);
+                });
+
+                activeColorCycle = nextCycle;
                 localStorage.setItem("eternalVeilColorCycle", activeColorCycle);
                 updateCycleDescription(activeColorCycle);
 
-                // Give immediate visual feedback by loading a palette from the selected cycle
+                // Give immediate visual feedback
                 if (window.ColorCycles) {
                     const nextPal = window.ColorCycles.getNextPalette(activeColorCycle, sim.palette);
                     if (nextPal) {
@@ -3419,9 +3430,25 @@ document.addEventListener("DOMContentLoaded", () => {
                             toggleAutopilot(true);
                         }
                         startPaletteMorph(nextPal, 4000);
-                        showToast(`Active playlist: ${btn.textContent}`);
+                        showToast(`Active playlist: ${nextCycle === "random" ? "Random" : btn.textContent}`);
                     } else if (activeColorCycle === "custom") {
                         showToast("Swatches library is empty. Save a custom theme first!");
+                        // Revert back to random
+                        elements.themeCycleButtons.forEach(b => {
+                            b.classList.toggle("active", b.dataset.cycle === "random");
+                        });
+                        activeColorCycle = "random";
+                        localStorage.setItem("eternalVeilColorCycle", "random");
+                        updateCycleDescription("random");
+                    } else if (activeColorCycle === "random") {
+                        // Trigger a random morph
+                        const palette = generateHarmoniousPalette(flowPersonality);
+                        setOptionToFlow("colors");
+                        if (!isAutopilot) {
+                            toggleAutopilot(true);
+                        }
+                        startPaletteMorph(palette, 4000);
+                        showToast("Active playlist: Random");
                     }
                 }
             };
