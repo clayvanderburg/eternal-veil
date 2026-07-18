@@ -1097,52 +1097,19 @@ document.addEventListener("DOMContentLoaded", () => {
     // color playlist (Autopilot color interval / manual palette). This is what
     // Autopilot uses so the "current preset" is always a named, favoritable,
     // excludable entity while colors keep flowing on their own track.
+    // Applies ONLY the PARTICLE GEOMETRY of a preset (shape, lighting, kaleidoscope,
+    // look/audio flags). Flow params (speed/turbulence/density/colors/etc.) are left
+    // to Autopilot's independent intervals — we do NOT lock them to Manual, so the
+    // sim keeps flowing. This is what the HUD "current preset" actually means: the
+    // geometry currently loaded.
     function loadPresetPatternOnly(key) {
         const p = StylePresets[key];
         if (!p) return;
 
         lastPresetKey = key;
         updateHudPresetName(key);
-        activePresetLocks = getPresetSignatureKeys(p);
-        activePresetLocks.forEach(setOptionToManual);
 
-        // Highlight active card in the sidebar
-        document.querySelectorAll(".preset-card").forEach(c => {
-            c.classList.remove("active");
-            if (c.getAttribute("data-preset") === key) c.classList.add("active");
-        });
-
-        const comfortCaps = { speed: 1.35, turbulence: 0.85, density: 2200, baseSize: 7, stretch: 3, rotationSpeed: 0.18, wobble: 0.38 };
-        const presetTarget = (key, value) => isComfortMode && comfortCaps[key] !== undefined
-            ? Math.min(value, comfortCaps[key])
-            : value;
-        startMorph("speed", presetTarget("speed", p.speed));
-        startMorph("turbulence", presetTarget("turbulence", p.turbulence));
-        startMorph("flowOrganic", p.curl);
-        startMorph("density", presetTarget("density", p.density));
-        startMorph("dissipation", p.dissipation);
-        startMorph("zoom", p.zoom);
-        startMorph("baseSize", presetTarget("baseSize", p.size));
-        startMorph("sizeVariation", p.sizeVar);
-        startMorph("stretch", presetTarget("stretch", p.stretch));
-        startMorph("interaction", p.interaction);
-        startMorph("rotationSpeed", presetTarget("rotationSpeed", p.rotationSpeed));
-        startMorph("wobble", presetTarget("wobble", p.wobble));
-
-        // Pattern-only: do NOT call startPaletteMorph — colors stay independent.
-
-        const psychOn = !isComfortMode && p.psychedelicMode === true;
-        sim.settings.psychedelicMode = psychOn;
-        if (elements.psychedelicToggle) elements.psychedelicToggle.checked = psychOn;
-
-        const morphBgOn = !isComfortMode && p.morphingBg === true;
-        sim.settings.morphingBg = morphBgOn;
-        if (elements.morphingBgToggle) elements.morphingBgToggle.checked = morphBgOn;
-
-        const spinKaleidoOn = !isComfortMode && p.spinningKaleido === true;
-        sim.settings.spinningKaleido = spinKaleidoOn;
-        if (elements.spinningKaleidoToggle) elements.spinningKaleidoToggle.checked = spinKaleidoOn;
-
+        // Geometry keys only — applied directly, no setOptionToManual on flow params.
         const shape = p.particleShape || "ellipse";
         sim.settings.particleShape = shape;
         if (elements.particleShapeSelect) elements.particleShapeSelect.value = shape;
@@ -1156,10 +1123,24 @@ document.addEventListener("DOMContentLoaded", () => {
         if (elements.kaleidoscopeToggle) elements.kaleidoscopeToggle.checked = kaleidoOn;
         if (kaleidoOn && elements.kaleidoscopeSettings) {
             elements.kaleidoscopeSettings.classList.remove("hidden");
-            startMorph("kaleidoscopeSegments", p.kaleidoscopeSegments || 6);
+            if (typeof p.kaleidoscopeSegments === "number") {
+                startMorph("kaleidoscopeSegments", p.kaleidoscopeSegments);
+            }
         } else if (elements.kaleidoscopeSettings) {
             elements.kaleidoscopeSettings.classList.add("hidden");
         }
+
+        const spinOn = !isComfortMode && p.spinningKaleido === true;
+        sim.settings.spinningKaleido = spinOn;
+        if (elements.spinningKaleidoToggle) elements.spinningKaleidoToggle.checked = spinOn;
+
+        const psychOn = !isComfortMode && p.psychedelicMode === true;
+        sim.settings.psychedelicMode = psychOn;
+        if (elements.psychedelicToggle) elements.psychedelicToggle.checked = psychOn;
+
+        const morphBgOn = !isComfortMode && p.morphingBg === true;
+        sim.settings.morphingBg = morphBgOn;
+        if (elements.morphingBgToggle) elements.morphingBgToggle.checked = morphBgOn;
 
         const bilateralOn = p.bilateralEnabled === true;
         sim.settings.bilateralEnabled = bilateralOn;
@@ -1171,27 +1152,43 @@ document.addEventListener("DOMContentLoaded", () => {
         if (elements.asmrToggle) elements.asmrToggle.checked = asmrOn;
         if (window.CosmicSynth && window.CosmicSynth.setAsmrEnabled) window.CosmicSynth.setAsmrEnabled(asmrOn);
 
+        // Highlight active card in the sidebar
+        document.querySelectorAll(".preset-card").forEach(c => {
+            c.classList.remove("active");
+            if (c.getAttribute("data-preset") === key) c.classList.add("active");
+        });
+
         modulateSynth();
         updateHudPresetName(key);
     }
 
+    // Geometry-only signature: the keys that define a preset's "particle geometry".
+    // Used for favorite/ban/exclude logic — favoriting = favoriting the geometry.
+    function getPresetGeometryKeys() {
+        return [
+            "particleShape", "particleLighting", "kaleidoscopeEnabled",
+            "kaleidoscopeSegments", "spinningKaleido", "psychedelicMode",
+            "morphingBg", "bilateralEnabled", "asmrEnabled"
+        ];
+    }
+
     // Autopilot pattern picker: selects a REAL preset (not random params) so the
-    // HUD always shows a live, named "current preset". Favorites are weighted
-    // higher; excluded presets are never chosen; the most recent pick is avoided
-    // so it doesn't immediately reselect itself.
+    // HUD always shows a live, named "current preset" (its geometry). Favorites are
+    // weighted higher; excluded presets are never chosen; the most recent pick is
+    // avoided so it doesn't immediately reselect itself.
     function autopilotPickPreset() {
         const keys = Object.keys(StylePresets).filter(k => !excludedPresetKeys.has(k));
         if (keys.length === 0) {
-            CosmicLogger.warn("All presets excluded — Autopilot cannot pick a pattern.");
+            showToast("All presets excluded. Reset in the sidebar.");
             return;
         }
-        const favorites = keys.filter(k => favoritePresetKeys.has(k));
-        const pool = favorites.length > 0 && Math.random() < 0.6 ? favorites : keys;
+        const favs = keys.filter(k => favoritePresetKeys.has(k));
+        // 65% chance to favor a favorited geometry when any are available
+        const pool = (favs.length > 0 && Math.random() < 0.65) ? favs : keys;
         const candidates = pool.filter(k => k !== lastPresetKey);
-        const choice = (candidates.length > 0 ? candidates : pool)[Math.floor(Math.random() * (candidates.length > 0 ? candidates.length : pool.length))];
+        const choice = (candidates.length ? candidates : pool)[Math.floor(Math.random() * (candidates.length ? candidates.length : pool.length))];
         loadPresetPatternOnly(choice);
     }
-
     function turnOffPsychedelicMode() {
         if (sim.settings.psychedelicMode) {
             sim.settings.psychedelicMode = false;
@@ -2410,10 +2407,29 @@ document.addEventListener("DOMContentLoaded", () => {
                 localStorage.setItem("eternal_void_custom_palettes", JSON.stringify(lib));
                 elements.hudColorStar.classList.add("active-star");
                 setTimeout(() => elements.hudColorStar.classList.remove("active-star"), 800);
-                showToast(`Palette "${autoName}" saved to library!`);
-                // Refresh the sidebar grid if it's mounted
+                showToast(`Palette "${autoName}" saved to My Theme Library → Colors`);
+                // Reveal the saved palette in the Colors tab so the user sees it land.
                 const savedGrid = document.getElementById("saved-swatches-grid");
                 if (savedGrid && typeof renderLibrary === "function") renderLibrary();
+                const colorsTabBtn = document.querySelector('.tab-btn[data-tab="tab-colors"]');
+                const colorsTabContent = document.getElementById("tab-colors");
+                if (colorsTabBtn && colorsTabContent) {
+                    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+                    document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+                    colorsTabBtn.classList.add("active");
+                    colorsTabContent.classList.add("active");
+                    if (elements.controlPanel) elements.controlPanel.classList.remove("hidden");
+                    if (savedGrid) {
+                        savedGrid.scrollTop = 0;
+                        const firstCard = savedGrid.querySelector(".saved-swatch-card");
+                        if (firstCard) {
+                            firstCard.animate(
+                                [{ boxShadow: "0 0 0 2px var(--accent-color)" }, { boxShadow: "0 0 0 0 transparent" }],
+                                { duration: 1200, iterations: 2 }
+                            );
+                        }
+                    }
+                }
             };
         }
         elements.autoPatternSlider.oninput = () => {
@@ -3908,12 +3924,13 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         function renderLibrary() {
-            if (!savedGrid) return;
+            const grid = document.getElementById("saved-swatches-grid");
+            if (!grid) return;
             const lib = getLibrary();
-            savedGrid.innerHTML = "";
+            grid.innerHTML = "";
 
             if (lib.length === 0) {
-                savedGrid.innerHTML = `<div style="font-size: 10px; color: var(--text-muted); text-align: center; padding: 10px 0;">No custom palettes saved yet.</div>`;
+                grid.innerHTML = `<div style="font-size: 10px; color: var(--text-muted); text-align: center; padding: 10px 0;">No custom palettes saved yet.</div>`;
                 return;
             }
 
@@ -4001,7 +4018,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                 };
 
-                savedGrid.appendChild(card);
+                grid.appendChild(card);
             });
         }
 
