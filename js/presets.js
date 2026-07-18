@@ -642,6 +642,7 @@ function hslToHex(h, s, l) {
 }
 
 function parseColorToHex(colorStr) {
+    if (!colorStr || typeof colorStr !== 'string') return "#ffffff";
     if (colorStr.startsWith('#')) return colorStr;
     if (colorStr.startsWith('hsl')) {
         // Preserve decimal/negative hues. The old digit-only parser split a hue

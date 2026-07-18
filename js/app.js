@@ -1468,17 +1468,21 @@ document.addEventListener("DOMContentLoaded", () => {
         // 2. Morph colors (if checked and set to FLOW)
         if (elements.autopilotColorToggle.checked) {
             autopilotColorTimer = setInterval(() => {
-                if (isFlowEnabled("colors")) {
-                    let palette = null;
-                    if (activeColorCycle !== "random" && window.ColorCycles) {
-                        palette = window.ColorCycles.getNextPalette(activeColorCycle, sim.palette);
+                try {
+                    if (isFlowEnabled("colors")) {
+                        let palette = null;
+                        if (activeColorCycle !== "random" && window.ColorCycles) {
+                            palette = window.ColorCycles.getNextPalette(activeColorCycle, sim.palette);
+                        }
+                        if (!palette) {
+                            palette = generateHarmoniousPalette(flowPersonality);
+                        }
+                        const paletteDuration = Math.max(4500, Math.min(12000, colorInterval * 0.45));
+                        startPaletteMorph(palette, paletteDuration);
+                        modulateSynth();
                     }
-                    if (!palette) {
-                        palette = generateHarmoniousPalette(flowPersonality);
-                    }
-                    const paletteDuration = Math.max(4500, Math.min(12000, colorInterval * 0.45));
-                    startPaletteMorph(palette, paletteDuration);
-                    modulateSynth();
+                } catch (err) {
+                    CosmicLogger.error(`Autopilot color shift error: ${err.message}`);
                 }
             }, colorInterval);
         }
@@ -3408,54 +3412,64 @@ document.addEventListener("DOMContentLoaded", () => {
 
         elements.themeCycleButtons.forEach(btn => {
             btn.onclick = () => {
-                const targetCycle = btn.dataset.cycle;
-                CosmicLogger.info(`Theme cycle button clicked: ${targetCycle}`);
-                let nextCycle = targetCycle;
+                try {
+                    const targetCycle = btn.dataset.cycle;
+                    CosmicLogger.info(`Theme cycle button clicked: ${targetCycle}`);
+                    let nextCycle = targetCycle;
 
-                // Toggle click behavior: if already active and not "random", click sets it back to "random"
-                if (activeColorCycle === targetCycle && targetCycle !== "random") {
-                    nextCycle = "random";
-                    CosmicLogger.info("Playlist toggled off. Reverting to random.");
-                }
-
-                // Update active state in UI buttons
-                elements.themeCycleButtons.forEach(b => {
-                    b.classList.toggle("active", b.dataset.cycle === nextCycle);
-                });
-
-                activeColorCycle = nextCycle;
-                localStorage.setItem("eternalVeilColorCycle", activeColorCycle);
-                updateCycleDescription(activeColorCycle);
-
-                // Give immediate visual feedback
-                if (window.ColorCycles) {
-                    const nextPal = window.ColorCycles.getNextPalette(activeColorCycle, sim.palette);
-                    if (nextPal) {
-                        setOptionToFlow("colors");
-                        if (!isAutopilot) {
-                            toggleAutopilot(true);
-                        }
-                        startPaletteMorph(nextPal, 4000);
-                        showToast(`Active playlist: ${nextCycle === "random" ? "Random" : btn.textContent}`);
-                    } else if (activeColorCycle === "custom") {
-                        showToast("Swatches library is empty. Save a custom theme first!");
-                        // Revert back to random
-                        elements.themeCycleButtons.forEach(b => {
-                            b.classList.toggle("active", b.dataset.cycle === "random");
-                        });
-                        activeColorCycle = "random";
-                        localStorage.setItem("eternalVeilColorCycle", "random");
-                        updateCycleDescription("random");
-                    } else if (activeColorCycle === "random") {
-                        // Trigger a random morph
-                        const palette = generateHarmoniousPalette(flowPersonality);
-                        setOptionToFlow("colors");
-                        if (!isAutopilot) {
-                            toggleAutopilot(true);
-                        }
-                        startPaletteMorph(palette, 4000);
-                        showToast("Active playlist: Random");
+                    // Toggle click behavior: if already active and not "random", click sets it back to "random"
+                    if (activeColorCycle === targetCycle && targetCycle !== "random") {
+                        nextCycle = "random";
+                        CosmicLogger.info("Playlist toggled off. Reverting to random.");
                     }
+
+                    // Update active state in UI buttons
+                    elements.themeCycleButtons.forEach(b => {
+                        b.classList.toggle("active", b.dataset.cycle === nextCycle);
+                    });
+
+                    activeColorCycle = nextCycle;
+                    localStorage.setItem("eternalVeilColorCycle", activeColorCycle);
+                    updateCycleDescription(activeColorCycle);
+
+                    // Give immediate visual feedback
+                    if (window.ColorCycles) {
+                        const nextPal = window.ColorCycles.getNextPalette(activeColorCycle, sim.palette);
+                        if (nextPal) {
+                            setOptionToFlow("colors");
+                            elements.autopilotColorToggle.checked = true;
+                            if (!isAutopilot) {
+                                toggleAutopilot(true);
+                            } else {
+                                startAutopilotIntervals();
+                            }
+                            startPaletteMorph(nextPal, 4000);
+                            showToast(`Active playlist: ${nextCycle === "random" ? "Random" : btn.textContent}`);
+                        } else if (activeColorCycle === "custom") {
+                            showToast("Swatches library is empty. Save a custom theme first!");
+                            // Revert back to random
+                            elements.themeCycleButtons.forEach(b => {
+                                b.classList.toggle("active", b.dataset.cycle === "random");
+                            });
+                            activeColorCycle = "random";
+                            localStorage.setItem("eternalVeilColorCycle", "random");
+                            updateCycleDescription("random");
+                        } else if (activeColorCycle === "random") {
+                            // Trigger a random morph
+                            const palette = generateHarmoniousPalette(flowPersonality);
+                            setOptionToFlow("colors");
+                            elements.autopilotColorToggle.checked = true;
+                            if (!isAutopilot) {
+                                toggleAutopilot(true);
+                            } else {
+                                startAutopilotIntervals();
+                            }
+                            startPaletteMorph(palette, 4000);
+                            showToast("Active playlist: Random");
+                        }
+                    }
+                } catch (err) {
+                    CosmicLogger.error(`Theme cycle click error: ${err.stack || err.message}`);
                 }
             };
         });
