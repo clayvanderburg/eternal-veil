@@ -950,22 +950,40 @@ document.addEventListener("DOMContentLoaded", () => {
         return keys;
     }
 
+    function getPresetByShape(shape) {
+        if (!shape) return null;
+        for (const [k, p] of Object.entries(StylePresets)) {
+            if (p.particleShape === shape) return k;
+        }
+        return null;
+    }
+
     function updateHudPresetName(key) {
         if (!elements.hudPresetName) return;
-        if (!key || !StylePresets[key]) {
+        
+        let effectiveKey = key;
+        let suffix = "";
+        
+        if (!effectiveKey) {
+            // Map the current particle shape back to its flagship preset during organic flow
+            effectiveKey = getPresetByShape(sim.settings.particleShape);
+            suffix = " (FLOW)";
+        }
+
+        if (!effectiveKey || !StylePresets[effectiveKey]) {
             elements.hudPresetName.textContent = "CUSTOM";
             if (elements.hudPresetBan) elements.hudPresetBan.classList.add("hide");
             if (elements.hudPresetStar) elements.hudPresetStar.classList.add("hide");
             if (elements.hudPresetLock) elements.hudPresetLock.classList.add("hide");
         } else {
-            elements.hudPresetName.textContent = StylePresets[key].name.toUpperCase();
+            elements.hudPresetName.textContent = StylePresets[effectiveKey].name.toUpperCase() + suffix;
             if (elements.hudPresetBan) {
                 elements.hudPresetBan.classList.remove("hide");
-                elements.hudPresetBan.classList.toggle("active-ban", excludedPresetKeys.has(key));
+                elements.hudPresetBan.classList.toggle("active-ban", excludedPresetKeys.has(effectiveKey));
             }
             if (elements.hudPresetStar) {
                 elements.hudPresetStar.classList.remove("hide");
-                elements.hudPresetStar.classList.toggle("active-star", favoritePresetKeys.has(key));
+                elements.hudPresetStar.classList.toggle("active-star", favoritePresetKeys.has(effectiveKey));
             }
             if (elements.hudPresetLock) {
                 elements.hudPresetLock.classList.remove("hide");
@@ -1097,98 +1115,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // color playlist (Autopilot color interval / manual palette). This is what
     // Autopilot uses so the "current preset" is always a named, favoritable,
     // excludable entity while colors keep flowing on their own track.
-    // Applies ONLY the PARTICLE GEOMETRY of a preset (shape, lighting, kaleidoscope,
-    // look/audio flags). Flow params (speed/turbulence/density/colors/etc.) are left
-    // to Autopilot's independent intervals — we do NOT lock them to Manual, so the
-    // sim keeps flowing. This is what the HUD "current preset" actually means: the
-    // geometry currently loaded.
-    function loadPresetPatternOnly(key) {
-        const p = StylePresets[key];
-        if (!p) return;
 
-        lastPresetKey = key;
-        updateHudPresetName(key);
-
-        // Geometry keys only — applied directly, no setOptionToManual on flow params.
-        const shape = p.particleShape || "ellipse";
-        sim.settings.particleShape = shape;
-        if (elements.particleShapeSelect) elements.particleShapeSelect.value = shape;
-
-        const lighting = p.particleLighting || "glow";
-        sim.settings.particleLighting = lighting;
-        if (elements.particleLightingSelect) elements.particleLightingSelect.value = lighting;
-
-        const kaleidoOn = p.kaleidoscopeEnabled === true;
-        sim.settings.kaleidoscopeEnabled = kaleidoOn;
-        if (elements.kaleidoscopeToggle) elements.kaleidoscopeToggle.checked = kaleidoOn;
-        if (kaleidoOn && elements.kaleidoscopeSettings) {
-            elements.kaleidoscopeSettings.classList.remove("hidden");
-            if (typeof p.kaleidoscopeSegments === "number") {
-                startMorph("kaleidoscopeSegments", p.kaleidoscopeSegments);
-            }
-        } else if (elements.kaleidoscopeSettings) {
-            elements.kaleidoscopeSettings.classList.add("hidden");
-        }
-
-        const spinOn = !isComfortMode && p.spinningKaleido === true;
-        sim.settings.spinningKaleido = spinOn;
-        if (elements.spinningKaleidoToggle) elements.spinningKaleidoToggle.checked = spinOn;
-
-        const psychOn = !isComfortMode && p.psychedelicMode === true;
-        sim.settings.psychedelicMode = psychOn;
-        if (elements.psychedelicToggle) elements.psychedelicToggle.checked = psychOn;
-
-        const morphBgOn = !isComfortMode && p.morphingBg === true;
-        sim.settings.morphingBg = morphBgOn;
-        if (elements.morphingBgToggle) elements.morphingBgToggle.checked = morphBgOn;
-
-        const bilateralOn = p.bilateralEnabled === true;
-        sim.settings.bilateralEnabled = bilateralOn;
-        if (elements.bilateralToggle) elements.bilateralToggle.checked = bilateralOn;
-        if (window.CosmicSynth && window.CosmicSynth.setBilateralEnabled) window.CosmicSynth.setBilateralEnabled(bilateralOn);
-
-        const asmrOn = p.asmrEnabled === true;
-        sim.settings.asmrEnabled = asmrOn;
-        if (elements.asmrToggle) elements.asmrToggle.checked = asmrOn;
-        if (window.CosmicSynth && window.CosmicSynth.setAsmrEnabled) window.CosmicSynth.setAsmrEnabled(asmrOn);
-
-        // Highlight active card in the sidebar
-        document.querySelectorAll(".preset-card").forEach(c => {
-            c.classList.remove("active");
-            if (c.getAttribute("data-preset") === key) c.classList.add("active");
-        });
-
-        modulateSynth();
-        updateHudPresetName(key);
-    }
-
-    // Geometry-only signature: the keys that define a preset's "particle geometry".
-    // Used for favorite/ban/exclude logic — favoriting = favoriting the geometry.
-    function getPresetGeometryKeys() {
-        return [
-            "particleShape", "particleLighting", "kaleidoscopeEnabled",
-            "kaleidoscopeSegments", "spinningKaleido", "psychedelicMode",
-            "morphingBg", "bilateralEnabled", "asmrEnabled"
-        ];
-    }
-
-    // Autopilot pattern picker: selects a REAL preset (not random params) so the
-    // HUD always shows a live, named "current preset" (its geometry). Favorites are
-    // weighted higher; excluded presets are never chosen; the most recent pick is
-    // avoided so it doesn't immediately reselect itself.
-    function autopilotPickPreset() {
-        const keys = Object.keys(StylePresets).filter(k => !excludedPresetKeys.has(k));
-        if (keys.length === 0) {
-            showToast("All presets excluded. Reset in the sidebar.");
-            return;
-        }
-        const favs = keys.filter(k => favoritePresetKeys.has(k));
-        // 65% chance to favor a favorited geometry when any are available
-        const pool = (favs.length > 0 && Math.random() < 0.65) ? favs : keys;
-        const candidates = pool.filter(k => k !== lastPresetKey);
-        const choice = (candidates.length ? candidates : pool)[Math.floor(Math.random() * (candidates.length ? candidates.length : pool.length))];
-        loadPresetPatternOnly(choice);
-    }
     function turnOffPsychedelicMode() {
         if (sim.settings.psychedelicMode) {
             sim.settings.psychedelicMode = false;
@@ -1655,10 +1582,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const patternInterval = parseInt(elements.autoPatternSlider.value) * 1000;
         const colorInterval = parseInt(elements.autoColorSlider.value) * 1000;
         
-        // 1. Drift through real presets (pattern only; colors flow independently).
-        autopilotPickPreset();
+        // 1. Drift through random parameters organically (infinite configs)
+        randomizeAllParameters();
         autopilotTimer = setInterval(() => {
-            autopilotPickPreset();
+            randomizeAllParameters();
         }, patternInterval);
 
         // 2. Morph colors (if checked and set to FLOW)
@@ -2333,29 +2260,32 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         if (elements.hudPresetStar) {
             elements.hudPresetStar.onclick = () => {
-                if (!lastPresetKey) {
+                const targetKey = lastPresetKey || getPresetByShape(sim.settings.particleShape);
+                if (!targetKey) {
                     showToast("No preset loaded to favorite.");
                     return;
                 }
-                if (favoritePresetKeys.has(lastPresetKey)) favoritePresetKeys.delete(lastPresetKey);
-                else favoritePresetKeys.add(lastPresetKey);
+                if (favoritePresetKeys.has(targetKey)) favoritePresetKeys.delete(targetKey);
+                else favoritePresetKeys.add(targetKey);
                 localStorage.setItem("eternalVoidFavoritePresets", JSON.stringify([...favoritePresetKeys]));
                 buildPresetCards();
-                const name = StylePresets[lastPresetKey]?.name || lastPresetKey;
-                showToast(favoritePresetKeys.has(lastPresetKey) ? `★ Favorited: ${name}` : `Unfavorited: ${name}`);
-                elements.hudPresetStar.classList.toggle("active-star", favoritePresetKeys.has(lastPresetKey));
+                const name = StylePresets[targetKey]?.name || targetKey;
+                showToast(favoritePresetKeys.has(targetKey) ? `★ Favorited: ${name}` : `Unfavorited: ${name}`);
+                elements.hudPresetStar.classList.toggle("active-star", favoritePresetKeys.has(targetKey));
             };
         }
         if (elements.hudPresetBan) {
             elements.hudPresetBan.onclick = () => {
-                if (!lastPresetKey) return;
-                if (excludedPresetKeys.has(lastPresetKey)) excludedPresetKeys.delete(lastPresetKey);
-                else excludedPresetKeys.add(lastPresetKey);
+                const targetKey = lastPresetKey || getPresetByShape(sim.settings.particleShape);
+                if (!targetKey) return;
+                
+                if (excludedPresetKeys.has(targetKey)) excludedPresetKeys.delete(targetKey);
+                else excludedPresetKeys.add(targetKey);
                 
                 localStorage.setItem("eternalVoidExcludedPresets", JSON.stringify([...excludedPresetKeys]));
                 buildPresetCards();
 
-                if (excludedPresetKeys.has(lastPresetKey)) {
+                if (excludedPresetKeys.has(targetKey)) {
                     elements.hudPresetBan.classList.add("active-ban");
                     showToast("Preset excluded.");
                     // Autopilot skip if banned
