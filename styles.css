@@ -2399,3 +2399,54 @@ body:not(.autopilot-active) .flow-toggle-group {
 .hud-icon-btn.active-lock svg {
     stroke: #00ffff;
 }
+
+.hud-icon-btn.active-ban {
+    color: #ff4757;
+    border-color: rgba(255, 71, 87, 0.4);
+    box-shadow: 0 0 8px rgba(255, 71, 87, 0.2);
+}
+.hud-icon-btn.active-ban svg {
+    stroke: #ff4757;
+}
+
+.hud-swatches {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    margin-left: 4px;
+}
+
+.hud-swatch-circle {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 0 4px rgba(0,0,0,0.5);
+}
+
+.preset-card.excluded {
+    opacity: 0.4;
+    filter: grayscale(80%);
+    order: 999;
+}
+.preset-card.excluded:hover {
+    opacity: 0.8;
+}
+.preset-ban {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px;
+    line-height: 1;
+    transition: color 0.2s, transform 0.2s;
+    margin-right: 4px;
+}
+.preset-ban:hover {
+    color: #ff4757;
+    transform: scale(1.2);
+}
+.preset-ban.active {
+    color: #ff4757;
+}

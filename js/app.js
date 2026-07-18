@@ -66,9 +66,13 @@ document.addEventListener("DOMContentLoaded", () => {
     let activePresetLocks = [];
     let activeColorCycle = localStorage.getItem("eternalVoidColorCycle") || localStorage.getItem("eternalVeilColorCycle") || "random";
     let favoritePresetKeys = new Set();
+    let excludedPresetKeys = new Set();
     try {
         const savedFavorites = JSON.parse(localStorage.getItem("eternalVoidFavoritePresets") || localStorage.getItem("eternalVeilFavoritePresets") || "[]");
         if (Array.isArray(savedFavorites)) favoritePresetKeys = new Set(savedFavorites);
+        
+        const savedExcluded = JSON.parse(localStorage.getItem("eternalVoidExcludedPresets") || "[]");
+        if (Array.isArray(savedExcluded)) excludedPresetKeys = new Set(savedExcluded);
     } catch (error) {
         console.warn("Could not load preset favorites", error);
     }
@@ -383,10 +387,11 @@ document.addEventListener("DOMContentLoaded", () => {
         hudFps: document.getElementById("hud-fps"),
         hudParticles: document.getElementById("hud-particles"),
         hudMode: document.getElementById("hud-mode"),
-        hudPatternName: document.getElementById("hud-pattern-name"),
-        hudPatternStar: document.getElementById("hud-pattern-star"),
-        hudPatternLock: document.getElementById("hud-pattern-lock"),
-        hudColorName: document.getElementById("hud-color-name"),
+        hudPresetName: document.getElementById("hud-preset-name"),
+        hudPresetBan: document.getElementById("hud-preset-ban"),
+        hudPresetStar: document.getElementById("hud-preset-star"),
+        hudPresetLock: document.getElementById("hud-preset-lock"),
+        hudColorSwatches: document.getElementById("hud-color-swatches"),
         hudColorStar: document.getElementById("hud-color-star"),
         hudColorLock: document.getElementById("hud-color-lock"),
         hudVisualizer: document.getElementById("hud-audio-visualizer-container"),
@@ -882,19 +887,30 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- PRESETS MANAGEMENT ---
     function buildPresetCards() {
         elements.presetsGrid.innerHTML = "";
-        const keys = Object.keys(StylePresets).sort((a, b) =>
-            Number(favoritePresetKeys.has(b)) - Number(favoritePresetKeys.has(a))
-        );
+        const keys = Object.keys(StylePresets).sort((a, b) => {
+            const aEx = excludedPresetKeys.has(a) ? 1 : 0;
+            const bEx = excludedPresetKeys.has(b) ? 1 : 0;
+            if (aEx !== bEx) return aEx - bEx;
+            const aFav = favoritePresetKeys.has(a) ? 1 : 0;
+            const bFav = favoritePresetKeys.has(b) ? 1 : 0;
+            return bFav - aFav;
+        });
         keys.forEach(key => {
             const p = StylePresets[key];
+            const isExcluded = excludedPresetKeys.has(key);
             const card = document.createElement("div");
-            card.className = `preset-card${lastPresetKey === key ? " active" : ""}`;
+            card.className = `preset-card${lastPresetKey === key ? " active" : ""}${isExcluded ? " excluded" : ""}`;
             card.setAttribute("data-preset", key);
             card.innerHTML = `
                 <div class="preset-card-heading">
                     <div class="preset-name">${p.name}</div>
                     ${p.meditationPreset ? '<span class="meditation-preset-badge">MEDITATE</span>' : ''}
-                    <button class="preset-favorite${favoritePresetKeys.has(key) ? " active" : ""}" aria-label="${favoritePresetKeys.has(key) ? "Remove" : "Add"} ${p.name} ${favoritePresetKeys.has(key) ? "from" : "to"} favorites" title="Favorite preset">★</button>
+                    <div style="display:flex; gap:4px;">
+                        <button class="preset-ban${isExcluded ? " active" : ""}" aria-label="Exclude preset" title="Exclude preset">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
+                        </button>
+                        <button class="preset-favorite${favoritePresetKeys.has(key) ? " active" : ""}" aria-label="Favorite preset" title="Favorite preset">★</button>
+                    </div>
                 </div>
                 <div class="preset-desc">${p.desc}</div>
             `;
@@ -906,7 +922,17 @@ document.addEventListener("DOMContentLoaded", () => {
                 localStorage.setItem("eternalVoidFavoritePresets", JSON.stringify([...favoritePresetKeys]));
                 buildPresetCards();
             };
-            card.onclick = () => loadPreset(key);
+            const banButton = card.querySelector(".preset-ban");
+            banButton.onclick = event => {
+                event.stopPropagation();
+                if (excludedPresetKeys.has(key)) excludedPresetKeys.delete(key);
+                else excludedPresetKeys.add(key);
+                localStorage.setItem("eternalVoidExcludedPresets", JSON.stringify([...excludedPresetKeys]));
+                buildPresetCards();
+            };
+            card.onclick = () => {
+                if (!excludedPresetKeys.has(key)) loadPreset(key);
+            };
             elements.presetsGrid.appendChild(card);
         });
     }
@@ -924,10 +950,38 @@ document.addEventListener("DOMContentLoaded", () => {
         return keys;
     }
 
+    function updateHudPresetName(key) {
+        if (!elements.hudPresetName) return;
+        if (!key || !StylePresets[key]) {
+            elements.hudPresetName.textContent = "CUSTOM";
+            if (elements.hudPresetBan) elements.hudPresetBan.classList.add("hide");
+        } else {
+            elements.hudPresetName.textContent = StylePresets[key].name.toUpperCase();
+            if (elements.hudPresetBan) {
+                elements.hudPresetBan.classList.remove("hide");
+                elements.hudPresetBan.classList.toggle("active-ban", excludedPresetKeys.has(key));
+            }
+        }
+    }
+
+    function updateHudColorSwatches(palette) {
+        if (!elements.hudColorSwatches || !Array.isArray(palette)) return;
+        elements.hudColorSwatches.innerHTML = "";
+        for (let i = 0; i < 5; i++) {
+            const color = palette[i] || palette[palette.length - 1] || "#ffffff";
+            const swatch = document.createElement("div");
+            swatch.className = "hud-swatch-circle";
+            swatch.style.backgroundColor = color;
+            swatch.style.boxShadow = `0 0 8px ${color}80`;
+            elements.hudColorSwatches.appendChild(swatch);
+        }
+    }
+
     function releaseActivePreset({ announce = true } = {}) {
         activePresetLocks.forEach(setOptionToFlow);
         activePresetLocks = [];
         lastPresetKey = null;
+        updateHudPresetName(null);
         document.querySelectorAll(".preset-card").forEach(card => card.classList.remove("active"));
         if (announce) showToast("Preset released. Flow is free again.");
     }
@@ -944,6 +998,7 @@ document.addEventListener("DOMContentLoaded", () => {
         releaseActivePreset({ announce: false });
         
         lastPresetKey = key;
+        updateHudPresetName(key);
         activePresetLocks = getPresetSignatureKeys(p);
         activePresetLocks.forEach(setOptionToManual);
         
@@ -1123,6 +1178,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function updateActivePalette(newPalette) {
         sim.updatePalette(newPalette);
         if (sim3D) sim3D.updatePalette(newPalette);
+        updateHudColorSwatches(newPalette);
         // If music reactivity is active and caching, sync manual overrides
         if (basePalette) {
             basePalette = [...newPalette];
@@ -2159,9 +2215,38 @@ document.addEventListener("DOMContentLoaded", () => {
         };
 
         // HUD Interactive Controls
-        if (elements.hudPatternLock) {
-            elements.hudPatternLock.onclick = () => {
+        if (elements.hudPresetLock) {
+            elements.hudPresetLock.onclick = () => {
                 toggleAutopilot(!isAutopilot);
+            };
+        }
+        if (elements.hudPresetStar) {
+            elements.hudPresetStar.onclick = () => {
+                simState.save();
+                elements.hudPresetStar.classList.add("active-star");
+                setTimeout(() => elements.hudPresetStar.classList.remove("active-star"), 800);
+            };
+        }
+        if (elements.hudPresetBan) {
+            elements.hudPresetBan.onclick = () => {
+                if (!lastPresetKey) return;
+                if (excludedPresetKeys.has(lastPresetKey)) excludedPresetKeys.delete(lastPresetKey);
+                else excludedPresetKeys.add(lastPresetKey);
+                
+                localStorage.setItem("eternalVoidExcludedPresets", JSON.stringify([...excludedPresetKeys]));
+                buildPresetCards();
+
+                if (excludedPresetKeys.has(lastPresetKey)) {
+                    elements.hudPresetBan.classList.add("active-ban");
+                    showToast("Preset excluded.");
+                    // Autopilot skip if banned
+                    if (isAutopilot) {
+                        randomizeAllParameters();
+                    }
+                } else {
+                    elements.hudPresetBan.classList.remove("active-ban");
+                    showToast("Preset un-excluded.");
+                }
             };
         }
         if (elements.hudColorLock) {
@@ -2173,13 +2258,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 } else {
                     showToast("Colors locked.");
                 }
-            };
-        }
-        if (elements.hudPatternStar) {
-            elements.hudPatternStar.onclick = () => {
-                simState.save();
-                elements.hudPatternStar.classList.add("active-star");
-                setTimeout(() => elements.hudPatternStar.classList.remove("active-star"), 800);
             };
         }
         if (elements.hudColorStar) {
