@@ -560,6 +560,7 @@ document.addEventListener("DOMContentLoaded", () => {
         setupFlowToggles();
         buildPresetCards();
         setupHarmonicDesigner();
+        setupColorCycles();
         setFlowPersonality(flowPersonality, { announce: false, restart: false });
         setComfortMode(isComfortMode, { persist: false, announce: false });
         
@@ -1468,7 +1469,13 @@ document.addEventListener("DOMContentLoaded", () => {
         if (elements.autopilotColorToggle.checked) {
             autopilotColorTimer = setInterval(() => {
                 if (isFlowEnabled("colors")) {
-                    const palette = generateHarmoniousPalette(flowPersonality);
+                    let palette = null;
+                    if (activeColorCycle !== "random" && window.ColorCycles) {
+                        palette = window.ColorCycles.getNextPalette(activeColorCycle, sim.palette);
+                    }
+                    if (!palette) {
+                        palette = generateHarmoniousPalette(flowPersonality);
+                    }
                     const paletteDuration = Math.max(4500, Math.min(12000, colorInterval * 0.45));
                     startPaletteMorph(palette, paletteDuration);
                     modulateSynth();
@@ -3373,6 +3380,58 @@ document.addEventListener("DOMContentLoaded", () => {
         updateHudWaveform();
 
         requestAnimationFrame(tickLoop);
+    }
+
+    function setupColorCycles() {
+        if (!elements.themeCycleButtons || elements.themeCycleButtons.length === 0) return;
+
+        const cycleDescriptions = {
+            random: "Autopilot drifts across any random harmonious colors.",
+            cyberpunk: "Electric neon grids, hot violet, and synthetic blues.",
+            seasons: "Earthy autumn copper, spring blossoms, and winter frost.",
+            candy: "Sweet bubblegum, lollipop pastels, and lavender skies.",
+            goth: "Velvet obsidian shadows, crimson red, and deep burgundy.",
+            ocean: "Swaying seafoam greens, deep sapphire, and sandy reefs.",
+            chakra: "Chakra energies, crown amethyst violet, throat blue, solar yellow.",
+            custom: "Loops sequentially through custom themes saved in your library."
+        };
+
+        function updateCycleDescription(cycle) {
+            if (elements.themeCycleDesc) {
+                elements.themeCycleDesc.textContent = cycleDescriptions[cycle] || cycleDescriptions.random;
+            }
+        }
+
+        elements.themeCycleButtons.forEach(btn => {
+            btn.onclick = () => {
+                elements.themeCycleButtons.forEach(b => b.classList.remove("active"));
+                btn.classList.add("active");
+                activeColorCycle = btn.dataset.cycle;
+                localStorage.setItem("eternalVeilColorCycle", activeColorCycle);
+                updateCycleDescription(activeColorCycle);
+
+                // Give immediate visual feedback by loading a palette from the selected cycle
+                if (window.ColorCycles) {
+                    const nextPal = window.ColorCycles.getNextPalette(activeColorCycle, sim.palette);
+                    if (nextPal) {
+                        setOptionToFlow("colors");
+                        if (!isAutopilot) {
+                            toggleAutopilot(true);
+                        }
+                        startPaletteMorph(nextPal, 4000);
+                        showToast(`Active playlist: ${btn.textContent}`);
+                    } else if (activeColorCycle === "custom") {
+                        showToast("Swatches library is empty. Save a custom theme first!");
+                    }
+                }
+            };
+        });
+
+        // Initialize state selection
+        elements.themeCycleButtons.forEach(btn => {
+            btn.classList.toggle("active", btn.dataset.cycle === activeColorCycle);
+        });
+        updateCycleDescription(activeColorCycle);
     }
 
     function setupHarmonicDesigner() {

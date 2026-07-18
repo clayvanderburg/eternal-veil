@@ -30,7 +30,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     
     <!-- Custom Style Sheet -->
-    <link rel="stylesheet" href="styles.css?v=breath-sanctuary-1">
+    <link rel="stylesheet" href="styles.css?v=color-cycles-1">
 </head>
 <body>
     <!-- Entry Splash Screen Overlay -->
@@ -360,6 +360,22 @@
                         <button class="btn btn-secondary" id="add-color-btn">Add Color</button>
                     </div>
                     <p class="micro-tip">Click swatch to delete. Max 6 colors. Falls back to default.</p>
+                </div>
+
+                <!-- Autopilot Color Playlist Cycles -->
+                <div class="setting-group">
+                    <span class="setting-label-header">AUTOPILOT COLOR PLAYLIST</span>
+                    <div class="theme-cycles-grid" id="theme-cycles-grid">
+                        <button class="theme-cycle-btn active" data-cycle="random">Random (Default)</button>
+                        <button class="theme-cycle-btn" data-cycle="cyberpunk">Cyberpunk</button>
+                        <button class="theme-cycle-btn" data-cycle="seasons">Seasons</button>
+                        <button class="theme-cycle-btn" data-cycle="candy">Candy Pop</button>
+                        <button class="theme-cycle-btn" data-cycle="goth">Goth/Shadow</button>
+                        <button class="theme-cycle-btn" data-cycle="ocean">Ocean Calm</button>
+                        <button class="theme-cycle-btn" data-cycle="chakra">Chakra/Aura</button>
+                        <button class="theme-cycle-btn" data-cycle="custom">My Library Loop</button>
+                    </div>
+                    <p class="setting-desc" id="theme-cycle-desc">Autopilot drifts across any random harmonious colors.</p>
                 </div>
 
                 <!-- Harmonic Palette Designer accordion -->
@@ -944,6 +960,7 @@
     <script src="js/state-schema.js?v=breath-sanctuary-1"></script>
     <script src="js/render-quality.js?v=90375e6"></script>
     <script src="js/color-theory.js?v=Paletton-1"></script>
+    <script src="js/color-cycles.js?v=color-cycles-1"></script>
     <script src="js/presets.js?v=breath-sanctuary-1"></script>
     <script src="js/synth.js?v=foundation-batch-1"></script>
     <script src="js/exporter.js?v=90375e6"></script>
@@ -951,6 +968,6 @@
     <script src="js/simulation.js?v=breath-sanctuary-centered-1"></script>
     <script src="js/simulation3d.js?v=breath-sanctuary-1"></script>
     <script src="js/simulation3d-native.js?v=breath-sanctuary-centered-1"></script>
-    <script src="js/app.js?v=breath-sanctuary-1"></script>
+    <script src="js/app.js?v=color-cycles-1"></script>
 </body>
 </html>
