@@ -2409,8 +2409,45 @@ document.addEventListener("DOMContentLoaded", () => {
                 setTimeout(() => elements.hudColorStar.classList.remove("active-star"), 800);
                 showToast(`Palette "${autoName}" saved to My Theme Library → Colors`);
                 // Reveal the saved palette in the Colors tab so the user sees it land.
-                const savedGrid = document.getElementById("saved-swatches-grid");
-                if (savedGrid && typeof renderLibrary === "function") renderLibrary();
+                // Self-contained re-render (renderLibrary/getLibrary live in another
+                // closure and aren't reachable here) so the grid updates instantly.
+                (function renderColorsGrid() {
+                    const gridEl = document.getElementById("saved-swatches-grid");
+                    if (!gridEl) return;
+                    let lib = [];
+                    try {
+                        lib = JSON.parse(localStorage.getItem("eternal_void_custom_palettes") ||
+                                         localStorage.getItem("eternal_veil_custom_palettes")) || [];
+                    } catch (e) { lib = []; }
+                    gridEl.innerHTML = "";
+                    if (lib.length === 0) {
+                        gridEl.innerHTML = `<div style="font-size: 10px; color: var(--text-muted); text-align: center; padding: 10px 0;">No custom palettes saved yet.</div>`;
+                        return;
+                    }
+                    lib.forEach(item => {
+                        const card = document.createElement("div");
+                        card.className = "saved-swatch-card";
+                        card.setAttribute("role", "button");
+                        card.setAttribute("tabindex", "0");
+                        const meta = document.createElement("div");
+                        meta.className = "saved-swatch-meta";
+                        const name = document.createElement("span");
+                        name.className = "saved-swatch-name";
+                        name.textContent = item.name;
+                        const colorsContainer = document.createElement("div");
+                        colorsContainer.className = "saved-swatch-colors";
+                        (item.colors || []).forEach(col => {
+                            const circle = document.createElement("div");
+                            circle.className = "saved-swatch-circle";
+                            circle.style.backgroundColor = col;
+                            colorsContainer.appendChild(circle);
+                        });
+                        meta.appendChild(name);
+                        meta.appendChild(colorsContainer);
+                        card.appendChild(meta);
+                        gridEl.appendChild(card);
+                    });
+                })();
                 const colorsTabBtn = document.querySelector('.tab-btn[data-tab="tab-colors"]');
                 const colorsTabContent = document.getElementById("tab-colors");
                 if (colorsTabBtn && colorsTabContent) {
@@ -2419,9 +2456,10 @@ document.addEventListener("DOMContentLoaded", () => {
                     colorsTabBtn.classList.add("active");
                     colorsTabContent.classList.add("active");
                     if (elements.controlPanel) elements.controlPanel.classList.remove("hidden");
-                    if (savedGrid) {
-                        savedGrid.scrollTop = 0;
-                        const firstCard = savedGrid.querySelector(".saved-swatch-card");
+                    const gridEl = document.getElementById("saved-swatches-grid");
+                    if (gridEl) {
+                        gridEl.scrollTop = 0;
+                        const firstCard = gridEl.querySelector(".saved-swatch-card");
                         if (firstCard) {
                             firstCard.animate(
                                 [{ boxShadow: "0 0 0 2px var(--accent-color)" }, { boxShadow: "0 0 0 0 transparent" }],
