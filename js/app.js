@@ -64,6 +64,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let preMeditationState = null;
     let autopilotBeforeMeditation = true;
     let activePresetLocks = [];
+    let activeColorCycle = localStorage.getItem("eternalVeilColorCycle") || "random";
     let favoritePresetKeys = new Set();
     try {
         const savedFavorites = JSON.parse(localStorage.getItem("eternalVeilFavoritePresets") || "[]");
@@ -508,7 +509,11 @@ document.addEventListener("DOMContentLoaded", () => {
         
         musicReactQuickBtn: document.getElementById("music-react-quick-btn"),
         enterStandardBtn: document.getElementById("enter-standard-btn"),
-        enterComfortBtn: document.getElementById("enter-comfort-btn")
+        enterComfortBtn: document.getElementById("enter-comfort-btn"),
+        
+        // Color Cycle Playlist buttons
+        themeCycleButtons: document.querySelectorAll(".theme-cycle-btn"),
+        themeCycleDesc: document.getElementById("theme-cycle-desc")
     };
 
 
