@@ -383,6 +383,12 @@ document.addEventListener("DOMContentLoaded", () => {
         hudFps: document.getElementById("hud-fps"),
         hudParticles: document.getElementById("hud-particles"),
         hudMode: document.getElementById("hud-mode"),
+        hudPatternName: document.getElementById("hud-pattern-name"),
+        hudPatternStar: document.getElementById("hud-pattern-star"),
+        hudPatternLock: document.getElementById("hud-pattern-lock"),
+        hudColorName: document.getElementById("hud-color-name"),
+        hudColorStar: document.getElementById("hud-color-star"),
+        hudColorLock: document.getElementById("hud-color-lock"),
         hudVisualizer: document.getElementById("hud-audio-visualizer-container"),
         
         // Presets & Colors
@@ -1316,6 +1322,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (elements.flowPersonalityDescription) {
             elements.flowPersonalityDescription.textContent = descriptions[flowPersonality];
         }
+        if (elements.hudPatternName) {
+            elements.hudPatternName.textContent = flowPersonality.toUpperCase();
+        }
         elements.personalityButtons?.forEach(button => {
             button.classList.toggle("active", button.dataset.personality === flowPersonality);
         });
@@ -1451,16 +1460,24 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- AUTOPILOT MORPH ROTATOR ---
     function toggleAutopilot(state) {
         isAutopilot = state;
-        elements.autopilotToggle.checked = state;
+        if (elements.autopilotToggle) elements.autopilotToggle.checked = state;
         
+        if (elements.hudPatternLock) {
+            elements.hudPatternLock.classList.toggle("active-lock", !state);
+            const lockIcon = elements.hudPatternLock.querySelector('.lock-icon');
+            const unlockIcon = elements.hudPatternLock.querySelector('.unlock-icon');
+            if (lockIcon) lockIcon.classList.toggle("hide", state);
+            if (unlockIcon) unlockIcon.classList.toggle("hide", !state);
+        }
+
         if (state) {
             document.body.classList.add("autopilot-active");
-            elements.autopilotSettings.classList.remove("hidden");
+            if (elements.autopilotSettings) elements.autopilotSettings.classList.remove("hidden");
             startAutopilotIntervals();
             showToast("Autopilot co-pilot engaged.");
         } else {
             document.body.classList.remove("autopilot-active");
-            elements.autopilotSettings.classList.add("hidden");
+            if (elements.autopilotSettings) elements.autopilotSettings.classList.add("hidden");
             stopAutopilotIntervals();
             showToast("Autopilot co-pilot disengaged.");
         }
@@ -2130,8 +2147,51 @@ document.addEventListener("DOMContentLoaded", () => {
             document.body.classList.toggle("show-breathing-guide", experienceMode === "meditation" && elements.breathingGuideToggle.checked);
         };
         elements.autopilotColorToggle.onchange = () => {
+            const isActive = elements.autopilotColorToggle.checked;
+            if (elements.hudColorLock) {
+                elements.hudColorLock.classList.toggle("active-lock", !isActive);
+                const lockIcon = elements.hudColorLock.querySelector('.lock-icon');
+                const unlockIcon = elements.hudColorLock.querySelector('.unlock-icon');
+                if (lockIcon) lockIcon.classList.toggle("hide", isActive);
+                if (unlockIcon) unlockIcon.classList.toggle("hide", !isActive);
+            }
             if (isAutopilot) startAutopilotIntervals();
         };
+
+        // HUD Interactive Controls
+        if (elements.hudPatternLock) {
+            elements.hudPatternLock.onclick = () => {
+                toggleAutopilot(!isAutopilot);
+            };
+        }
+        if (elements.hudColorLock) {
+            elements.hudColorLock.onclick = () => {
+                elements.autopilotColorToggle.checked = !elements.autopilotColorToggle.checked;
+                elements.autopilotColorToggle.onchange();
+                if (elements.autopilotColorToggle.checked) {
+                    showToast("Color cycling unlocked.");
+                } else {
+                    showToast("Colors locked.");
+                }
+            };
+        }
+        if (elements.hudPatternStar) {
+            elements.hudPatternStar.onclick = () => {
+                simState.save();
+                elements.hudPatternStar.classList.add("active-star");
+                setTimeout(() => elements.hudPatternStar.classList.remove("active-star"), 800);
+            };
+        }
+        if (elements.hudColorStar) {
+            elements.hudColorStar.onclick = () => {
+                const btnSave = document.getElementById("btn-save-swatch");
+                if (btnSave) {
+                    btnSave.click();
+                    elements.hudColorStar.classList.add("active-star");
+                    setTimeout(() => elements.hudColorStar.classList.remove("active-star"), 800);
+                }
+            };
+        }
         elements.autoPatternSlider.oninput = () => {
             elements.autoPatternVal.textContent = `${elements.autoPatternSlider.value}s`;
             if (isAutopilot) startAutopilotIntervals();
@@ -3420,6 +3480,9 @@ document.addEventListener("DOMContentLoaded", () => {
         function updateCycleDescription(cycle) {
             if (elements.themeCycleDesc) {
                 elements.themeCycleDesc.textContent = cycleDescriptions[cycle] || cycleDescriptions.random;
+            }
+            if (elements.hudColorName) {
+                elements.hudColorName.textContent = cycle.toUpperCase();
             }
         }
 

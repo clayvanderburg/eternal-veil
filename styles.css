@@ -2305,3 +2305,97 @@ body:not(.autopilot-active) .flow-toggle-group {
     box-shadow: var(--shadow-glow);
     font-weight: 600;
 }
+
+/* HUD State Styles */
+.hud-current-state {
+    margin-top: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 15px;
+}
+
+.hud-state-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.hud-state-row:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.hud-state-label {
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.hud-state-label span {
+    color: var(--text-color);
+    font-weight: 600;
+    font-size: 11px;
+}
+
+.hud-state-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.hud-icon-btn {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-muted);
+    border-radius: 4px;
+    padding: 4px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.hud-icon-btn svg {
+    width: 14px;
+    height: 14px;
+    transition: all 0.2s;
+}
+
+.hud-icon-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.hud-icon-btn.active-star {
+    color: #ffd700;
+    border-color: rgba(255, 215, 0, 0.4);
+    box-shadow: 0 0 8px rgba(255, 215, 0, 0.2);
+}
+
+.hud-icon-btn.active-star svg {
+    stroke: #ffd700;
+    fill: #ffd700;
+}
+
+.hud-icon-btn.active-lock {
+    color: #00ffff;
+    border-color: rgba(0, 255, 255, 0.4);
+    box-shadow: 0 0 8px rgba(0, 255, 255, 0.2);
+}
+
+.hud-icon-btn.active-lock svg {
+    stroke: #00ffff;
+}
