@@ -218,28 +218,24 @@
             <button class="tab-btn" data-tab="tab-share">Audio & Share</button>
         </nav>
 
+        <!-- Global Config History Toolbar -->
+        <div style="padding: 12px 20px; display: flex; justify-content: center; gap: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); background: rgba(0, 0, 0, 0.2);">
+            <button class="btn-history tool-tip" id="history-prev-btn" data-tooltip="Step back in history (←)" disabled>
+                ◄ Prev Config
+            </button>
+            <button class="btn-history tool-tip" id="history-rand-btn" data-tooltip="Generate random new config (G)">
+                🎲 Random Config
+            </button>
+            <button class="btn-history tool-tip" id="history-next-btn" data-tooltip="Step forward in history (→)" disabled>
+                Next Config ►
+            </button>
+        </div>
+
         <!-- Panel Tab Contents Container -->
         <div class="panel-content">
 
             <!-- TAB 1: PRESETS & COLORS -->
             <section class="tab-content active" id="tab-presets">
-                <!-- Config History Toolbar -->
-                <div class="setting-group" style="padding-bottom: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 14px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span class="setting-label-header" style="margin-bottom: 0;">COSMIC HISTORY</span>
-                        <div style="display: flex; gap: 6px;">
-                            <button class="btn-history tool-tip" id="history-prev-btn" data-tooltip="Step back in history (←)" disabled>
-                                ◄ Prev
-                            </button>
-                            <button class="btn-history tool-tip" id="history-rand-btn" data-tooltip="Generate random new config (G)">
-                                🎲 Random Next
-                            </button>
-                            <button class="btn-history tool-tip" id="history-next-btn" data-tooltip="Step forward in history (→)" disabled>
-                                Next ►
-                            </button>
-                        </div>
-                    </div>
-                </div>
 
                 <!-- Autopilot toggle -->
                 <div class="setting-group control-switch">
