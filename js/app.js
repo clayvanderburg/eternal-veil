@@ -46,6 +46,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let activePaletteTransition = null;
     let autopilotTimer = null;
     let autopilotColorTimer = null;
+    let meditationColorTimer = null;
     let isAutopilot = true;
     let lastPresetKey = null;
     let lastFlowPatternShape = null;
@@ -1246,6 +1247,38 @@ document.addEventListener("DOMContentLoaded", () => {
         ]
     };
 
+    // Meditation owns a calm, Chakra-only color rhythm without changing the
+    // visitor's selected Flow playlist or re-enabling pattern Autopilot.
+    function stopMeditationColorCycle() {
+        if (meditationColorTimer) {
+            clearInterval(meditationColorTimer);
+            meditationColorTimer = null;
+        }
+    }
+
+    function shiftMeditationChakraPalette() {
+        const palette = window.ColorCycles?.getNextPalette("chakra", sim.palette);
+        if (!palette) return;
+
+        const interval = (parseInt(elements.autoColorSlider.value, 10) || 20) * 1000;
+        const duration = Math.max(4500, Math.min(9000, interval * 0.45));
+        startPaletteMorph(palette, duration);
+        if (elements.hudColorName) elements.hudColorName.textContent = "CHAKRA";
+    }
+
+    function startMeditationColorCycle() {
+        stopMeditationColorCycle();
+        shiftMeditationChakraPalette();
+        const interval = (parseInt(elements.autoColorSlider.value, 10) || 20) * 1000;
+        meditationColorTimer = setInterval(() => {
+            if (experienceMode !== "meditation") {
+                stopMeditationColorCycle();
+                return;
+            }
+            shiftMeditationChakraPalette();
+        }, interval);
+    }
+
     function setExperienceMode(mode, { persist = true, announce = true, initial = false } = {}) {
         const previousMode = experienceMode;
         experienceMode = validExperienceModes.includes(mode) ? mode : "flow";
@@ -1280,6 +1313,7 @@ document.addEventListener("DOMContentLoaded", () => {
             elements.solidModeToggle.checked = false;
             breathingCycleStartedAt = Date.now();
             if (lastPresetKey !== "breathSanctuary") loadPreset("breathSanctuary");
+            if (previousMode !== "meditation") startMeditationColorCycle();
         } else if (experienceMode === "solid") {
             autopilotBeforeMeditation = isAutopilot;
             if (isAutopilot) toggleAutopilot(false);
@@ -1291,6 +1325,10 @@ document.addEventListener("DOMContentLoaded", () => {
             sim.isSolidMode = false;
             elements.solidModeToggle.checked = false;
             document.body.classList.remove("show-breathing-guide");
+            stopMeditationColorCycle();
+            // Prevent an in-progress Chakra morph from repainting after Flow
+            // restores the palette the visitor was using before Meditation.
+            activePaletteTransition = null;
             if (preMeditationState) {
                 const restoreState = preMeditationState;
                 preMeditationState = null;
@@ -1305,6 +1343,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!initial && autopilotBeforeMeditation && !isAutopilot) toggleAutopilot(true);
         }
         if (experienceMode !== "meditation") {
+            stopMeditationColorCycle();
             delete sim.settings.meditationBreathLevel;
             delete sim.settings.meditationFieldScale;
             delete sim.settings.meditationTailScale;
@@ -1318,6 +1357,7 @@ document.addEventListener("DOMContentLoaded", () => {
             elements.canvas2D.style.transform = "";
             elements.webglCanvas.style.transform = "";
             if (sim3D?.world) sim3D.world.scale.setScalar(1);
+            if (elements.hudColorName) elements.hudColorName.textContent = activeColorCycle.toUpperCase();
         }
         elements.hudMode.textContent = experienceMode === "meditation" ? "MEDITATE" : (experienceMode === "solid" ? "SOLID" : "FLOW");
         if (announce) showToast(`${experienceMode === "meditation" ? "Meditation" : experienceMode[0].toUpperCase() + experienceMode.slice(1)} mode active.`);
@@ -2413,7 +2453,11 @@ document.addEventListener("DOMContentLoaded", () => {
         };
         elements.autoColorSlider.oninput = () => {
             elements.autoColorVal.textContent = `${elements.autoColorSlider.value}s`;
-            if (isAutopilot) startAutopilotIntervals();
+            if (experienceMode === "meditation") {
+                startMeditationColorCycle();
+            } else if (isAutopilot) {
+                startAutopilotIntervals();
+            }
         };
         elements.resetAllFlowBtn.onclick = () => {
             releaseActivePreset({ announce: false });

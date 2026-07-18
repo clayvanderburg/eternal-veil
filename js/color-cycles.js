@@ -40,10 +40,13 @@
             ['#1d2b64', '#f8cdda', '#24c6dc', '#514a9d', '#e0eafc']  // Coastal Breeze
         ],
         chakra: [
-            ['#9400d3', '#4b0082', '#0000ff', '#00ff00', '#ffff00'], // Spiritual (Crown to Solar)
-            ['#ff7f00', '#ff0000', '#ffc0cb', '#8a2be2', '#00ffff'], // Lower + heart
-            ['#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#00bcd4'], // Blue / purple energy
-            ['#4caf50', '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107']  // Nature energy
+            ['#2d0408', '#5a0810', '#941321', '#d72a3a', '#ff8993'], // Root — grounded crimson
+            ['#321401', '#632a04', '#a84b08', '#e87918', '#ffc16b'], // Sacral — warm orange
+            ['#302400', '#624b00', '#a88200', '#e0b51a', '#ffe98a'], // Solar plexus — golden yellow
+            ['#032519', '#075036', '#0c8658', '#1abd79', '#8dffd2'], // Heart — balanced green
+            ['#031d38', '#073d72', '#0c6aae', '#179de8', '#94deff'], // Throat — clear blue
+            ['#0c0a3d', '#1c1877', '#3430b8', '#625cf0', '#c3c0ff'], // Third eye — deep indigo
+            ['#260430', '#4f0968', '#8211a5', '#b83ce0', '#f0b8ff']  // Crown — violet
         ],
         psychedelic: [
             ['#ff00ff', '#00ffff', '#ffff00', '#ff0000', '#00ff00'], // High Contrast RGBY

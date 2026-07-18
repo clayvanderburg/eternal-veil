@@ -62,12 +62,40 @@ const activePalette2 = ColorCycles.getNextPalette('cyberpunk', activePalette1);
 assert.notDeepStrictEqual(activePalette1, activePalette2, 'getNextPalette should try to return a different palette if possible');
 console.log('✅ Passed: getNextPalette selects distinct palettes from the theme group.');
 
-// 3. Test getNextPalette fallback for random theme
+// 3. Chakra palettes must each stay within a single hue family. Meditation
+// relies on these being monochrome fields, not rainbow combinations.
+function hexToHue(hex) {
+    const value = hex.slice(1);
+    const rgb = [0, 2, 4].map(offset => parseInt(value.slice(offset, offset + 2), 16) / 255);
+    const max = Math.max(...rgb);
+    const min = Math.min(...rgb);
+    if (max === min) return 0;
+    const delta = max - min;
+    let hue;
+    if (max === rgb[0]) hue = ((rgb[1] - rgb[2]) / delta) % 6;
+    else if (max === rgb[1]) hue = (rgb[2] - rgb[0]) / delta + 2;
+    else hue = (rgb[0] - rgb[1]) / delta + 4;
+    return (hue * 60 + 360) % 360;
+}
+
+function hueDistance(a, b) {
+    return Math.min(Math.abs(a - b), 360 - Math.abs(a - b));
+}
+
+ColorCycles.playlists.chakra.forEach((palette, index) => {
+    const hues = palette.map(hexToHue);
+    hues.forEach(hue => {
+        assert.ok(hueDistance(hue, hues[0]) <= 18, `Chakra palette ${index} must be monochrome`);
+    });
+});
+console.log('Chakra palettes are monochrome chakra hue families.');
+
+// 4. Test getNextPalette fallback for random theme
 const randomResult = ColorCycles.getNextPalette('random', []);
 assert.strictEqual(randomResult, null, 'getNextPalette("random") should return null to delegate fallback to main app engine');
 console.log('✅ Passed: getNextPalette("random") returns null fallback.');
 
-// 4. Test custom swatches looping
+// 5. Test custom swatches looping
 // Test when library is empty
 const customEmpty = ColorCycles.getNextPalette('custom', []);
 assert.strictEqual(customEmpty, null, 'custom loop with empty library should fall back to null');
