@@ -235,22 +235,31 @@ body.meditation-mode.show-breathing-guide .breathing-guide { opacity: 0.86; }
 }
 
 /* Audio Visualizer within HUD */
-.hud-audio-visualizer {
+.hud-equalizer {
     display: flex;
     align-items: flex-end;
-    gap: 3px;
-    height: 16px;
-    margin-top: 4px;
-    width: 60px;
+    gap: 2px;
+    height: 22px;
+    margin-top: 6px;
+    width: 100%;
+    padding: 0 2px;
+    border-radius: 4px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.25));
+    overflow: hidden;
 }
 
-.visualizer-bar {
+.eq-bar {
     flex: 1;
-    background: var(--accent-color);
-    border-radius: 1px;
-    opacity: 0.7;
-    min-height: 2px;
-    transition: height 0.08s ease;
+    min-height: 3px;
+    border-radius: 2px 2px 0 0;
+    background: linear-gradient(180deg, var(--accent-color), rgba(255,255,255,0.15));
+    box-shadow: 0 0 6px var(--accent-glow, var(--accent-color));
+    opacity: 0.85;
+    transition: height 0.09s ease, opacity 0.2s ease;
+}
+
+.eq-bar:nth-child(odd) {
+    background: linear-gradient(180deg, var(--text-accent, #8b9bff), rgba(255,255,255,0.1));
 }
 
 /* Floating Controls (Top-Right) */

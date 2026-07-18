@@ -955,11 +955,25 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!key || !StylePresets[key]) {
             elements.hudPresetName.textContent = "CUSTOM";
             if (elements.hudPresetBan) elements.hudPresetBan.classList.add("hide");
+            if (elements.hudPresetStar) elements.hudPresetStar.classList.add("hide");
+            if (elements.hudPresetLock) elements.hudPresetLock.classList.add("hide");
         } else {
             elements.hudPresetName.textContent = StylePresets[key].name.toUpperCase();
             if (elements.hudPresetBan) {
                 elements.hudPresetBan.classList.remove("hide");
                 elements.hudPresetBan.classList.toggle("active-ban", excludedPresetKeys.has(key));
+            }
+            if (elements.hudPresetStar) {
+                elements.hudPresetStar.classList.remove("hide");
+                elements.hudPresetStar.classList.toggle("active-star", favoritePresetKeys.has(key));
+            }
+            if (elements.hudPresetLock) {
+                elements.hudPresetLock.classList.remove("hide");
+                elements.hudPresetLock.classList.toggle("active-lock", !isAutopilot);
+                const lockIcon = elements.hudPresetLock.querySelector('.lock-icon');
+                const unlockIcon = elements.hudPresetLock.querySelector('.unlock-icon');
+                if (lockIcon) lockIcon.classList.toggle("hide", !isAutopilot);
+                if (unlockIcon) unlockIcon.classList.toggle("hide", isAutopilot);
             }
         }
     }
@@ -1077,6 +1091,105 @@ document.addEventListener("DOMContentLoaded", () => {
         showToast(`Preset shifted to: ${p.name}`);
         CosmicLogger.info(`Preset shifted to: ${p.name.toUpperCase()}.`);
         captureHistoryState();
+    }
+
+    // Loads a preset's PATTERN/PHYSICS only — colors are left to the independent
+    // color playlist (Autopilot color interval / manual palette). This is what
+    // Autopilot uses so the "current preset" is always a named, favoritable,
+    // excludable entity while colors keep flowing on their own track.
+    function loadPresetPatternOnly(key) {
+        const p = StylePresets[key];
+        if (!p) return;
+
+        lastPresetKey = key;
+        updateHudPresetName(key);
+        activePresetLocks = getPresetSignatureKeys(p);
+        activePresetLocks.forEach(setOptionToManual);
+
+        // Highlight active card in the sidebar
+        document.querySelectorAll(".preset-card").forEach(c => {
+            c.classList.remove("active");
+            if (c.getAttribute("data-preset") === key) c.classList.add("active");
+        });
+
+        const comfortCaps = { speed: 1.35, turbulence: 0.85, density: 2200, baseSize: 7, stretch: 3, rotationSpeed: 0.18, wobble: 0.38 };
+        const presetTarget = (key, value) => isComfortMode && comfortCaps[key] !== undefined
+            ? Math.min(value, comfortCaps[key])
+            : value;
+        startMorph("speed", presetTarget("speed", p.speed));
+        startMorph("turbulence", presetTarget("turbulence", p.turbulence));
+        startMorph("flowOrganic", p.curl);
+        startMorph("density", presetTarget("density", p.density));
+        startMorph("dissipation", p.dissipation);
+        startMorph("zoom", p.zoom);
+        startMorph("baseSize", presetTarget("baseSize", p.size));
+        startMorph("sizeVariation", p.sizeVar);
+        startMorph("stretch", presetTarget("stretch", p.stretch));
+        startMorph("interaction", p.interaction);
+        startMorph("rotationSpeed", presetTarget("rotationSpeed", p.rotationSpeed));
+        startMorph("wobble", presetTarget("wobble", p.wobble));
+
+        // Pattern-only: do NOT call startPaletteMorph — colors stay independent.
+
+        const psychOn = !isComfortMode && p.psychedelicMode === true;
+        sim.settings.psychedelicMode = psychOn;
+        if (elements.psychedelicToggle) elements.psychedelicToggle.checked = psychOn;
+
+        const morphBgOn = !isComfortMode && p.morphingBg === true;
+        sim.settings.morphingBg = morphBgOn;
+        if (elements.morphingBgToggle) elements.morphingBgToggle.checked = morphBgOn;
+
+        const spinKaleidoOn = !isComfortMode && p.spinningKaleido === true;
+        sim.settings.spinningKaleido = spinKaleidoOn;
+        if (elements.spinningKaleidoToggle) elements.spinningKaleidoToggle.checked = spinKaleidoOn;
+
+        const shape = p.particleShape || "ellipse";
+        sim.settings.particleShape = shape;
+        if (elements.particleShapeSelect) elements.particleShapeSelect.value = shape;
+
+        const lighting = p.particleLighting || "glow";
+        sim.settings.particleLighting = lighting;
+        if (elements.particleLightingSelect) elements.particleLightingSelect.value = lighting;
+
+        const kaleidoOn = p.kaleidoscopeEnabled === true;
+        sim.settings.kaleidoscopeEnabled = kaleidoOn;
+        if (elements.kaleidoscopeToggle) elements.kaleidoscopeToggle.checked = kaleidoOn;
+        if (kaleidoOn && elements.kaleidoscopeSettings) {
+            elements.kaleidoscopeSettings.classList.remove("hidden");
+            startMorph("kaleidoscopeSegments", p.kaleidoscopeSegments || 6);
+        } else if (elements.kaleidoscopeSettings) {
+            elements.kaleidoscopeSettings.classList.add("hidden");
+        }
+
+        const bilateralOn = p.bilateralEnabled === true;
+        sim.settings.bilateralEnabled = bilateralOn;
+        if (elements.bilateralToggle) elements.bilateralToggle.checked = bilateralOn;
+        if (window.CosmicSynth && window.CosmicSynth.setBilateralEnabled) window.CosmicSynth.setBilateralEnabled(bilateralOn);
+
+        const asmrOn = p.asmrEnabled === true;
+        sim.settings.asmrEnabled = asmrOn;
+        if (elements.asmrToggle) elements.asmrToggle.checked = asmrOn;
+        if (window.CosmicSynth && window.CosmicSynth.setAsmrEnabled) window.CosmicSynth.setAsmrEnabled(asmrOn);
+
+        modulateSynth();
+        updateHudPresetName(key);
+    }
+
+    // Autopilot pattern picker: selects a REAL preset (not random params) so the
+    // HUD always shows a live, named "current preset". Favorites are weighted
+    // higher; excluded presets are never chosen; the most recent pick is avoided
+    // so it doesn't immediately reselect itself.
+    function autopilotPickPreset() {
+        const keys = Object.keys(StylePresets).filter(k => !excludedPresetKeys.has(k));
+        if (keys.length === 0) {
+            CosmicLogger.warn("All presets excluded — Autopilot cannot pick a pattern.");
+            return;
+        }
+        const favorites = keys.filter(k => favoritePresetKeys.has(k));
+        const pool = favorites.length > 0 && Math.random() < 0.6 ? favorites : keys;
+        const candidates = pool.filter(k => k !== lastPresetKey);
+        const choice = (candidates.length > 0 ? candidates : pool)[Math.floor(Math.random() * (candidates.length > 0 ? candidates.length : pool.length))];
+        loadPresetPatternOnly(choice);
     }
 
     function turnOffPsychedelicMode() {
@@ -1518,10 +1631,10 @@ document.addEventListener("DOMContentLoaded", () => {
         isAutopilot = state;
         if (elements.autopilotToggle) elements.autopilotToggle.checked = state;
         
-        if (elements.hudPatternLock) {
-            elements.hudPatternLock.classList.toggle("active-lock", !state);
-            const lockIcon = elements.hudPatternLock.querySelector('.lock-icon');
-            const unlockIcon = elements.hudPatternLock.querySelector('.unlock-icon');
+        if (elements.hudPresetLock) {
+            elements.hudPresetLock.classList.toggle("active-lock", !state);
+            const lockIcon = elements.hudPresetLock.querySelector('.lock-icon');
+            const unlockIcon = elements.hudPresetLock.querySelector('.unlock-icon');
             if (lockIcon) lockIcon.classList.toggle("hide", state);
             if (unlockIcon) unlockIcon.classList.toggle("hide", !state);
         }
@@ -1545,9 +1658,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const patternInterval = parseInt(elements.autoPatternSlider.value) * 1000;
         const colorInterval = parseInt(elements.autoColorSlider.value) * 1000;
         
-        // 1. Drift through mostly local, contemplative changes.
+        // 1. Drift through real presets (pattern only; colors flow independently).
+        autopilotPickPreset();
         autopilotTimer = setInterval(() => {
-            randomizeAllParameters();
+            autopilotPickPreset();
         }, patternInterval);
 
         // 2. Morph colors (if checked and set to FLOW)
@@ -2020,7 +2134,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Update floating HUD waveform visualizer bar scales
     function updateHudWaveform() {
-        const bars = elements.hudVisualizer.querySelectorAll(".visualizer-bar");
+        const bars = elements.hudVisualizer.querySelectorAll(".eq-bar");
         if (bars.length === 0) return;
 
         const visualData = window.CosmicSynth.getVisualizerData();
@@ -2222,9 +2336,17 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         if (elements.hudPresetStar) {
             elements.hudPresetStar.onclick = () => {
-                simState.save();
-                elements.hudPresetStar.classList.add("active-star");
-                setTimeout(() => elements.hudPresetStar.classList.remove("active-star"), 800);
+                if (!lastPresetKey) {
+                    showToast("No preset loaded to favorite.");
+                    return;
+                }
+                if (favoritePresetKeys.has(lastPresetKey)) favoritePresetKeys.delete(lastPresetKey);
+                else favoritePresetKeys.add(lastPresetKey);
+                localStorage.setItem("eternalVoidFavoritePresets", JSON.stringify([...favoritePresetKeys]));
+                buildPresetCards();
+                const name = StylePresets[lastPresetKey]?.name || lastPresetKey;
+                showToast(favoritePresetKeys.has(lastPresetKey) ? `★ Favorited: ${name}` : `Unfavorited: ${name}`);
+                elements.hudPresetStar.classList.toggle("active-star", favoritePresetKeys.has(lastPresetKey));
             };
         }
         if (elements.hudPresetBan) {
