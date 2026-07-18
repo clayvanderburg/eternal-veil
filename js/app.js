@@ -1590,7 +1590,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // 2. Morph colors (if checked and set to FLOW)
         if (elements.autopilotColorToggle.checked) {
-            autopilotColorTimer = setInterval(() => {
+            const shiftColor = () => {
                 try {
                     if (isFlowEnabled("colors")) {
                         let palette = null;
@@ -1607,7 +1607,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 } catch (err) {
                     CosmicLogger.error(`Autopilot color shift error: ${err.message}`);
                 }
-            }, colorInterval);
+            };
+            
+            // Execute immediately on start, then repeat on interval
+            shiftColor();
+            autopilotColorTimer = setInterval(shiftColor, colorInterval);
         }
     }
 
@@ -1761,6 +1765,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (nextPatternShape) {
             CosmicLogger.info(`Flow pattern shifted to: ${nextPatternShape.toUpperCase()}.`);
         }
+        
+        // Update the HUD preset name to match the newly generated shape
+        updateHudPresetName(null);
     }
 
     // Modulate audio params based on physics
