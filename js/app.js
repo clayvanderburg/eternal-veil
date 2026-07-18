@@ -2384,12 +2384,36 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         if (elements.hudColorStar) {
             elements.hudColorStar.onclick = () => {
-                const btnSave = document.getElementById("btn-save-swatch");
-                if (btnSave) {
-                    btnSave.click();
-                    elements.hudColorStar.classList.add("active-star");
-                    setTimeout(() => elements.hudColorStar.classList.remove("active-star"), 800);
+                // Save the CURRENT on-screen palette to My Theme Library directly,
+                // with an auto-generated name (no sidebar typing required).
+                const colorsToSave = (sim && sim.palette && sim.palette.length > 0)
+                    ? [...sim.palette]
+                    : [];
+                if (colorsToSave.length === 0) {
+                    showToast("No colors to save yet.");
+                    return;
                 }
+                const cycleName = (typeof activeColorCycle !== "undefined" && activeColorCycle)
+                    ? activeColorCycle : "Cosmic";
+                const autoName = `${cycleName.toUpperCase()} ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+                let lib = [];
+                try {
+                    lib = JSON.parse(localStorage.getItem("eternal_void_custom_palettes") ||
+                                     localStorage.getItem("eternal_veil_custom_palettes")) || [];
+                } catch (e) { lib = []; }
+                if (lib.length >= 12) {
+                    showToast("Library full (max 12 saved palettes)");
+                    return;
+                }
+                const newItem = { id: Date.now().toString(), name: autoName.substring(0, 24), colors: colorsToSave };
+                lib.unshift(newItem);
+                localStorage.setItem("eternal_void_custom_palettes", JSON.stringify(lib));
+                elements.hudColorStar.classList.add("active-star");
+                setTimeout(() => elements.hudColorStar.classList.remove("active-star"), 800);
+                showToast(`Palette "${autoName}" saved to library!`);
+                // Refresh the sidebar grid if it's mounted
+                const savedGrid = document.getElementById("saved-swatches-grid");
+                if (savedGrid && typeof renderLibrary === "function") renderLibrary();
             };
         }
         elements.autoPatternSlider.oninput = () => {
