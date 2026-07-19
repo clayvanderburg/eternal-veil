@@ -30,7 +30,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     
     <!-- Custom Style Sheet -->
-    <link rel="stylesheet" href="styles.css?v=color-cycles-debug-1">
+    <link rel="stylesheet" href="styles.css?v=hud-dice-controls-1">
 </head>
 <body>
     <!-- Entry Splash Screen Overlay -->
@@ -130,7 +130,7 @@
         <!-- HUD Quick Controls: Preset & Colors -->
         <div class="hud-current-state">
             <div class="hud-state-row">
-                <span class="hud-state-label">PRESET: <span id="hud-preset-name">NONE</span></span>
+                <span class="hud-state-label">CLOSEST PRESET: <span id="hud-preset-name">NONE</span></span>
                 <div class="hud-state-actions">
                     <button class="hud-icon-btn tool-tip" id="hud-preset-ban" data-tooltip="Exclude this preset">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
@@ -141,6 +141,9 @@
                     <button class="hud-icon-btn tool-tip" id="hud-preset-lock" data-tooltip="Freeze/unfreeze Autopilot">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather lock-icon hide"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather unlock-icon"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>
+                    </button>
+                    <button class="hud-icon-btn hud-dice-btn tool-tip" id="hud-preset-random" data-tooltip="Roll a new visual configuration">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather"><rect x="3" y="3" width="18" height="18" rx="4"></rect><circle cx="8" cy="8" r="1"></circle><circle cx="16" cy="8" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="8" cy="16" r="1"></circle><circle cx="16" cy="16" r="1"></circle></svg>
                     </button>
                 </div>
             </div>
@@ -154,7 +157,16 @@
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather lock-icon hide"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather unlock-icon"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>
                     </button>
+                    <button class="hud-icon-btn hud-dice-btn tool-tip" id="hud-color-random" data-tooltip="Roll a new color palette">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather"><rect x="3" y="3" width="18" height="18" rx="4"></rect><circle cx="8" cy="8" r="1"></circle><circle cx="16" cy="8" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="8" cy="16" r="1"></circle><circle cx="16" cy="16" r="1"></circle></svg>
+                    </button>
                 </div>
+            </div>
+            <div class="hud-scene-row">
+                <button class="hud-scene-save" id="hud-save-scene" title="Save this exact scene to Custom Scenes">SAVE THIS SCENE</button>
+            </div>
+            <div class="hud-share-row" aria-label="Send this scene">
+                <button class="hud-share-btn hud-share-primary" id="hud-share-native" type="button" title="Share this exact scene">SHARE SCENE</button>
             </div>
         </div>
     </header>
@@ -277,6 +289,15 @@
 
             <!-- TAB 1: PRESETS & COLORS -->
             <section class="tab-content active" id="tab-presets">
+
+                <div class="setting-group custom-scenes-group">
+                    <div class="flex-header">
+                        <span class="setting-label-header">CUSTOM SCENES</span>
+                        <button class="btn-text" id="save-scene-from-presets">Save Current</button>
+                    </div>
+                    <p class="setting-desc">Save an exact moment—motion, colors, geometry, and atmosphere—then return to it anytime.</p>
+                    <div class="custom-presets-grid" id="custom-presets-grid"></div>
+                </div>
 
                 <!-- Autopilot toggle -->
                 <div class="setting-group control-switch">
@@ -998,17 +1019,17 @@
     <!-- Core Javascript Scripts -->
     <!-- Load Three.js from Cloudflare CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="js/state-schema.js?v=painted-depth-spiral-1"></script>
+    <script src="js/state-schema.js?v=faithful-scene-share-1"></script>
     <script src="js/render-quality.js?v=90375e6"></script>
     <script src="js/color-theory.js?v=Paletton-1"></script>
     <script src="js/color-cycles.js?v=color-cycles-1"></script>
     <script src="js/presets.js?v=painted-depth-spiral-1"></script>
     <script src="js/synth.js?v=foundation-batch-1"></script>
     <script src="js/exporter.js?v=90375e6"></script>
-    <script src="js/url-sync.js?v=90375e6"></script>
+    <script src="js/url-sync.js?v=faithful-scene-share-1"></script>
     <script src="js/simulation.js?v=painted-depth-spiral-1"></script>
     <script src="js/simulation3d.js?v=breath-sanctuary-1"></script>
     <script src="js/simulation3d-native.js?v=pendulum-spiral-5"></script>
-    <script src="js/app.js?v=painted-depth-flow-1"></script>
+    <script src="js/app.js?v=hud-dice-controls-1"></script>
 </body>
 </html>

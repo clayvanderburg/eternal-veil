@@ -4,7 +4,7 @@
 
 const UrlStateSync = {
     // Pack simulation settings and palette into a Base64 URL string
-    generateShareUrl(sim, isAutopilot) {
+    generateShareUrl(sim, isAutopilot, presentation = {}) {
         try {
             const state = {
                 v: 1, // Schema version number
@@ -30,16 +30,20 @@ const UrlStateSync = {
                 mb: sim.settings.morphingBg ? 1 : 0,
                 sk: sim.settings.spinningKaleido ? 1 : 0,
                 ps: sim.settings.particleShape,
+                pl: sim.settings.particleLighting || "glow",
                 se: sim.settings.shockwavesEnabled ? 1 : 0,
 
                 // Audio features
                 be: sim.settings.bilateralEnabled ? 1 : 0,
                 ae: sim.settings.asmrEnabled ? 1 : 0,
+                bm: sim.settings.binauralMode || "theta",
 
                 p: sim.palette.map(c => parseColorToHex(c)), // array of Hex
                 bg: parseColorToHex(sim.backgroundColor),
                 sm: sim.isSolidMode ? 1 : 0,
-                ap: isAutopilot ? 1 : 0
+                ap: isAutopilot ? 1 : 0,
+                vm: presentation.is3DMode ? 1 : 0,
+                vs: presentation.style === "dome" ? "dome" : "native"
             };
             
             const json = JSON.stringify(state);
@@ -98,16 +102,22 @@ const UrlStateSync = {
                     morphingBg: state.mb === 1,
                     spinningKaleido: state.sk === 1,
                     particleShape: state.ps,
+                    particleLighting: state.pl,
                     shockwavesEnabled: state.se !== 0, // default to true
 
                     // Audio additions
                     bilateralEnabled: state.be === 1,
-                    asmrEnabled: state.ae === 1
+                    asmrEnabled: state.ae === 1,
+                    binauralMode: state.bm
                 },
                 palette: state.p,
                 backgroundColor: state.bg,
                 isSolidMode: state.sm === 1,
-                autopilotEnabled: state.ap === 1
+                autopilotEnabled: state.ap === 1,
+                presentation: {
+                    is3DMode: state.vm === 1,
+                    style: state.vs === "dome" ? "dome" : "native"
+                }
             };
 
             if (window.StateSchema) {

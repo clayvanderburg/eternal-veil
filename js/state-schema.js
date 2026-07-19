@@ -15,6 +15,7 @@ const StateSchema = {
     ]),
 
     VALID_PARTICLE_LIGHTING: new Set(["glow", "reactive", "pearl"]),
+    VALID_BINAURAL_MODES: new Set(["delta", "theta", "alpha", "beta", "gamma"]),
 
     // Helper to sanitize numeric values within strict boundaries
     sanitizeNumber(value, fallback, min, max) {
@@ -120,14 +121,21 @@ const StateSchema = {
 
                 // Binaural & Audio
                 bilateralEnabled: this.sanitizeBoolean(rawState.settings?.bilateralEnabled, false),
-                asmrEnabled: this.sanitizeBoolean(rawState.settings?.asmrEnabled, false)
+                asmrEnabled: this.sanitizeBoolean(rawState.settings?.asmrEnabled, false),
+                binauralMode: this.VALID_BINAURAL_MODES.has(rawState.settings?.binauralMode)
+                    ? rawState.settings.binauralMode
+                    : "theta"
             },
 
             // Palette and Background colors
             palette: this.sanitizePalette(rawState.palette, ["#6366f1"]),
             backgroundColor: this.sanitizeHexColor(rawState.backgroundColor, "#000000"),
             isSolidMode: this.sanitizeBoolean(rawState.isSolidMode, false),
-            autopilotEnabled: this.sanitizeBoolean(rawState.autopilotEnabled, true)
+            autopilotEnabled: this.sanitizeBoolean(rawState.autopilotEnabled, true),
+            presentation: {
+                is3DMode: this.sanitizeBoolean(rawState.presentation?.is3DMode, false),
+                style: rawState.presentation?.style === "dome" ? "dome" : "native"
+            }
         };
 
         // Migrate Eternal Void's former near-black factory default. Exact matches

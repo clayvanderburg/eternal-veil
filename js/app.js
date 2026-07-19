@@ -66,6 +66,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let autopilotBeforeMeditation = true;
     let activePresetLocks = [];
     let activeColorCycle = localStorage.getItem("eternalVoidColorCycle") || localStorage.getItem("eternalVeilColorCycle") || "random";
+    const customPresetStorageKey = "eternalVoidCustomScenes";
     let favoritePresetKeys = new Set();
     let excludedPresetKeys = new Set();
     try {
@@ -432,13 +433,19 @@ document.addEventListener("DOMContentLoaded", () => {
         hudPresetBan: document.getElementById("hud-preset-ban"),
         hudPresetStar: document.getElementById("hud-preset-star"),
         hudPresetLock: document.getElementById("hud-preset-lock"),
+        hudPresetRandom: document.getElementById("hud-preset-random"),
         hudColorSwatches: document.getElementById("hud-color-swatches"),
         hudColorStar: document.getElementById("hud-color-star"),
         hudColorLock: document.getElementById("hud-color-lock"),
+        hudColorRandom: document.getElementById("hud-color-random"),
+        hudSaveScene: document.getElementById("hud-save-scene"),
+        hudShareNative: document.getElementById("hud-share-native"),
         hudVisualizer: document.getElementById("hud-audio-visualizer-container"),
         
         // Presets & Colors
         presetsGrid: document.getElementById("presets-grid"),
+        customPresetsGrid: document.getElementById("custom-presets-grid"),
+        saveSceneFromPresets: document.getElementById("save-scene-from-presets"),
         swatchesPalette: document.getElementById("swatches-palette"),
         randomizePaletteBtn: document.getElementById("randomize-palette-btn"),
         particleColorPicker: document.getElementById("particle-color-picker"),
@@ -623,6 +630,7 @@ document.addEventListener("DOMContentLoaded", () => {
         setupTabs();
         setupFlowToggles();
         buildPresetCards();
+        buildCustomPresetCards();
         setupHarmonicDesigner();
         setupColorCycles();
         setFlowPersonality(flowPersonality, { announce: false, restart: false });
@@ -653,6 +661,14 @@ document.addEventListener("DOMContentLoaded", () => {
         setupInteractionEvents();
         updateSliderTextDisplays();
         renderSwatches();
+
+        // Shared scenes retain their viewing surface too. This waits until the
+        // page controls exist, then restores desktop 3D without attempting to
+        // force a VR session on the recipient.
+        if (urlState?.presentation?.is3DMode) {
+            selected3DStyle = urlState.presentation.style === "dome" ? "dome" : "native";
+            requestAnimationFrame(() => toggle3DMode(true));
+        }
 
         // WebXR VR session callbacks to resize the canvas dynamically
         window.onVRSessionStart = () => {
@@ -976,6 +992,164 @@ document.addEventListener("DOMContentLoaded", () => {
             };
             elements.presetsGrid.appendChild(card);
         });
+    }
+
+    function getCustomPresets() {
+        try {
+            const stored = JSON.parse(localStorage.getItem(customPresetStorageKey) || "[]");
+            return Array.isArray(stored) ? stored : [];
+        } catch (error) {
+            console.warn("Could not load custom scenes", error);
+            return [];
+        }
+    }
+
+    function persistCustomPresets(items) {
+        localStorage.setItem(customPresetStorageKey, JSON.stringify(items.slice(0, 24)));
+    }
+
+    function currentClosestPresetName() {
+        const key = lastPresetKey || getPresetByShape(sim.settings.particleShape);
+        return StylePresets[key]?.name || "Custom Scene";
+    }
+
+    function saveCurrentScene() {
+        const items = getCustomPresets();
+        const sceneName = `${currentClosestPresetName()} · ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+        const scene = {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            name: sceneName.slice(0, 42),
+            createdAt: Date.now(),
+            settings: JSON.parse(JSON.stringify(sim.settings)),
+            palette: [...sim.palette],
+            backgroundColor: sim.backgroundColor,
+            isSolidMode: sim.isSolidMode
+        };
+        items.unshift(scene);
+        persistCustomPresets(items);
+        buildCustomPresetCards();
+        showToast(`Saved “${scene.name}” to Custom Scenes`);
+    }
+
+    function loadCustomScene(scene) {
+        if (!scene?.settings || !Array.isArray(scene.palette)) return;
+        releaseActivePreset({ announce: false });
+        applyLoadedState({
+            settings: scene.settings,
+            palette: scene.palette,
+            backgroundColor: scene.backgroundColor || "#000000",
+            isSolidMode: scene.isSolidMode === true,
+            autopilotEnabled: false
+        });
+        renderSwatches();
+        updateHudPresetName(null);
+        showToast(`Restored “${scene.name}” · Autopilot paused`);
+    }
+
+    function buildCustomPresetCards() {
+        if (!elements.customPresetsGrid) return;
+        const scenes = getCustomPresets();
+        elements.customPresetsGrid.innerHTML = "";
+        if (scenes.length === 0) {
+            const empty = document.createElement("div");
+            empty.className = "custom-preset-empty";
+            empty.textContent = "Your saved moments will live here.";
+            elements.customPresetsGrid.appendChild(empty);
+            return;
+        }
+        scenes.forEach(scene => {
+            const card = document.createElement("div");
+            card.className = "custom-preset-card";
+            card.setAttribute("role", "button");
+            card.setAttribute("tabindex", "0");
+
+            const heading = document.createElement("div");
+            heading.className = "custom-preset-heading";
+            const name = document.createElement("span");
+            name.className = "custom-preset-name";
+            name.textContent = scene.name;
+            const actions = document.createElement("div");
+            actions.className = "custom-preset-actions";
+            const rename = document.createElement("button");
+            rename.className = "custom-preset-action";
+            rename.title = "Rename scene";
+            rename.textContent = "✎";
+            const remove = document.createElement("button");
+            remove.className = "custom-preset-action danger";
+            remove.title = "Delete scene";
+            remove.textContent = "×";
+            actions.append(rename, remove);
+            heading.append(name, actions);
+
+            const swatches = document.createElement("div");
+            swatches.className = "custom-preset-swatches";
+            (scene.palette || []).slice(0, 6).forEach(color => {
+                const dot = document.createElement("span");
+                dot.style.backgroundColor = color;
+                swatches.appendChild(dot);
+            });
+            card.append(heading, swatches);
+            card.onclick = () => loadCustomScene(scene);
+            card.onkeydown = event => {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    loadCustomScene(scene);
+                }
+            };
+            rename.onclick = event => {
+                event.stopPropagation();
+                const nextName = window.prompt("Name this scene", scene.name);
+                if (!nextName?.trim()) return;
+                const updated = getCustomPresets().map(item => item.id === scene.id
+                    ? { ...item, name: nextName.trim().slice(0, 42) }
+                    : item);
+                persistCustomPresets(updated);
+                buildCustomPresetCards();
+            };
+            remove.onclick = event => {
+                event.stopPropagation();
+                if (!window.confirm(`Delete “${scene.name}”?`)) return;
+                persistCustomPresets(getCustomPresets().filter(item => item.id !== scene.id));
+                buildCustomPresetCards();
+            };
+            elements.customPresetsGrid.appendChild(card);
+        });
+    }
+
+    function getSharePayload() {
+        // A shared scene should behave like a saved scene: restore the captured
+        // configuration and hold it there, rather than immediately letting Flow
+        // morph it into a different result for the recipient.
+        const url = UrlStateSync.generateShareUrl(sim, false, {
+            is3DMode,
+            style: selected3DStyle
+        });
+        const closest = currentClosestPresetName();
+        return {
+            url,
+            title: "Eternal Void Scene",
+            text: `Come explore my ${closest} scene in Eternal Void ✨`
+        };
+    }
+
+    function copyCurrentSceneLink() {
+        const { url } = getSharePayload();
+        if (!url) return;
+        navigator.clipboard.writeText(url)
+            .then(() => showToast("Scene link copied"))
+            .catch(() => showToast("Could not copy the scene link"));
+    }
+
+    function shareCurrentScene() {
+        const payload = getSharePayload();
+        if (!payload.url) return;
+        if (navigator.share) {
+            navigator.share(payload).catch(error => {
+                if (error?.name !== "AbortError") copyCurrentSceneLink();
+            });
+            return;
+        }
+        copyCurrentSceneLink();
     }
 
     function getPresetSignatureKeys(preset) {
@@ -2395,6 +2569,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 toggleAutopilot(!isAutopilot);
             };
         }
+        if (elements.hudPresetRandom) {
+            elements.hudPresetRandom.onclick = () => {
+                applyRandomConfig();
+                elements.hudPresetRandom.classList.add("is-rolling");
+                setTimeout(() => elements.hudPresetRandom.classList.remove("is-rolling"), 520);
+            };
+        }
         if (elements.hudPresetStar) {
             elements.hudPresetStar.onclick = () => {
                 const targetKey = lastPresetKey || getPresetByShape(sim.settings.particleShape);
@@ -2444,6 +2625,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 } else {
                     showToast("Colors locked.");
                 }
+            };
+        }
+        if (elements.hudColorRandom) {
+            elements.hudColorRandom.onclick = () => {
+                elements.randomizePaletteBtn.click();
+                elements.hudColorRandom.classList.add("is-rolling");
+                setTimeout(() => elements.hudColorRandom.classList.remove("is-rolling"), 520);
             };
         }
         if (elements.hudColorStar) {
@@ -2537,6 +2725,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             };
         }
+        if (elements.hudSaveScene) elements.hudSaveScene.onclick = saveCurrentScene;
+        if (elements.saveSceneFromPresets) elements.saveSceneFromPresets.onclick = saveCurrentScene;
+        if (elements.hudShareNative) elements.hudShareNative.onclick = shareCurrentScene;
+
         elements.autoPatternSlider.oninput = () => {
             elements.autoPatternVal.textContent = `${elements.autoPatternSlider.value}s`;
             if (isAutopilot) startAutopilotIntervals();
@@ -2735,14 +2927,7 @@ document.addEventListener("DOMContentLoaded", () => {
         };
 
         // Share Configuration
-        elements.shareLinkBtn.onclick = () => {
-            const url = UrlStateSync.generateShareUrl(sim, isAutopilot);
-            if (url) {
-                navigator.clipboard.writeText(url)
-                    .then(() => showToast("Share URL copied to clipboard!"))
-                    .catch(() => showToast("Failed to copy link automatically"));
-            }
-        };
+        elements.shareLinkBtn.onclick = copyCurrentSceneLink;
 
         // Sound adjustments
         elements.soundEnableToggle.onchange = () => {
