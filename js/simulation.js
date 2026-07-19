@@ -313,6 +313,11 @@ class Particle {
             const angle = this.effectPhase;
             this.x = this.w * 0.5 + Math.cos(angle) * radius;
             this.y = this.h * 0.5 + Math.sin(angle) * radius * 0.82;
+        } else if (shape === "painterlyVortex") {
+            this.painterDepth = Math.random();
+            const radius = Math.min(this.w, this.h) * (0.04 + Math.sqrt(this.effectRole) * 1.04);
+            this.x = this.w * 0.5 + Math.cos(this.effectPhase) * radius;
+            this.y = this.h * 0.5 + Math.sin(this.effectPhase) * radius * 0.82;
         } else if (shape.startsWith("pipes")) {
             const phase = this.effectPhase / (Math.PI * 2);
             const threshold = shape === "pipesTight" ? 0.985 : shape === "pipesCathedral" ? 0.94 : shape === "pipesShrine" ? 0.972 : 0.965;
@@ -341,7 +346,7 @@ class Particle {
         const flowFreq = 0.007 / zoom;
         const organic = settings.flowOrganic ?? 0.85;
         const turb = settings.turbulence ?? 0.65;
-        const authoredShapes = ["ocean", "aurora", "orbitals", "lotus", "spiral", "pendulumSpiral", "tightTailVortex", "pipes", "pipesTight", "pipesCathedral", "pipesShrine"];
+        const authoredShapes = ["ocean", "aurora", "orbitals", "lotus", "spiral", "pendulumSpiral", "tightTailVortex", "painterlyVortex", "pipes", "pipesTight", "pipesCathedral", "pipesShrine"];
         if (authoredShapes.includes(settings.particleShape)) {
             if (this.activeEffectShape !== settings.particleShape) {
                 this.configureAuthoredEffect(settings.particleShape, globalTime, settings);
@@ -494,6 +499,24 @@ class Particle {
             );
             targetVx = (-dy / distance) * tangent + (dx / distance) * radial + organicWobble.vx * 0.024 * scaleRef;
             targetVy = ((dx / distance) * tangent + (dy / distance) * radial) * 0.82 + organicWobble.vy * 0.020 * scaleRef;
+        } else if (settings.particleShape === "painterlyVortex") {
+            const minDimension = Math.min(this.w, this.h);
+            const centerX = this.w * 0.5 + Math.sin(globalTime * 0.00125) * minDimension * 0.025;
+            const centerY = this.h * 0.5 + Math.cos(globalTime * 0.00105) * minDimension * 0.020;
+            const dx = this.x - centerX;
+            const dy = (this.y - centerY) / 0.82;
+            const distance = Math.max(1, Math.hypot(dx, dy));
+            const normalizedRadius = Math.min(1.25, distance / (minDimension * 1.18));
+            const depth = this.painterDepth ?? 0.5;
+            const phase = globalTime * (0.007 + speed * 0.0025) + this.effectPhase;
+            const tangent = (0.48 + Math.pow(Math.max(0, 1 - normalizedRadius), 1.2) * 1.55)
+                * (0.70 + depth * 0.72) * speed * scaleRef;
+            let radial = Math.sin(phase) * (0.34 + depth * 0.32) * speed * scaleRef;
+            if (normalizedRadius > 0.94) radial -= (normalizedRadius - 0.94) * 3.0 * speed * scaleRef;
+            if (normalizedRadius < 0.065) radial += (0.065 - normalizedRadius) * 6.8 * speed * scaleRef;
+            const organicWobble = getCurlNoise(this.x / scaleRef, this.y / scaleRef, globalTime * 0.11, 0.0042 / zoom);
+            targetVx = (-dy / distance) * tangent + (dx / distance) * radial + organicWobble.vx * 0.035 * scaleRef;
+            targetVy = ((dx / distance) * tangent + (dy / distance) * radial) * 0.82 + organicWobble.vy * 0.030 * scaleRef;
         }
         
         // Inject Aquatic Flow split velocity physics overrides
@@ -937,6 +960,31 @@ class Particle {
             ctx.moveTo(this.lastX, this.lastY);
             ctx.lineTo(this.x, this.y);
             ctx.stroke();
+            return true;
+        }
+
+        if (shape === "painterlyVortex") {
+            const depth = this.painterDepth ?? 0.5;
+            const heading = Math.atan2(this.vy, this.vx);
+            const velocity = Math.min(4.5, Math.hypot(this.vx, this.vy));
+            const bodyLength = drawSize * (1.35 + velocity * 0.55) * (0.66 + depth * 1.16);
+            const bodyWidth = drawSize * (0.34 + depth * 0.72);
+            const bodyAlpha = drawAlpha * (0.10 + depth * 0.38);
+            ctx.fillStyle = this.color;
+            ctx.globalAlpha = bodyAlpha * 0.23;
+            ctx.beginPath();
+            ctx.ellipse(this.x, this.y, bodyLength * 1.45, bodyWidth * 1.70, heading, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = bodyAlpha;
+            ctx.beginPath();
+            ctx.ellipse(this.x, this.y, bodyLength, bodyWidth, heading, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = bodyAlpha * 0.72;
+            const headX = this.x + Math.cos(heading) * bodyLength * 0.30;
+            const headY = this.y + Math.sin(heading) * bodyLength * 0.30;
+            ctx.beginPath();
+            ctx.ellipse(headX, headY, bodyLength * 0.42, bodyWidth * 0.74, heading, 0, Math.PI * 2);
+            ctx.fill();
             return true;
         }
 
@@ -1578,11 +1626,22 @@ class FlowSimulation {
                 this.ctx.translate(-cx, -cy);
             }
 
-            // Draw Core particles
-            for (let i = 0; i < this.particles.length; i++) {
-                const p = this.particles[i];
-                p.update(this.settings, this.globalTime, this.mouse, this.customForces, this.shockwaves, this.vortices, dt);
-                p.draw(this.ctx, this.settings);
+            // Painterly Depth Spiral renders far marks first, so larger nearer
+            // daubs visibly pass over the distant layer.
+            if (this.settings.particleShape === "painterlyVortex") {
+                for (let i = 0; i < this.particles.length; i++) {
+                    this.particles[i].update(this.settings, this.globalTime, this.mouse, this.customForces, this.shockwaves, this.vortices, dt);
+                }
+                const depthOrderedParticles = [...this.particles].sort((a, b) => (a.painterDepth ?? 0) - (b.painterDepth ?? 0));
+                for (let i = 0; i < depthOrderedParticles.length; i++) {
+                    depthOrderedParticles[i].draw(this.ctx, this.settings);
+                }
+            } else {
+                for (let i = 0; i < this.particles.length; i++) {
+                    const p = this.particles[i];
+                    p.update(this.settings, this.globalTime, this.mouse, this.customForces, this.shockwaves, this.vortices, dt);
+                    p.draw(this.ctx, this.settings);
+                }
             }
 
             // Update & Draw sparkles

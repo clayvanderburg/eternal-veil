@@ -281,7 +281,7 @@ document.addEventListener("DOMContentLoaded", () => {
             Math.random() < chance ? Math.random() < enabledChance : current;
         const zenShapes = [
             "ellipse", "ellipse", "drop", "ring", "nebula", "aquatic",
-            "ocean", "aurora", "orbitals", "lotus", "pendulumSpiral"
+            "ocean", "aurora", "orbitals", "lotus", "pendulumSpiral", "painterlyVortex"
         ];
         const nextShape = Math.random() < 0.24
             ? zenShapes[Math.floor(Math.random() * zenShapes.length)]
@@ -343,6 +343,26 @@ document.addEventListener("DOMContentLoaded", () => {
                 psychedelicMode: false,
                 morphingBg: false,
                 spinningKaleido: false
+            });
+        } else if (nextShape === "painterlyVortex") {
+            Object.assign(randomSettings, {
+                speed: 0.48,
+                turbulence: 0.035,
+                density: 1050,
+                flowOrganic: 0.98,
+                dissipation: 0.016,
+                zoom: 0.88,
+                baseSize: 4.8,
+                sizeVariation: 2.2,
+                stretch: 2.1,
+                interaction: 0,
+                rotationSpeed: 0,
+                wobble: 0.02,
+                kaleidoscopeEnabled: false,
+                psychedelicMode: false,
+                morphingBg: false,
+                spinningKaleido: false,
+                particleLighting: "glow"
             });
         }
 
@@ -1685,7 +1705,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const serenePatterns = [
             "ellipse", "drop", "ring", "nebula", "aquatic",
-            "aurora", "lotus", "pendulumSpiral"
+            "aurora", "lotus", "pendulumSpiral", "painterlyVortex"
         ];
         const alivePatterns = [
             ...serenePatterns, "ocean", "orbitals", "brush", "cluster", "spiral", "pipes",
@@ -1776,8 +1796,22 @@ document.addEventListener("DOMContentLoaded", () => {
         // This authored composition needs a stable visual anchor even when
         // Autopilot discovers it. Let other Flow shapes roam freely, but keep
         // Hypnotic Spiral from inheriting extreme speed, stretch, or density.
-        if (nextPatternShape === "pendulumSpiral") {
-            const hypnoTargets = {
+        if (nextPatternShape === "pendulumSpiral" || nextPatternShape === "painterlyVortex") {
+            const authoredTargets = nextPatternShape === "painterlyVortex" ? {
+                speed: 0.48,
+                turbulence: 0.035,
+                density: 1050,
+                flowOrganic: 0.98,
+                dissipation: 0.016,
+                zoom: 0.88,
+                baseSize: 4.8,
+                sizeVariation: 2.2,
+                stretch: 2.1,
+                interaction: 0,
+                rotationSpeed: 0,
+                wobble: 0.02,
+                drag: 0.93
+            } : {
                 speed: 0.42,
                 turbulence: 0.05,
                 density: 1050,
@@ -1792,7 +1826,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 wobble: 0.08,
                 drag: 0.93
             };
-            Object.entries(hypnoTargets).forEach(([key, value]) => {
+            Object.entries(authoredTargets).forEach(([key, value]) => {
                 if (isFlowEnabled(key)) startMorph(key, value, baseDuration * 0.72);
             });
             if (isFlowEnabled("kaleidoscopeEnabled")) {
@@ -1809,8 +1843,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         // Rare state changes prevent every cycle from flipping the scene's identity.
-        const isHypnoFlow = nextPatternShape === "pendulumSpiral";
-        const nextKaleidoEnabledFlow = !isHypnoFlow && isFlowEnabled("kaleidoscopeEnabled");
+        const isProtectedAuthoredFlow = nextPatternShape === "pendulumSpiral" || nextPatternShape === "painterlyVortex";
+        const nextKaleidoEnabledFlow = !isProtectedAuthoredFlow && isFlowEnabled("kaleidoscopeEnabled");
         const nextKaleidoSegmentsFlow = isFlowEnabled("kaleidoscopeSegments");
 
         let currentKaleidoEnabled = sim.settings.kaleidoscopeEnabled;
@@ -1829,21 +1863,21 @@ document.addEventListener("DOMContentLoaded", () => {
             elements.kaleidoscopeSettings.classList.add("hidden");
         }
 
-        startMorph("drag", nextPatternShape === "pendulumSpiral" ? 0.93 : rnd(0.89, 0.945), baseDuration);
+        startMorph("drag", isProtectedAuthoredFlow ? 0.93 : rnd(0.89, 0.945), baseDuration);
 
-        if (!isHypnoFlow && !isComfortMode && isFlowEnabled("psychedelicMode") && Math.random() < (effectivePersonality === "wild" ? 0.11 : 0.04)) {
+        if (!isProtectedAuthoredFlow && !isComfortMode && isFlowEnabled("psychedelicMode") && Math.random() < (effectivePersonality === "wild" ? 0.11 : 0.04)) {
             const psychOn = Math.random() < 0.12;
             sim.settings.psychedelicMode = psychOn;
             elements.psychedelicToggle.checked = psychOn;
         }
 
-        if (!isHypnoFlow && !isComfortMode && isFlowEnabled("morphingBg") && Math.random() < (effectivePersonality === "wild" ? 0.16 : 0.08)) {
+        if (!isProtectedAuthoredFlow && !isComfortMode && isFlowEnabled("morphingBg") && Math.random() < (effectivePersonality === "wild" ? 0.16 : 0.08)) {
             const morphBgOn = Math.random() < 0.28;
             sim.settings.morphingBg = morphBgOn;
             elements.morphingBgToggle.checked = morphBgOn;
         }
 
-        if (!isHypnoFlow && !isComfortMode && isFlowEnabled("spinningKaleido") && Math.random() < (effectivePersonality === "wild" ? 0.12 : 0.04)) {
+        if (!isProtectedAuthoredFlow && !isComfortMode && isFlowEnabled("spinningKaleido") && Math.random() < (effectivePersonality === "wild" ? 0.12 : 0.04)) {
             const spinKaleidoOn = Math.random() < 0.12;
             sim.settings.spinningKaleido = spinKaleidoOn;
             elements.spinningKaleidoToggle.checked = spinKaleidoOn;
