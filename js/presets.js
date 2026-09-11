@@ -31,7 +31,7 @@ const StylePresets = {
     },
     ethereal: {
         name: "Ethereal Aura",
-        desc: "Slow-drifting, highly fading cosmic mist with indigo-violet whispers.",
+        desc: "Lavender and indigo ribbons wander through soft overlapping trails.",
         speed: 0.85,
         turbulence: 0.55,
         curl: 0.88,
@@ -48,7 +48,7 @@ const StylePresets = {
     },
     cosmic: {
         name: "Nebula Spark",
-        desc: "Finer, high-density particle clouds replicating nebula formations.",
+        desc: "A dense field of fine blue and violet sparks leaves delicate curling trails.",
         speed: 1.25,
         turbulence: 0.90,
         curl: 0.92,
@@ -65,7 +65,7 @@ const StylePresets = {
     },
     supernova: {
         name: "Solar Flare",
-        desc: "Fierce, energetic flame-like tendrils carrying massive force.",
+        desc: "Broad orange, gold, and pink streaks curl through a lively field of glowing embers.",
         speed: 2.20,
         turbulence: 1.60,
         curl: 0.45,
@@ -98,8 +98,8 @@ const StylePresets = {
         colors: ["#14b8a6", "#06b6d4", "#22c55e", "#5eead4", "#bbf7d0", "#bae6fd"]
     },
     quantum: {
-        name: "Quantum Grid",
-        desc: "Rapidly mutating, short-lived microscopic particle nodes.",
+        name: "Quantum Drift",
+        desc: "Fine pink, blue, and white threads wander in restless, short curling paths.",
         speed: 2.80,
         turbulence: 2.20,
         curl: 0.15,
@@ -115,8 +115,8 @@ const StylePresets = {
         colors: ["#ec4899", "#f472b6", "#fda4af", "#3b82f6", "#a855f7", "#ffffff"]
     },
     vortex: {
-        name: "Black Hole Vortex",
-        desc: "Extreme rotation speed drawing particles into a swirling central gravity sink.",
+        name: "Violet Undertow",
+        desc: "Purple and cyan currents wind across a dark field in loose, overlapping trails.",
         speed: 1.60,
         turbulence: 0.40,
         curl: 0.95,
@@ -132,8 +132,8 @@ const StylePresets = {
         colors: ["#7c3aed", "#4f46e5", "#06b6d4", "#111827", "#312e81", "#1e1b4b"]
     },
     mandala: {
-        name: "Mandala Zen",
-        desc: "Hypnotic geometric symmetry using high axis mirroring and slow rotations.",
+        name: "Prism Drift",
+        desc: "Multicolored daubs meander freely, leaving soft ribbons across the screen.",
         speed: 0.50,
         turbulence: 0.20,
         curl: 0.90,
@@ -150,7 +150,7 @@ const StylePresets = {
     },
     strings: {
         name: "Cosmic Strings",
-        desc: "Extremely elongated flowing filaments tracing direct line streams.",
+        desc: "Fine cyan and lilac filaments weave a dense, ever-changing web of curling light.",
         speed: 2.50,
         turbulence: 0.60,
         curl: 0.85,
@@ -167,7 +167,7 @@ const StylePresets = {
     },
     hypno: {
         name: "Hypnotic Spiral",
-        desc: "A steady luminous coil anchors two pendulum orbs swinging through a slow trance rhythm.",
+        desc: "A luminous coil turns around a tight center while large pendulum orbs swing at its edges.",
         speed: 0.42,
         turbulence: 0.04,
         curl: 0.94,
@@ -195,7 +195,7 @@ const StylePresets = {
     },
     astralTangle: {
         name: "Astral Tangle",
-        desc: "Six luminous threads braid through a shifting dimensional knot.",
+        desc: "Cyan, violet, and pink threads overlap into a bright, swirling knot of light.",
         speed: 0.78,
         turbulence: 0.12,
         curl: 0.98,
@@ -340,8 +340,8 @@ const StylePresets = {
         asmrEnabled: true
     },
     fractal: {
-        name: "Fractal Nebula",
-        desc: "High-axis, hyper-active particle strings looping into complex geometric fractals.",
+        name: "Prismatic Lace",
+        desc: "Dense rainbow micro-rings weave a lively kaleidoscopic textile around a shifting center.",
         speed: 2.40,
         turbulence: 1.50,
         curl: 0.60,
@@ -390,7 +390,7 @@ const StylePresets = {
     },
     oil: {
         name: "Impressionist Oil",
-        desc: "Streaky, textured bristle oil brush strokes layering over each other in rich ochre, sienna, and warm forest hues.",
+        desc: "Warm ochre and orange brush daubs overlap with green accents, leaving soft, painterly trails.",
         speed: 0.85,
         turbulence: 0.70,
         curl: 0.80,
@@ -414,7 +414,7 @@ const StylePresets = {
     },
     cluster: {
         name: "Cosmic Organelles",
-        desc: "Nested clusters of bubble membranes with 3D specular highlights floating in a slow, glowing fluid matrix.",
+        desc: "Rounded pink and cyan capsules drift through trailing light, with tiny dots tucked inside their glowing heads.",
         speed: 0.70,
         turbulence: 0.45,
         curl: 0.88,
@@ -463,7 +463,7 @@ const StylePresets = {
     },
     auroraCathedral: {
         name: "Aurora Cathedral",
-        desc: "Tall translucent light curtains breathe in ordered columns with drifting stars between them.",
+        desc: "Tall green, blue, and pink light curtains ripple in overlapping vertical folds.",
         speed: 0.52,
         turbulence: 0.20,
         curl: 0.90,
@@ -488,7 +488,7 @@ const StylePresets = {
     },
     celestialOrrery: {
         name: "Celestial Orrery",
-        desc: "Clearly layered orbital paths carry pearls and moons around a slow radiant center.",
+        desc: "Pearls and luminous moons follow overlapping orbital paths around an open center.",
         speed: 0.62,
         turbulence: 0.10,
         curl: 0.96,
@@ -636,6 +636,47 @@ const StylePresets = {
         bilateralEnabled: true,
         asmrEnabled: true
     }
+};
+
+// New identities use new keys; old favorites and shared scenes retain their visuals.
+StylePresets.quantumGrid = {
+    ...StylePresets.quantum,
+    name: "Quantum Grid",
+    desc: "Streams of light travel through a rippling lattice, weaving across one another like a living energy fabric.",
+    particleShape: "quantumLattice", particleLighting: "glow",
+    speed: 3.5, turbulence: 0, density: 2200, dissipation: 0.07,
+    size: 5.5, sizeVar: 0.6, stretch: 1, rotationSpeed: 0, wobble: 0,
+    interaction: 0, kaleidoscopeEnabled: false
+};
+StylePresets.mandalaZen = {
+    ...StylePresets.mandala,
+    name: "Mandala Zen",
+    desc: "Eleven twelve-petal rosettes counter-rotate and swell, from delicate inner blooms to vast painted ribbons sweeping beyond the screen.",
+    particleShape: "zenMandala", particleLighting: "glow",
+    speed: 0.5, turbulence: 0, density: 3000, dissipation: 0.026,
+    size: 4.5, sizeVar: 0.5, stretch: 1, rotationSpeed: 0, wobble: 0,
+    interaction: 0, kaleidoscopeEnabled: false
+};
+StylePresets.blackHoleVortex = {
+    ...StylePresets.vortex,
+    name: "Black Hole Vortex",
+    desc: "Five sweeping currents curl inward through overlapping ribbons toward a dark central opening.",
+    particleShape: "gravityWell", particleLighting: "glow",
+    speed: 0.5, turbulence: 0, density: 1500, dissipation: 0.018,
+    size: 3.4, sizeVar: 0.7, stretch: 1.8, rotationSpeed: 0, wobble: 0,
+    interaction: 0, kaleidoscopeEnabled: false
+};
+
+StylePresets.fractalNebula = {
+    ...StylePresets.mandalaZen,
+    name: "Fractal Nebula",
+    desc: "Eight layered fractal blooms counter-rotate, with oversized outer branches sweeping beyond the screen and colored currents splitting into smaller forks.",
+    particleShape: "fractalBloom", particleLighting: "glow",
+    speed: 1.17, density: 3600, dissipation: 0.035,
+    size: 3.2, sizeVar: 0.75, zoom: 1, stretch: 1,
+    colors: ["#6366f1", "#a855f7", "#d946ef", "#22d3ee", "#818cf8", "#c084fc"],
+    psychedelicMode: false, morphingBg: false, spinningKaleido: false,
+    bilateralEnabled: false, asmrEnabled: false
 };
 
 // Curated Palettes for Autopilot changes & Randomizer

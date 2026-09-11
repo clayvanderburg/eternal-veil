@@ -181,6 +181,17 @@ class Particle {
             halfW = this.w * (0.095 + (route % 2) * 0.022);
             halfH = this.h * (0.105 + ((route + 1) % 3) * 0.018);
         }
+        // Many nested lanes instead of a handful of identical outlines. Lane
+        // dimensions breathe slowly while every segment remains axis-aligned.
+        const depthLane = (this.effectLane * 37) % 1;
+        const drift = (this.pipeDriftTime || 0) * 0.003;
+        const laneScale = 0.42 + depthLane * 1.05;
+        halfW *= laneScale * (1 + Math.sin(drift + route) * 0.09);
+        halfH *= laneScale * (1 + Math.cos(drift * 0.8 + route) * 0.09);
+        if (variant !== "pipesShrine") {
+            centerX += Math.sin(depthLane * 12 + route) * this.w * 0.038;
+            centerY += Math.cos(depthLane * 9 + route) * this.h * 0.045;
+        }
         const segmentFloat = wrapped * 8;
         const segment = Math.min(7, Math.floor(segmentFloat));
         const u = segmentFloat - segment;
@@ -205,6 +216,7 @@ class Particle {
     }
 
     updatePipeMotion(settings, globalTime, dt) {
+        this.pipeDriftTime = (this.pipeDriftTime || 0) + Math.min(dt, 3);
         this.lastX = this.x;
         this.lastY = this.y;
         this.lastPipeSegment = this.pipeSegment;
@@ -215,9 +227,12 @@ class Particle {
             : 0.965;
         const isJunction = this.effectRole >= junctionThreshold;
         const phase = this.effectPhase / (Math.PI * 2);
+        // Integrate locally: multiplying the entire session clock by a changing
+        // speed teleports particles and draws diagonal shortcuts across a route.
         const progress = isJunction
             ? Math.floor(phase * 8) / 8
-            : phase + globalTime * 0.00115 * (0.72 + (settings.speed || 1) * 0.72 + this.effectRole * 0.18);
+            : (this.pipeProgress ?? phase) + Math.min(dt, 3) * 0.00115 * (0.72 + (settings.speed || 1) * 0.72 + this.effectRole * 0.18);
+        this.pipeProgress = progress % 1;
         const point = this.getPipeRoutePoint(progress);
         this.x = point.x;
         this.y = point.y;
@@ -233,7 +248,12 @@ class Particle {
         this.life -= dt;
         if (this.life <= 0) {
             if (this.isBurst) this.dead = true;
-            else this.reset();
+            else {
+                const shape = this.activeEffectShape;
+                this.reset();
+                // Never render the random respawn position as part of a pipe.
+                this.configureAuthoredEffect(shape, globalTime, settings);
+            }
         }
     }
 
@@ -322,6 +342,7 @@ class Particle {
             const phase = this.effectPhase / (Math.PI * 2);
             const threshold = shape === "pipesTight" ? 0.985 : shape === "pipesCathedral" ? 0.94 : shape === "pipesShrine" ? 0.972 : 0.965;
             const progress = this.effectRole >= threshold ? Math.floor(phase * 8) / 8 : phase;
+            this.pipeProgress = progress;
             const point = this.getPipeRoutePoint(progress);
             this.x = point.x;
             this.y = point.y;
@@ -336,7 +357,28 @@ class Particle {
         this.vy = 0;
     }
 
-    update(settings, globalTime, mouse, customForces, shockwaves, vortices, dt = 1.0) {
+    update(settings, globalTime, mouse, customForces, shockwaves, vortices, dt = 1.0, compositionTime = 0) {
+        if (window.PresetCompositions?.supports(settings.particleShape)) {
+            const time = compositionTime;
+            const sample = window.PresetCompositions.point(settings.particleShape, this.effectLane, this.effectRole, this.effectPhase, time);
+            this.compositionTime = time;
+            this.compositionAge = sample.age;
+            this.compositionBranch = sample.branch;
+            const extent = Math.min(this.w, this.h);
+            const x = this.w * 0.5 + sample.x * extent;
+            const y = this.h * 0.5 + sample.y * extent;
+            const discontinuity = this.activeEffectShape !== settings.particleShape || Math.hypot(x - this.x, y - this.y) > extent * 0.15;
+            this.lastX = discontinuity ? x : this.x;
+            this.lastY = discontinuity ? y : this.y;
+            this.vx = x - this.lastX;
+            this.vy = y - this.lastY;
+            this.x = x;
+            this.y = y;
+            this.compositionFade = sample.fade ?? 1;
+            this.activeEffectShape = settings.particleShape;
+            this.life = this.maxLife * 0.85;
+            return;
+        }
         // Calculate viewport scale reference (based on 1600px desktop width)
         const scaleRef = Math.max(0.4, this.viewportScale || 1.0);
         
@@ -803,6 +845,48 @@ class Particle {
 
     drawAuthoredEffect(ctx, settings, drawSize, drawAlpha) {
         const shape = settings.particleShape;
+        if (window.PresetCompositions?.supports(shape)) {
+            ctx.save();
+            ctx.strokeStyle = this.color;
+            ctx.fillStyle = this.color;
+            ctx.globalAlpha = drawAlpha * 0.56 * (this.compositionFade ?? 1);
+            ctx.lineCap = 'round';
+            const brushScale = shape === 'fractalBloom' ? (2.4 + this.effectLane) * Math.pow(0.76, this.compositionBranch?.level || 0) : shape === 'quantumLattice' ? 1.2 : 1.8 + this.effectLane * 1.6;
+            ctx.lineWidth = Math.max(0.65, drawSize * brushScale);
+            ctx.beginPath();
+            if (shape === 'fractalBloom' && this.compositionBranch) {
+                // Reuse the current branch skeleton instead of rebuilding a
+                // recursive tree for every tail vertex. Forks stay connected.
+                const b = this.compositionBranch;
+                const start = 0; // Keep each growing fork attached to its branch origin.
+                const extent = Math.min(this.w, this.h);
+                for (let i = 0; i <= 5; i++) {
+                    const u = start + (b.travel - start) * i / 5;
+                    const curve = Math.sin(u * Math.PI);
+                    const x = this.w * 0.5 + (b.x + b.dx * u + b.bx * curve) * extent;
+                    const y = this.h * 0.5 + (b.y + b.dy * u + b.by * curve) * extent;
+                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                }
+            } else if (shape === 'quantumLattice') {
+                const span = Math.min(1 / 0.15, this.compositionAge || 0);
+                for (let i = 0; i <= 5; i++) {
+                    const tail = window.PresetCompositions.point(shape, this.effectLane, this.effectRole, this.effectPhase, this.compositionTime - span * (1 - i / 5));
+                    const x = this.w * 0.5 + tail.x * Math.min(this.w, this.h);
+                    const y = this.h * 0.5 + tail.y * Math.min(this.w, this.h);
+                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                }
+            } else {
+                ctx.moveTo(this.lastX, this.lastY);
+                ctx.lineTo(this.x, this.y);
+            }
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.globalAlpha *= 0.55;
+            ctx.ellipse(this.x, this.y, Math.max(0.8, drawSize * brushScale), Math.max(0.5, drawSize * brushScale * 0.48), Math.atan2(this.vy, this.vx), 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            return true;
+        }
         if (shape === "ocean") {
             if (this.effectRole < 0.70) {
                 ctx.strokeStyle = this.color;
@@ -1539,6 +1623,8 @@ class FlowSimulation {
         this.lastFrameTime = now;
         const dt = Math.min(delta * 60, 2.0); // normalized step, 1.0 at 60 FPS
         this.globalTime += delta * 60; // normalized speed steps
+        // Integrate speed, never multiply accumulated wall time by changing speed.
+        this.compositionTime = (this.compositionTime || 0) + delta * Math.max(0.1, this.settings.speed) / 0.5 * 4;
 
         // Update painted custom force field lifetimes
         for (let i = this.customForces.length - 1; i >= 0; i--) {
@@ -1590,6 +1676,19 @@ class FlowSimulation {
             this.ctx.fillRect(0, 0, this.width, this.height);
             this.ctx.globalAlpha = 1.0;
 
+            // 8-bit source-over fading can round dark pixels back to the same
+            // value forever, leaving gray fossils of old presets. On a black
+            // background, subtract one code value after fading. Black itself
+            // can oscillate only between 0 and 1 (visually black), not a gray
+            // floor. No pixel readback, extra canvas, or change to colored BGs.
+            if (/^#(?:000|000000)$/i.test(this.backgroundColor)) {
+                this.ctx.save();
+                this.ctx.globalCompositeOperation = 'difference';
+                this.ctx.fillStyle = '#010101';
+                this.ctx.fillRect(0, 0, this.width, this.height);
+                this.ctx.restore();
+            }
+
             // Meditation breathes the rendered world, not the canvas element.
             // The full-viewport background above therefore remains seamless at
             // every scale while particles retain the strong contraction/expansion.
@@ -1639,7 +1738,7 @@ class FlowSimulation {
             } else {
                 for (let i = 0; i < this.particles.length; i++) {
                     const p = this.particles[i];
-                    p.update(this.settings, this.globalTime, this.mouse, this.customForces, this.shockwaves, this.vortices, dt);
+                    p.update(this.settings, this.globalTime, this.mouse, this.customForces, this.shockwaves, this.vortices, dt, this.compositionTime);
                     p.draw(this.ctx, this.settings);
                 }
             }
@@ -1681,6 +1780,24 @@ class FlowSimulation {
                 const angleSegment = (Math.PI * 2) / segments;
                 const spinAngle = this.settings.spinningKaleido ? this.globalTime * 0.002 : 0;
 
+                // Draw the mirrored population once per frame, then reuse it.
+                // Replaying thousands of painterly particle draws for every
+                // reflection is especially costly now that copies are centered.
+                if (!this.kaleidoCanvas) {
+                    this.kaleidoCanvas = document.createElement('canvas');
+                    this.kaleidoCtx = this.kaleidoCanvas.getContext('2d');
+                }
+                if (this.kaleidoCanvas.width !== this.canvas.width || this.kaleidoCanvas.height !== this.canvas.height) {
+                    this.kaleidoCanvas.width = this.canvas.width;
+                    this.kaleidoCanvas.height = this.canvas.height;
+                }
+                this.kaleidoCtx.setTransform(1, 0, 0, 1, 0, 0);
+                this.kaleidoCtx.clearRect(0, 0, this.kaleidoCanvas.width, this.kaleidoCanvas.height);
+                this.kaleidoCtx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+                for (let i = 0; i < Math.min(this.particles.length, 1200); i++) {
+                    this.particles[i].draw(this.kaleidoCtx, this.settings);
+                }
+
                 // Reflect particle renders across radial quadrants
                 for (let seg = 1; seg < segments; seg++) {
                     this.ctx.save();
@@ -1691,10 +1808,13 @@ class FlowSimulation {
                         this.ctx.scale(-1, 1); // mirror reflection
                     }
 
+                    // Particle coordinates are absolute canvas coordinates.
+                    // Rotate/reflect around the center, not around an offset
+                    // copy of the top-left corner. Preserve outer breath/zoom.
+                    this.ctx.translate(-cx, -cy);
+
                     // Render particles in mirrored section
-                    for (let i = 0; i < Math.min(this.particles.length, 1200); i++) {
-                        this.particles[i].draw(this.ctx, this.settings);
-                    }
+                    this.ctx.drawImage(this.kaleidoCanvas, 0, 0, this.width, this.height);
 
                     // Mirrored shockwaves are physical forces only
 

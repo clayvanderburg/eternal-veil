@@ -394,6 +394,9 @@ class NativeFlowSimulation3D {
         );
         return {
             uTime: { value: 0 },
+            uMotionTime: { value: 0 },
+            uFractalTime: { value: 0 },
+            uCompositionTime: { value: 0 },
             uSpeed: { value: 0.75 },
             uTurbulence: { value: 0.8 },
             uOrganic: { value: 0.85 },
@@ -427,6 +430,9 @@ class NativeFlowSimulation3D {
             ${isTrail ? "attribute float aTrail;" : ""}
 
             uniform float uTime;
+            uniform float uMotionTime;
+            uniform float uFractalTime;
+            uniform float uCompositionTime;
             uniform float uSpeed;
             uniform float uTurbulence;
             uniform float uOrganic;
@@ -478,7 +484,7 @@ class NativeFlowSimulation3D {
             }
 
             vec3 flowPosition(float trailAmount) {
-                float t = uTime * (0.24 + uSpeed * 0.18) - trailAmount * uTrailLength;
+                float t = uMotionTime - trailAmount * uTrailLength;
                 float lane = aPhase * PI * 2.0;
                 float role = hash21(aSeed.xy + vec2(aPhase, aSeed.z));
                 float seededZ = aSeed.z * uDepth * 0.5;
@@ -620,6 +626,72 @@ class NativeFlowSimulation3D {
                     pipeCenter *= mix(1.0, 0.58, isTight);
                     pipeCenter *= mix(1.0, 0.34, isCathedral);
                     result = pipeCenter + pipePoint;
+                } else if (uEffectMode > 10.5) {
+                    // Audit compositions: stable, readable geometry with restrained depth.
+                    float clock = uCompositionTime - trailAmount * uTrailLength * 4.0;
+                    if (uEffectMode < 11.5) {
+                        float ring = min(10.0, floor(aPhase * 11.0));
+                        float baseRadius = ring < 3.0 ? 0.035 + ring * 0.025 : (ring < 7.0 ? 0.12 + (ring - 3.0) * 0.095 : 0.54 * pow(4.0 / 3.0, ring - 7.0));
+                        float angle = role * PI * 2.0 + clock * (mod(ring, 2.0) > 0.5 ? 0.32 : -0.26);
+                        float band = (fract(aPhase * 11.0) - 0.5) * min(0.042, baseRadius * 0.22);
+                        float radius = (baseRadius + band) * (1.0 + 0.08 * sin(clock * 0.32 + ring * 0.7)) * (1.0 + 0.26 * cos(12.0 * (angle - clock * 0.09)));
+                        result = vec3(cos(angle) * radius, sin(angle) * radius, (ring - 5.0) * 0.035) * uVolumeRadius * 2.0;
+                    } else if (uEffectMode < 12.5) {
+                        float col = floor(aPhase * 18.0);
+                        float gridScale = role >= 0.5 ? 2.4 : 1.0;
+                        float row = floor(fract(role * 2.0) * 12.0);
+                        float headClock = uCompositionTime;
+                        float age = fract(headClock * 0.15 + abs(aSeed.x)) / 0.15;
+                        clock = max(clock, headClock - age + 0.0001);
+                        float travel = fract(clock * 0.15 + abs(aSeed.x));
+                        float horizontal = step(0.0, aSeed.y);
+                        float gx = col + travel * horizontal;
+                        float gy = row + travel * (1.0 - horizontal);
+                        result = vec3((gx - 8.5) * 0.056 + sin(gy * 0.6 + clock * 0.3) * 0.035,
+                            (gy - 5.5) * 0.068 + cos(gx * 0.5 + clock * 0.26) * 0.035,
+                            sin(gx * 0.4 + gy * 0.35 + clock * 0.4) * 0.09) * uVolumeRadius * 2.0;
+                        result.xy *= gridScale;
+                    } else if (uEffectMode < 13.5) {
+                        float progress = fract(role - clock * 0.014);
+                        float radius = 0.075 + progress * 0.65;
+                        float arm = floor(aPhase * 5.0);
+                        float angle = arm * PI * 2.0 / 5.0 + fract(aPhase * 5.0) * 0.5 + clock * 0.3 + (1.0 - progress) * 10.0 + sin(clock * 0.24 + progress * 5.0) * 0.18;
+                        result = vec3(cos(angle) * radius, sin(angle) * radius * 0.78, -0.12 * (1.0 - progress)) * uVolumeRadius * 2.0;
+                    } else {
+                        float arm = min(5.0, floor(aPhase * 6.0));
+                        float layer = min(7.0, floor(role * 8.0));
+                        float layerScale = layer < 6.0 ? 0.52 + layer * 0.10 : (layer == 6.0 ? 1.45 : 2.05);
+                        float level = min(5.0, floor(fract(role * 8.0) * 6.0));
+                        float branchPath = floor(fract(aPhase * 6.0) * exp2(level));
+                        // Match this preset's proportional speed control: .6
+                        // is exactly 20% faster than the original .5 baseline.
+                        float headClock = uCompositionTime;
+                        float age = fract(abs(aSeed.x) + headClock * 0.18) / 0.18;
+                        clock = max(clock, headClock - age + 0.0001);
+                        float travel = fract(abs(aSeed.x) + clock * 0.18);
+                        float angle = arm * PI * 2.0 / 6.0 + layer * 0.3 + clock * (mod(layer, 2.0) > 0.5 ? -0.0375 : 0.0525);
+                        result = vec3(cos(angle) * 0.065, sin(angle) * 0.065, 0.0);
+                        for (int generation = 0; generation < 6; generation++) {
+                            float d = float(generation);
+                            if (d > level) break;
+                            if (generation > 0) {
+                                float side = mod(floor(branchPath / exp2(level - d)), 2.0) * 2.0 - 1.0;
+                                angle += side * (0.72 + 0.13 * sin(clock * 0.24 + d * 0.55));
+                            }
+                            float len = 0.18 * pow(0.61, d);
+                            float fraction = d == level ? travel : 1.0;
+                            float bend = sin(fraction * PI) * len * 0.12 * sin(clock * 0.3 + d);
+                            result += vec3(cos(angle) * len * fraction - sin(angle) * bend,
+                                sin(angle) * len * fraction + cos(angle) * bend,
+                                sin(angle * 2.0 + clock * 0.2) * len * fraction * 0.28);
+                        }
+                        result.xy *= layerScale;
+                        result.z += (layer - 2.5) * 0.035;
+                        result *= uVolumeRadius * 2.0;
+                    }
+                    // These are compositions viewed from the front, not a shell
+                    // centered on the viewer. Keep the full motif in view in VR.
+                    result.z -= uVolumeRadius * 1.8;
                 } else if (uEffectMode > 9.5) {
                     // Hypnotic Spiral: one calm, shallow coil holds the visual
                     // anchor while a tiny set of large particles swing through it
@@ -743,6 +815,14 @@ class NativeFlowSimulation3D {
                     vEffectClass = effectRole > 0.994 && uMeditationBreath < 0.0 ? 2.0 : 5.0;
                 } else if (uEffectMode > 4.5 && uEffectMode < 8.5) {
                     vEffectClass = effectRole < 0.965 ? 6.0 : (effectRole < 0.997 ? 7.0 : 8.0);
+                } else if (uEffectMode > 10.5) {
+                    vEffectClass = 4.0;
+                    if (uEffectMode > 12.5) {
+                        float headTime = uMotionTime;
+                        float progress = fract(effectRole - headTime * 0.014);
+                        // Entire tail disappears before its path wraps to the outside.
+                        vAlpha *= smoothstep(0.0, 0.09, progress) * smoothstep(0.0, 0.09, 1.0 - progress);
+                    }
                 } else if (uEffectMode > 9.5) {
                     vEffectClass = effectRole > 0.9975 ? 9.0 : 4.0;
                 } else if (uEffectMode > 8.5) {
@@ -1372,7 +1452,7 @@ class NativeFlowSimulation3D {
         );
         this.sharedUniforms.uTurbulence.value = Math.max(0.0, Math.min(5.0, s.turbulence ?? 0.65));
         this.sharedUniforms.uOrganic.value = Math.max(0.0, Math.min(2.0, s.flowOrganic ?? 0.85));
-        const effectModes = { ocean: 1, aurora: 2, orbitals: 3, lotus: 4, pipes: 5, pipesTight: 6, pipesCathedral: 7, pipesShrine: 8, spiral: 9, pendulumSpiral: 10 };
+        const effectModes = { ocean: 1, aurora: 2, orbitals: 3, lotus: 4, pipes: 5, pipesTight: 6, pipesCathedral: 7, pipesShrine: 8, spiral: 9, pendulumSpiral: 10, zenMandala: 11, quantumLattice: 12, gravityWell: 13, fractalBloom: 14 };
         this.sharedUniforms.uEffectMode.value = effectModes[s.particleShape] || 0;
         const lightingStyles = { glow: 0, reactive: 1, pearl: 2 };
         this.sharedUniforms.uLightingStyle.value = lightingStyles[s.particleLighting] || 0;
@@ -1461,6 +1541,11 @@ class NativeFlowSimulation3D {
 
         const u = this.sharedUniforms;
         u.uTime.value = this.elapsed;
+        u.uMotionTime.value += delta * (0.24 + u.uSpeed.value * 0.18);
+        u.uFractalTime.value += delta * u.uSpeed.value * 0.66;
+        // Authored structures use the same seconds/speed convention as 2D.
+        // Do not apply the free-floating particle comfort attenuation twice.
+        u.uCompositionTime.value += delta * Math.max(0.1, this.settings.speed) / 0.5 * 4;
         u.uBass.value = Math.max(0, this.sizePulse || 0);
         u.uTreble.value = Math.max(0, this.trebleIntensity || 0);
         u.uBurst.value = this.burstStrength;
