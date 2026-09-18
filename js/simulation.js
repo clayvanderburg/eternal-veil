@@ -388,7 +388,7 @@ class Particle {
             this.x = Math.random() * this.w;
             this.y = Math.random() * this.h;
         } else if (shape === "solarFlare") {
-            // A bunch of Eclipsed suns in varying sizes with flares coming off of them
+            // Constellation of eclipsed suns & flares layered on top of natural ember field
             const minDim = Math.min(this.w, this.h);
             const sunPositions = [
                 { x: 0.50, y: 0.50, r: 0.11 },
@@ -403,15 +403,20 @@ class Particle {
             this.sunCenterX = this.w * sun.x;
             this.sunCenterY = this.h * sun.y;
             this.sunBaseR = minDim * sun.r;
-            this.isEclipsedSun = this.effectRole < 0.22;
+            this.isEclipsedSun = this.effectRole < 0.12;
+            this.isSunFlare = this.effectRole >= 0.12 && this.effectRole < 0.36;
             if (this.isEclipsedSun) {
                 this.x = this.sunCenterX;
                 this.y = this.sunCenterY;
-            } else {
+            } else if (this.isSunFlare) {
                 const flareAngle = this.effectPhase;
                 const flareDist = this.sunBaseR * (0.95 + Math.random() * 0.8);
                 this.x = this.sunCenterX + Math.cos(flareAngle) * flareDist;
                 this.y = this.sunCenterY + Math.sin(flareAngle) * flareDist;
+            } else {
+                // Natural ember field (what was already there)
+                this.x = Math.random() * this.w;
+                this.y = Math.random() * this.h;
             }
         } else if (shape === "jadeCurrents") {
             this.x = Math.random() * this.w;
@@ -429,10 +434,16 @@ class Particle {
             this.y = this.quantumNodeY + (Math.random() - 0.5) * minDim * 0.08;
         } else if (shape === "violetUndertow") {
             const minDim = Math.min(this.w, this.h);
-            this.isWavySpiral = this.effectRole < 0.35; // secondary wavy spiral alongside primary vortex
-            const radius = minDim * (0.04 + Math.pow(this.effectLane, 1.1) * 0.95);
-            this.x = this.w * 0.5 + Math.cos(this.effectPhase) * radius;
-            this.y = this.h * 0.5 + Math.sin(this.effectPhase) * radius * 0.82;
+            this.isWavySpiral = this.effectRole < 0.28; // secondary wavy spiral alongside primary vortex
+            if (this.isWavySpiral) {
+                const radius = minDim * (0.04 + Math.pow(this.effectLane, 1.1) * 0.85);
+                this.x = this.w * 0.5 + Math.cos(this.effectPhase) * radius;
+                this.y = this.h * 0.5 + Math.sin(this.effectPhase) * radius * 0.82;
+            } else {
+                // Natural flow position (what was already there)
+                this.x = Math.random() * this.w;
+                this.y = Math.random() * this.h;
+            }
         } else if (shape === "prismDrift") {
             const minDim = Math.min(this.w, this.h);
             this.prismFacet = Math.floor(this.effectLane * 6);
@@ -644,23 +655,18 @@ class Particle {
                 targetVy = (targetY - this.y) * 0.10;
             }
         } else if (settings.particleShape === "nebulaSpark") {
-            // Natural curling flow for sparks, gentle drift for expanding clouds
             if (this.isNebulaCloud) {
+                // Gentle drift for expanding cosmic clouds; sparks keep natural curl flow (what it already had)
                 const drift = getCurlNoise(this.x / scaleRef, this.y / scaleRef, globalTime * 0.05, 0.004 / zoom);
                 targetVx = drift.vx * 0.22 * speed * scaleRef;
                 targetVy = drift.vy * 0.22 * speed * scaleRef;
-            } else {
-                // Fine sparks drifting in curl trails (original Nebula Spark feel)
-                const curl = getCurlNoise(this.x / scaleRef, this.y / scaleRef, globalTime * 0.25, flowFreq);
-                targetVx = curl.vx * speed * 0.75 * scaleRef;
-                targetVy = curl.vy * speed * 0.75 * scaleRef;
             }
         } else if (settings.particleShape === "solarFlare") {
             if (this.isEclipsedSun) {
                 // Stationary eclipsed sun disc anchors
                 targetVx = (this.sunCenterX - this.x) * 0.08;
                 targetVy = (this.sunCenterY - this.y) * 0.08;
-            } else {
+            } else if (this.isSunFlare) {
                 // Flares bursting off the edges of the eclipsed suns
                 const dx = this.x - this.sunCenterX;
                 const dy = this.y - this.sunCenterY;
@@ -676,6 +682,7 @@ class Particle {
                     this.lastY = this.y;
                 }
             }
+            // Embers keep natural curl flow (what was already there)
         } else if (settings.particleShape === "jadeCurrents") {
             // Transverse wave ribbons flowing across the screen
             const bandY = this.h * (0.18 + (this.currentBand ?? 0) * 0.13);
@@ -723,12 +730,12 @@ class Particle {
                 targetVx = (tx - this.x) * 0.09;
                 targetVy = (ty - this.y) * 0.09;
             } else {
-                // Primary deep undertow vortex (what is already there)
+                // Primary deep undertow vortex with natural organic curl (what is already there)
                 const tangent = (0.75 + (1 - normR) * 1.5) * speed * scaleRef;
                 let radial = -0.25 * speed * scaleRef;
                 if (normR < 0.05) radial = 0.4 * speed * scaleRef;
-                targetVx = (-dy / dist) * tangent + (dx / dist) * radial;
-                targetVy = ((dx / dist) * tangent + (dy / dist) * radial) * 0.82;
+                targetVx = (-dy / dist) * tangent + (dx / dist) * radial + curl.vx * 0.25 * scaleRef;
+                targetVy = ((dx / dist) * tangent + (dy / dist) * radial) * 0.82 + curl.vy * 0.25 * scaleRef;
             }
         } else if (settings.particleShape === "prismDrift") {
             // Individual shapes rotate on their own randomly
@@ -1404,27 +1411,10 @@ class Particle {
                     ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
                     ctx.fill();
                 }
-            } else {
-                // Fine curling sparks with gleaming trails
-                ctx.save();
-                ctx.strokeStyle = this.color;
-                ctx.lineCap = "round";
-                ctx.globalAlpha = drawAlpha * 0.70;
-                ctx.lineWidth = Math.max(0.7, drawSize * 0.45);
-                ctx.beginPath();
-                ctx.moveTo(this.lastX, this.lastY);
-                ctx.lineTo(this.x, this.y);
-                ctx.stroke();
-
-                ctx.fillStyle = "#ffffff";
-                ctx.globalAlpha = drawAlpha * 0.95;
-                const sparkR = Math.max(1.8, drawSize * 0.9);
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, sparkR * 0.6, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
+                return true;
             }
-            return true;
+            // Fine sparks fall through to standard renderer (what was already there)
+            return false;
         }
 
         if (shape === "solarFlare") {
@@ -1455,7 +1445,9 @@ class Particle {
                 ctx.arc(this.x, this.y, r * 0.88, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.restore();
-            } else {
+                return true;
+            }
+            if (this.isSunFlare) {
                 // Fiery flares bursting off the edges into space
                 ctx.save();
                 ctx.strokeStyle = this.color;
@@ -1478,8 +1470,10 @@ class Particle {
                 ctx.arc(this.x, this.y, Math.max(1.2, drawSize * 0.75), 0, Math.PI * 2);
                 ctx.fill();
                 ctx.restore();
+                return true;
             }
-            return true;
+            // Natural ember field falls through to standard renderer (what was already there)
+            return false;
         }
 
         if (shape === "jadeCurrents") {
