@@ -11,13 +11,12 @@ const StateSchema = {
     // Valid particle rendering shapes
     VALID_PARTICLE_SHAPES: new Set([
         "ellipse", "drop", "ring", "aquatic", "acid", "nebula", "brush", "cluster",
-        "ocean", "aurora", "orbitals", "lotus", "spiral", "pendulumSpiral", "tightTailVortex", "painterlyVortex", "pipes", "pipesTight", "pipesCathedral", "pipesShrine", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom", "chromeRibbon"
+        "ocean", "aurora", "orbitals", "lotus", "spiral", "pendulumSpiral", "tightTailVortex", "painterlyVortex", "pipes", "pipesTight", "pipesCathedral", "pipesShrine", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom", "chromeRibbon",
+        "nebulaSpark", "solarFlare", "jadeCurrents", "quantumDrift", "violetUndertow", "prismDrift", "cosmicStrings"
     ]),
 
     VALID_PARTICLE_LIGHTING: new Set(["glow", "reactive", "pearl", "metal"]),
     VALID_BINAURAL_MODES: new Set(["delta", "theta", "alpha", "beta", "gamma"]),
-
-    // Helper to sanitize numeric values within strict boundaries
     sanitizeNumber(value, fallback, min, max) {
         const n = Number(value);
         if (!Number.isFinite(n) || isNaN(n)) {
