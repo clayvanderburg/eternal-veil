@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 
 console.log("--------------------------------------------------");
-console.log("🧪 RUNNING PRESET AUDIT OVERHAUL TESTS...");
+console.log("🧪 RUNNING PRESET AUDIT TESTS (POST-ROLLBACK)...");
 console.log("--------------------------------------------------");
 
 // 1. Check HTML speed slider range and step
@@ -18,14 +18,16 @@ console.log("✅ Passed: HTML #speed-slider range and step are configured for ul
 // 2. Check StateSchema valid shapes
 const schemaPath = path.resolve(__dirname, "../js/state-schema.js");
 const schemaCode = fs.readFileSync(schemaPath, "utf-8");
-const expectedShapes = [
-    "nebulaSpark", "solarFlare", "jadeCurrents", "quantumDrift", "violetUndertow", "prismDrift"
-];
-for (const shape of expectedShapes) {
-    assert(schemaCode.includes(`"${shape}"`), `StateSchema must include "${shape}" in VALID_PARTICLE_SHAPES`);
-    assert(html.includes(`value="${shape}"`), `index.html particle shape select must include option for "${shape}"`);
+const keptShapes = ["jadeCurrents", "quantumDrift", "prismDrift"];
+const removedShapes = ["nebulaSpark", "solarFlare", "violetUndertow"];
+
+for (const shape of keptShapes) {
+    assert(schemaCode.includes(`"${shape}"`), `StateSchema must include kept shape "${shape}" in VALID_PARTICLE_SHAPES`);
 }
-console.log("✅ Passed: All new particle shapes are present in StateSchema and index.html.");
+for (const shape of removedShapes) {
+    assert(!schemaCode.includes(`"${shape}"`), `StateSchema must NOT include removed shape "${shape}"`);
+}
+console.log("✅ Passed: StateSchema particle shapes correctly contain only kept custom shapes.");
 
 // 3. Check PRESETS configurations
 const presetsPath = path.resolve(__dirname, "../js/presets.js");
@@ -33,46 +35,46 @@ const presetsCode = fs.readFileSync(presetsPath, "utf-8");
 const fn = new Function(presetsCode + "\nreturn StylePresets;");
 const presets = fn();
 
-assert(presets.breathSanctuary, "breathSanctuary preset exists");
-assert(presets.breathSanctuary.speed <= 0.15, "breathSanctuary speed is calibrated to slow meditative base (<= 0.15)");
-assert(presets.breathSanctuary.particleShape === "lotus", "breathSanctuary shape is lotus");
-
-assert(presets.ethereal, "ethereal preset exists");
-assert(presets.ethereal.speed <= 0.20, "ethereal speed is calibrated slow (<= 0.20)");
-assert(presets.ethereal.kaleidoscopeEnabled === true, "ethereal has kaleidoscope enabled");
-assert(presets.ethereal.kaleidoscopeSegments === 6, "ethereal has 6 kaleidoscope segments");
-
-assert(presets.cosmic, "cosmic (Nebula Spark) preset exists");
-assert(presets.cosmic.particleShape === "nebulaSpark", "cosmic particleShape is nebulaSpark");
-
-assert(presets.supernova, "supernova (Solar Flare) preset exists");
-assert(presets.supernova.particleShape === "solarFlare", "supernova particleShape is solarFlare");
-
+// Kept presets:
 assert(presets.liquid, "liquid (Jade Currents) preset exists");
 assert(presets.liquid.particleShape === "jadeCurrents", "liquid particleShape is jadeCurrents");
 
 assert(presets.quantum, "quantum (Quantum Drift) preset exists");
 assert(presets.quantum.particleShape === "quantumDrift", "quantum particleShape is quantumDrift");
 
-assert(presets.vortex, "vortex (Violet Undertow) preset exists");
-assert(presets.vortex.particleShape === "violetUndertow", "vortex particleShape is violetUndertow");
-
 assert(presets.mandala, "mandala (Prism Drift) preset exists");
 assert(presets.mandala.particleShape === "prismDrift", "mandala particleShape is prismDrift");
 
+// Rolled back presets:
+assert(presets.breathSanctuary, "breathSanctuary preset exists");
+assert(presets.breathSanctuary.speed === 0.30, "breathSanctuary speed is restored to baseline 0.30");
+assert(presets.breathSanctuary.particleShape === "lotus", "breathSanctuary shape is lotus");
+
+assert(presets.ethereal, "ethereal preset exists");
+assert(presets.ethereal.speed === 0.85, "ethereal speed is restored to baseline 0.85");
+assert(!presets.ethereal.kaleidoscopeEnabled, "ethereal kaleidoscope is restored to false/undefined");
+
+assert(presets.cosmic, "cosmic (Nebula Spark) preset exists");
+assert(presets.cosmic.speed === 1.25, "cosmic speed is restored to baseline 1.25");
+assert(!presets.cosmic.particleShape || presets.cosmic.particleShape === "ellipse", "cosmic particleShape is restored to baseline");
+
+assert(presets.supernova, "supernova (Solar Flare) preset exists");
+assert(presets.supernova.speed === 2.20, "supernova speed is restored to baseline 2.20");
+assert(!presets.supernova.particleShape || presets.supernova.particleShape === "ellipse", "supernova particleShape is restored to baseline");
+
+assert(presets.vortex, "vortex (Violet Undertow) preset exists");
+assert(presets.vortex.speed === 1.60, "vortex speed is restored to baseline 1.60");
+assert(!presets.vortex.particleShape || presets.vortex.particleShape === "tightTailVortex", "vortex particleShape is restored to baseline");
+
 assert(presets.strings, "strings (Cosmic Strings) preset exists");
-assert(!presets.strings.particleShape || presets.strings.particleShape === "ellipse", "strings uses extreme stretch and curl rather than custom shape");
-assert(presets.strings.stretch >= 6.0, "strings has extreme stretch >= 6.0");
-assert(presets.strings.density >= 3000, "strings has high density >= 3000");
-assert(presets.strings.dissipation <= 0.003, "strings has low dissipation <= 0.003");
-assert(presets.strings.kaleidoscopeEnabled === true, "strings has kaleidoscope enabled");
-assert(presets.strings.kaleidoscopeSegments === 8, "strings has 8-fold kaleidoscope symmetry");
+assert(presets.strings.speed === 2.50, "strings speed is restored to baseline 2.50");
+assert(!presets.strings.particleShape || presets.strings.particleShape === "spiral", "strings particleShape is restored to baseline");
 
 assert(presets.hypno, "hypno (Hypnotic Spiral) preset exists");
-assert(presets.hypno.particleShape === "pendulumSpiral", "hypno particleShape is pendulumSpiral");
-assert(presets.hypno.speed <= 0.25, "hypno speed is calibrated calm (<= 0.25)");
+assert(presets.hypno.particleShape === "pendulumSpiral", "hypno particleShape is restored to pendulumSpiral");
+assert(presets.hypno.speed === 0.42, "hypno speed is restored to baseline 0.42");
 
-console.log("✅ Passed: All 10 audited presets have distinct, verified identities and calibrated speeds.");
+console.log("✅ Passed: Presets verified - kept Jade Currents, Quantum Drift, Prism Drift; rolled back others.");
 
 // 4. Check app.js pauses autopilot on loadPreset
 const appPath = path.resolve(__dirname, "../js/app.js");
@@ -83,38 +85,26 @@ assert(
 );
 console.log("✅ Passed: app.js pauses autopilot when loading presets.");
 
-// 5. Check simulation.js authored shapes, prism rotation, and nebula/solar dynamics
+// 5. Check simulation.js authored shapes and independent prism rotation
 const simPath = path.resolve(__dirname, "../js/simulation.js");
 const simCode = fs.readFileSync(simPath, "utf-8");
-for (const shape of expectedShapes) {
+
+for (const shape of keptShapes) {
     assert(simCode.includes(`"${shape}"`), `simulation.js must handle shape "${shape}"`);
 }
-assert(
-    simCode.includes("isHeroOrb = (this.index === 0 || this.index === 1)"),
-    "simulation.js Particle must track dedicated hero orbs"
-);
-assert(
-    simCode.includes("minR * Math.pow(maxR / minR, swing)"),
-    "simulation.js pendulumSpiral must use strictly bounded logarithmic radius"
-);
+for (const shape of removedShapes) {
+    assert(!simCode.includes(`"${shape}"`), `simulation.js must NOT handle removed shape "${shape}"`);
+}
 assert(
     simCode.includes("this.prismRot"),
     "simulation.js Particle must track independent random prism rotation"
 );
 assert(
-    simCode.includes("this.isNebulaCloud"),
-    "simulation.js Particle must support cosmic nebula cloud lifecycle"
+    simCode.includes("this.prismRotSpeed"),
+    "simulation.js Particle must track independent random prism rotation speed"
 );
-assert(
-    simCode.includes("this.isEclipsedSun"),
-    "simulation.js Particle must support eclipsed suns and flares"
-);
-assert(
-    simCode.includes("this.isWavySpiral"),
-    "simulation.js Particle must support secondary wavy spiral for violetUndertow"
-);
-console.log("✅ Passed: simulation.js implements dedicated hero orbs, bounded spiral, independent prism rotation, and custom dynamics.");
+console.log("✅ Passed: simulation.js correctly handles kept shapes, independent prism rotation, and removes rolled back shapes.");
 
 console.log("--------------------------------------------------");
-console.log("🎉 ALL PRESET AUDIT TESTS PASSED SUCCESSFULLY!");
+console.log("🎉 ALL PRESET AUDIT ROLLBACK TESTS PASSED SUCCESSFULLY!");
 console.log("--------------------------------------------------");
