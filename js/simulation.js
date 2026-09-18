@@ -266,8 +266,12 @@ class Particle {
         if (shape === "ocean") {
             if (this.effectRole < 0.70) {
                 this.x = Math.random() * this.w;
-                this.y = this.h * (0.58 + this.effectLane * 0.36);
-            } else if (this.effectRole < 0.995) {
+                // A quieter midground sea stays visible as the camera moves
+                // inward, while the original lower waves still frame the sky.
+                this.y = this.h * (this.effectRole < 0.45
+                    ? 0.60 + this.effectLane * 0.34
+                    : 0.36 + this.effectLane * 0.28);
+            } else if (this.effectRole < 0.997) {
                 this.x = Math.random() * this.w;
                 this.y = Math.random() * this.h;
             } else {
@@ -329,13 +333,13 @@ class Particle {
             // velocity field instead of being drawn along a pre-baked curve.
             // Seed beyond the visible rectangle so the vortex feels like it
             // continues off-screen instead of sitting inside a framed disc.
-            const radius = Math.min(this.w, this.h) * (0.05 + Math.sqrt(this.effectRole) * 1.02);
+            const radius = Math.min(this.w, this.h) * (0.028 + Math.pow(this.effectRole, 1.12) * 1.042);
             const angle = this.effectPhase;
             this.x = this.w * 0.5 + Math.cos(angle) * radius;
             this.y = this.h * 0.5 + Math.sin(angle) * radius * 0.82;
         } else if (shape === "painterlyVortex") {
             this.painterDepth = Math.random();
-            const radius = Math.min(this.w, this.h) * (0.04 + Math.sqrt(this.effectRole) * 1.04);
+            const radius = Math.min(this.w, this.h) * (0.025 + Math.pow(this.effectRole, 1.06) * 1.055);
             this.x = this.w * 0.5 + Math.cos(this.effectPhase) * radius;
             this.y = this.h * 0.5 + Math.sin(this.effectPhase) * radius * 0.82;
         } else if (shape.startsWith("pipes")) {
@@ -425,12 +429,15 @@ class Particle {
 
         if (settings.particleShape === "ocean") {
             if (this.effectRole < 0.70) {
-                const targetY = this.h * (0.58 + this.effectLane * 0.36)
+                const midground = this.effectRole >= 0.45;
+                const targetY = this.h * (midground
+                    ? 0.36 + this.effectLane * 0.28
+                    : 0.60 + this.effectLane * 0.34)
                     + Math.sin(this.x * 0.012 + globalTime * 0.035 + this.effectPhase)
-                        * this.h * (0.012 + this.effectLane * 0.018);
+                        * this.h * (midground ? 0.009 + this.effectLane * 0.012 : 0.012 + this.effectLane * 0.018);
                 targetVx = (0.28 + this.effectLane * 0.32) * speed * scaleRef;
                 targetVy = (targetY - this.y) * 0.018;
-            } else if (this.effectRole < 0.995) {
+            } else if (this.effectRole < 0.997) {
                 targetVx = Math.sin(globalTime * 0.025 + this.effectPhase) * 0.045 * scaleRef;
                 targetVy = (0.48 + this.effectLane * 0.72) * speed * scaleRef;
             } else {
@@ -531,7 +538,7 @@ class Particle {
             // Soft boundaries keep the field framed and prevent a clump at the
             // singularity, while still allowing the deep in/out tunnel motion.
             if (normalizedRadius > 0.93) radial -= (normalizedRadius - 0.93) * 3.2 * speed * scaleRef;
-            if (normalizedRadius < 0.075) radial += (0.075 - normalizedRadius) * 8.0 * speed * scaleRef;
+            if (normalizedRadius < 0.045) radial += (0.045 - normalizedRadius) * 6.0 * speed * scaleRef;
 
             const organicWobble = getCurlNoise(
                 this.x / scaleRef,
@@ -555,7 +562,7 @@ class Particle {
                 * (0.70 + depth * 0.72) * speed * scaleRef;
             let radial = Math.sin(phase) * (0.34 + depth * 0.32) * speed * scaleRef;
             if (normalizedRadius > 0.94) radial -= (normalizedRadius - 0.94) * 3.0 * speed * scaleRef;
-            if (normalizedRadius < 0.065) radial += (0.065 - normalizedRadius) * 6.8 * speed * scaleRef;
+            if (normalizedRadius < 0.04) radial += (0.04 - normalizedRadius) * 5.5 * speed * scaleRef;
             const organicWobble = getCurlNoise(this.x / scaleRef, this.y / scaleRef, globalTime * 0.11, 0.0042 / zoom);
             targetVx = (-dy / distance) * tangent + (dx / distance) * radial + organicWobble.vx * 0.035 * scaleRef;
             targetVy = ((dx / distance) * tangent + (dy / distance) * radial) * 0.82 + organicWobble.vy * 0.030 * scaleRef;
@@ -891,19 +898,20 @@ class Particle {
             if (this.effectRole < 0.70) {
                 ctx.strokeStyle = this.color;
                 ctx.lineCap = "round";
-                ctx.globalAlpha = drawAlpha * 0.18;
-                ctx.lineWidth = Math.max(2, drawSize * (3.0 + this.effectLane * 2.6));
+                const midground = this.effectRole >= 0.45;
+                ctx.globalAlpha = drawAlpha * (midground ? 0.12 : 0.18);
+                ctx.lineWidth = Math.max(2, drawSize * (midground ? 2.2 + this.effectLane * 1.8 : 3.0 + this.effectLane * 2.6));
                 ctx.beginPath();
                 ctx.moveTo(this.lastX, this.lastY);
                 ctx.lineTo(this.x, this.y);
                 ctx.stroke();
-                ctx.globalAlpha = drawAlpha * 0.82;
-                ctx.lineWidth = Math.max(0.8, drawSize * (0.48 + this.effectLane * 0.42));
+                ctx.globalAlpha = drawAlpha * (midground ? 0.62 : 0.82);
+                ctx.lineWidth = Math.max(0.8, drawSize * (midground ? 0.34 + this.effectLane * 0.3 : 0.48 + this.effectLane * 0.42));
                 ctx.beginPath();
                 ctx.moveTo(this.lastX, this.lastY);
                 ctx.lineTo(this.x, this.y);
                 ctx.stroke();
-            } else if (this.effectRole < 0.995) {
+            } else if (this.effectRole < 0.997) {
                 const rainLength = Math.max(4, drawSize * 2.4 + Math.abs(this.vy) * 3.5);
                 ctx.strokeStyle = this.color;
                 ctx.lineCap = "round";
@@ -914,7 +922,7 @@ class Particle {
                 ctx.lineTo(this.x + this.vx * 0.8, this.y);
                 ctx.stroke();
             } else {
-                this.drawLitOrb(ctx, drawSize * (11 + this.effectLane * 13), drawAlpha * 0.82, settings);
+                this.drawLitOrb(ctx, drawSize * (9 + this.effectLane * 10), drawAlpha * 0.82, settings);
             }
             return true;
         }
@@ -1740,7 +1748,12 @@ class FlowSimulation {
                 
                 this.globalRotation += ((this.settings.rotationSpeed * 0.004) + wobbleVal * 0.002) * dt;
             }
-            const sceneAngle = this.globalRotation + driftAngle;
+            // Directional worlds need a horizon. Let Rain Ocean gently rock
+            // rather than turning its sea into a vertical wall every quarter
+            // cycle; radial and abstract presets retain the full revolution.
+            const sceneAngle = this.settings.particleShape === "ocean"
+                ? Math.sin(driftAngle + this.globalRotation * 0.1) * 0.48
+                : this.globalRotation + driftAngle;
             const cx = this.width / 2;
             const cy = this.height / 2;
             // Cover the *rotated* source rectangle, including wander, at every

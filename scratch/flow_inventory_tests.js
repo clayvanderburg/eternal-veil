@@ -16,7 +16,7 @@ for (const shape of [
 }
 
 const authoredStart = source.indexOf('const authoredTargets =');
-const authoredEnd = source.indexOf('// Rare state changes', authoredStart);
+const authoredEnd = source.indexOf('const activeFlowShape =', authoredStart);
 assert(authoredStart >= 0 && authoredEnd > authoredStart, 'Authored Flow targets must be present');
 const authored = source.slice(authoredStart, authoredEnd);
 for (const shape of ['tightTailVortex', 'zenMandala', 'quantumLattice', 'gravityWell', 'fractalBloom', 'chromeRibbon']) {

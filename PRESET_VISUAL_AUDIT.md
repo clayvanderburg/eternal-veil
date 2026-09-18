@@ -138,3 +138,33 @@ This is not the final comprehensive audit. All 28 originals have at least an ini
 
 ### Preview
 http://127.0.0.1:8767/ — the three added presets are at the bottom of the Presets list. This is local only. Nothing has been committed, pushed, or published.
+
+## September 18 — Veil Drift zoom/rotation composition pass (local, unpublished)
+
+The released Veil Drift now rotates and breathes in as far as +75%, which magnifies intentional and unintentional empty centers. Explicit 2D preset selections were observed in the local browser after transitions settled, including changing zoom phases. This is not a native 3D, dome, or headset audit. The old inventory above predates several later releases; use the current Presets UI/source for names.
+
+| Preset | Observed under 2D Veil Drift | Local action / verdict |
+|---|---|---|
+| Liquid Chrome | The broad metallic ribbons left an oversized dark aperture at zoom. | Three progressively smaller metallic folds now continue inward, preserving the 8–24 main-ribbon Flow range. Visually checked after reload: detailed central knot and outer silhouette. High-density sample displayed 18 FPS once; performance remains a concern, not a benchmark result. |
+| Rain Ocean | The lower wave band could rotate out of the central crop, leaving rain, dark sky, and huge moons. | Redistributed some existing wave particles into a quieter midground band. Reduced moon frequency and scale slightly, and changed this directional world's camera rotation to a gentle ±27.5° rock instead of a full revolution, preserving its sea/sky horizon. Settled desktop view checked after reload; remains worth reviewing through more palettes and Flow densities. |
+| Tight Tail Vortex | Outer-biased seeding produced a large empty aperture at the zoom peak. | Seed radii now distribute more particles toward smaller orbits and ease singularity repulsion. Visually checked after reload: inward comet tracks reach toward a compact opening while keeping full-screen outer swirl. |
+| Painted Depth Spiral | Similar outer-biased seed left a sparse center. | Same inward population strategy, tuned independently. Settled desktop check shows inner brush currents approaching a smaller dark opening. |
+| Celestial Orrery | Orbit tracers and moons already pass through the center; does not read as an empty donut. | Preserve. One desktop view checked, not full palette/device coverage. |
+| Mandala Zen | Eleven rosettes already include delicate inner layers; small central aperture is framed by dense petals at zoom. | Preserve. Two zoom phases checked in desktop 2D. |
+| Black Hole Vortex | Dark gravitational center is the visual concept. | Deliberately preserve its void rather than applying generic center fill. Earlier desktop observations in this audit; no new full-cycle check. |
+
+This is a targeted first pass, **not** a claim that all 32 presets and every Flow permutation have been checked. Next: sweep the remaining named presets across the 15-second zoom cycle, test high/low density and colors, and investigate Liquid Chrome's heavy-frame cases. Tests: Chrome ribbon geometry/count, foundation, Flow inventory, authored composition mathematics, and simulation syntax passed. No live push requested.
+
+## September 18 — Flow symmetry frequency (local, unpublished)
+
+Clay requested more naturally occurring kaleidoscope and spinning mandala moments. Flow previously gave Mandala Zen one uniform geometry slot, while kaleidoscope and its spinning axis were independently and very rarely enabled. Mandala Zen now has three weighted slots in Serene and four in Alive/Wild; every other geometry remains selectable, consecutive repeats are avoided, and excluded presets are removed from the candidate pool. On eligible general particle geometries, kaleidoscope is deliberately sampled per shift (24% Serene, 38% Alive, 46% Wild), and a selected kaleidoscope can spin (55%, 72%, 80% respectively). Directional and self-authored scenes retain their own composition. Manual locks and Comfort Mode remain authoritative. Flow caps the particle target and segment count during mirrored scenes to mitigate rendering cost.
+
+The local browser's 5-second QA cycle naturally selected Mandala Zen repeatedly and produced a `drop` scene with kaleidoscope and spin both enabled. The interval was restored to 20 seconds afterward. This confirms selection behavior, not full visual or hardware acceptance. Occasional low-FPS warnings appeared during rapid cycling, including on authored scenes; diagnose with settled, representative scenes before publishing. Tests: new 10,000-shift-per-personality selection coverage, excluded-Mandala regression, Flow inventory, kaleidoscope math, and syntax passed. No live push requested.
+
+## September 18 — geometric kaleidoscope follow-up (local, unpublished)
+
+Clay noted that grids and circuits can look especially good with kaleidoscope/mandala axes. The first Flow symmetry set had inadvertently excluded these. Added Quantum Grid plus Circuit City, Conduit Cathedral, and Circuit Shrine as curated eligible geometries. On their Flow turns, kaleidoscope is sampled at least 58% of the time (unless Comfort Mode or a manual lock says otherwise), with 4/5/6/8 folds to avoid overloading detailed line work. Their authored density is not reduced to the generic mirrored-particle target, since that could break line continuity. Softer kaleidoscope geometry now samples 4/5/6/7/8/10 folds. The normal neon conduit remains unmirrored to keep its free-traversing identity.
+
+Reference direction: [Desmos three rotating axes](https://www.desmos.com/calculator/rnsccfmhk8) and [Zen Math Art video](https://www.youtube.com/watch?v=roWrlXIjDek). The Desmos graph demonstrates varying rotational-speed and axis-length ratios, producing evolving multi-petal line mandalas. That is **not yet implemented** as independent multi-axis geometry; current work varies the existing kaleidoscope fold count around preserved source compositions. A separate, deliberately authored ratio-driven composition is the next creative step, rather than stacking more full-frame reflections over dense circuits.
+
+Local 5-second Flow QA observed Conduit Cathedral with both kaleidoscope and spin selected automatically. It was not held long enough for an aesthetic/performance acceptance judgment; an additional 45-second sample did not land on another geometric kaleidoscope. The preview interval was restored to 20 seconds. Tests: Flow selection/exclusions, geometric eligibility guards, kaleidoscope math, foundation, and syntax pass. Low-FPS warnings during fast cycling persist in multiple patterns (not isolated to geometric symmetry); investigate before release. No commit/push/live change.

@@ -1927,9 +1927,21 @@ document.addEventListener("DOMContentLoaded", () => {
         const pool = effectivePersonality === "serene"
             ? serenePatterns
             : (effectivePersonality === "wild" ? wildPatterns : alivePatterns);
+        const availablePool = pool.filter(shape => {
+            const presetKey = getPresetByShape(shape);
+            return !presetKey || !excludedPresetKeys.has(presetKey);
+        });
+        if (!availablePool.length) return null;
+        // Mandala Zen is one of Flow's strongest visual identities. Give it
+        // several tickets without removing any other geometry from the pool.
+        const mandalaWeight = effectivePersonality === "serene" ? 3 : 4;
+        const weightedPool = availablePool.flatMap(shape => shape === "zenMandala"
+            ? Array(mandalaWeight).fill(shape)
+            : [shape]);
         const currentShape = sim.settings.particleShape || lastFlowPatternShape || "ellipse";
-        const alternatives = pool.filter(shape => shape !== currentShape);
-        const nextShape = alternatives[Math.floor(Math.random() * alternatives.length)] || "ellipse";
+        const alternatives = weightedPool.filter(shape => shape !== currentShape);
+        const candidates = alternatives.length ? alternatives : weightedPool;
+        const nextShape = candidates[Math.floor(Math.random() * candidates.length)];
 
         sim.settings.particleShape = nextShape;
         elements.particleShapeSelect.value = nextShape;
@@ -2102,14 +2114,23 @@ document.addEventListener("DOMContentLoaded", () => {
             elements.spinningKaleidoToggle.checked = sim.settings.spinningKaleido;
         }
 
-        // Rare state changes prevent every cycle from flipping the scene's identity.
-        const isProtectedAuthoredFlow = ["pendulumSpiral", "painterlyVortex", "chromeRibbon", "tightTailVortex", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"].includes(nextPatternShape);
-        const nextKaleidoEnabledFlow = !isProtectedAuthoredFlow && isFlowEnabled("kaleidoscopeEnabled");
+        // Reserve kaleidoscope for readable compositions. The grid and the
+        // tighter circuit families make striking geometric mandalas, while
+        // horizon/curtain scenes and most authored compositions keep their
+        // original visual grammar.
+        const activeFlowShape = nextPatternShape || sim.settings.particleShape;
+        const isProtectedAuthoredFlow = ["pendulumSpiral", "painterlyVortex", "chromeRibbon", "tightTailVortex", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"].includes(activeFlowShape);
+        const kaleidoEligibleShapes = new Set(["ellipse", "drop", "ring", "nebula", "brush", "cluster", "spiral", "lotus", "orbitals", "quantumLattice", "pipesTight", "pipesCathedral", "pipesShrine"]);
+        const kaleidoGeometricShapes = new Set(["quantumLattice", "pipesTight", "pipesCathedral", "pipesShrine"]);
+        const nextKaleidoEnabledFlow = isFlowEnabled("kaleidoscopeEnabled");
         const nextKaleidoSegmentsFlow = isFlowEnabled("kaleidoscopeSegments");
 
         let currentKaleidoEnabled = sim.settings.kaleidoscopeEnabled;
-        if (nextKaleidoEnabledFlow && Math.random() < 0.08) {
-            currentKaleidoEnabled = Math.random() < 0.18;
+        if (nextKaleidoEnabledFlow) {
+            const kaleidoChance = { serene: 0.24, alive: 0.38, wild: 0.46 }[effectivePersonality];
+            currentKaleidoEnabled = !isComfortMode
+                && kaleidoEligibleShapes.has(activeFlowShape)
+                && Math.random() < (kaleidoGeometricShapes.has(activeFlowShape) ? Math.max(kaleidoChance, 0.58) : kaleidoChance);
             elements.kaleidoscopeToggle.checked = currentKaleidoEnabled;
             sim.settings.kaleidoscopeEnabled = currentKaleidoEnabled;
         }
@@ -2117,10 +2138,26 @@ document.addEventListener("DOMContentLoaded", () => {
         if (currentKaleidoEnabled) {
             elements.kaleidoscopeSettings.classList.remove("hidden");
             if (nextKaleidoSegmentsFlow) {
-                startMorph("kaleidoscopeSegments", rndInt(4, 9), baseDuration);
+                const folds = kaleidoGeometricShapes.has(activeFlowShape)
+                    ? [4, 5, 6, 8]
+                    : [4, 5, 6, 7, 8, 10];
+                startMorph("kaleidoscopeSegments", folds[Math.floor(Math.random() * folds.length)], baseDuration);
+            }
+            // Reflections fill the frame with fewer particles; keep the extra
+            // compositing work from overwhelming slower devices in Flow.
+            if (!isProtectedAuthoredFlow && !kaleidoGeometricShapes.has(activeFlowShape) && isFlowEnabled("density")) {
+                startMorph("density", rndInt(850, 1450), baseDuration * 0.72);
             }
         } else {
             elements.kaleidoscopeSettings.classList.add("hidden");
+        }
+
+        if (isFlowEnabled("spinningKaleido")) {
+            const spinChance = { serene: 0.55, alive: 0.72, wild: 0.8 }[effectivePersonality];
+            sim.settings.spinningKaleido = !isComfortMode && currentKaleidoEnabled
+                && kaleidoEligibleShapes.has(activeFlowShape)
+                && Math.random() < spinChance;
+            elements.spinningKaleidoToggle.checked = sim.settings.spinningKaleido;
         }
 
         startMorph("drag", isProtectedAuthoredFlow ? 0.93 : rnd(0.89, 0.945), baseDuration);
@@ -2135,12 +2172,6 @@ document.addEventListener("DOMContentLoaded", () => {
             const morphBgOn = Math.random() < 0.28;
             sim.settings.morphingBg = morphBgOn;
             elements.morphingBgToggle.checked = morphBgOn;
-        }
-
-        if (!isProtectedAuthoredFlow && !isComfortMode && isFlowEnabled("spinningKaleido") && Math.random() < (effectivePersonality === "wild" ? 0.12 : 0.04)) {
-            const spinKaleidoOn = Math.random() < 0.12;
-            sim.settings.spinningKaleido = spinKaleidoOn;
-            elements.spinningKaleidoToggle.checked = spinKaleidoOn;
         }
 
         if (isFlowEnabled("particleLighting")) {

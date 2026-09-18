@@ -6,8 +6,10 @@ const ChromeRibbons = {
         const a=u*Math.PI*2, phase=r*1.71;
         // A smaller central opening gives the composition a deeper inward pull,
         // while the outer envelope still fills the display at every layer count.
-        const progress=r/Math.max(1,layerCount-1);
-        const radius=0.065+Math.pow(progress,0.88)*0.6;
+        const progress=Math.max(0,r)/Math.max(1,layerCount-1);
+        // Three smaller folds continue the metallic surface inward. Keep the
+        // signature 8–24 outer ribbons and their spacing unchanged.
+        const radius=r<0 ? 0.018+(r+3)*0.015 : 0.065+Math.pow(progress,0.88)*0.6;
         const twist=a+t*(r%2?-0.065:0.08)+phase;
         const ripple=1+0.13*Math.sin(a*3+t*0.19+phase);
         // Radius-relative deformation avoids cusps in the small inner loops.
@@ -24,11 +26,11 @@ const ChromeRibbons = {
         const wholeCount=Math.floor(countValue);
         const trailingAlpha=countValue-wholeCount;
         const ribbons=[];
-        for(let r=0;r<wholeCount+(trailingAlpha>0.001?1:0);r++) {
+        for(let r=-3;r<wholeCount+(trailingAlpha>0.001?1:0);r++) {
             // Small inner loops need fewer vertices than the broad outer folds.
             // Keep the outer silhouette smooth without rasterizing 192 points
             // on every ribbon, including loops only a few pixels across.
-            const steps=Math.round(80+96*r/Math.max(1,countValue-1));
+            const steps=Math.max(48,Math.round(80+96*r/Math.max(1,countValue-1)));
             const points=[];
             for(let i=0;i<=steps;i++) points.push(this.point(r,i/steps,time,countValue));
             // Shared vertex normals make the two edges one continuous surface.
@@ -46,10 +48,10 @@ const ChromeRibbons = {
         const size=Math.max(0.4,Math.min(2.5,(settings.baseSize||6)/6));
         const furthestRibbon=Math.max(1,ribbons.length-1);
         for(const {r,points,alpha} of ribbons) {
-            const color=palette[r%palette.length]||'#94a3b8';
+            const color=palette[((r%palette.length)+palette.length)%palette.length]||'#94a3b8';
             // Near ribbons are larger, brighter and more opaque; distant ones
             // recede gently. This restores depth without returning to faceted seams.
-            const depth=1-r/furthestRibbon;
+            const depth=Math.max(0,Math.min(1,1-r/furthestRibbon));
             const layerScale=0.9+depth*0.18;
             const left=[],right=[];
             let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity,averageWidth=0;
