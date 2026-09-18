@@ -1637,8 +1637,8 @@ class FlowSimulation {
         this.lastFrameTime = now;
         const dt = Math.min(delta * 60, 2.0); // normalized step, 1.0 at 60 FPS
         this.globalTime += delta * 60; // normalized speed steps
-        // Integrate speed, never multiply accumulated wall time by changing speed.
-        this.compositionTime = (this.compositionTime || 0) + delta * Math.max(0.1, this.settings.speed) / 0.5 * 4;
+        const currentSpeed = Math.max(0, Number(this.settings.speed ?? 1.0));
+        this.compositionTime = (this.compositionTime || 0) + delta * currentSpeed * 8;
 
         // Update painted custom force field lifetimes
         for (let i = this.customForces.length - 1; i >= 0; i--) {

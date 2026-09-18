@@ -1544,8 +1544,7 @@ class NativeFlowSimulation3D {
         u.uMotionTime.value += delta * (0.24 + u.uSpeed.value * 0.18);
         u.uFractalTime.value += delta * u.uSpeed.value * 0.66;
         // Authored structures use the same seconds/speed convention as 2D.
-        // Do not apply the free-floating particle comfort attenuation twice.
-        u.uCompositionTime.value += delta * Math.max(0.1, this.settings.speed) / 0.5 * 4;
+        u.uCompositionTime.value += delta * Math.max(0, Number(this.settings.speed ?? 1.0)) * 8;
         u.uBass.value = Math.max(0, this.sizePulse || 0);
         u.uTreble.value = Math.max(0, this.trebleIntensity || 0);
         u.uBurst.value = this.burstStrength;

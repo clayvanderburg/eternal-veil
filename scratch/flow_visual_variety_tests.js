@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const source = fs.readFileSync(path.join(__dirname, '../js/app.js'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, '../js/app.js'), 'utf8').replace(/\r\n/g, '\n');
 const start = source.indexOf('    function chooseNextFlowPattern(effectivePersonality) {');
 const end = source.indexOf('\n    function randomizeAllParameters()', start);
 assert(start >= 0 && end > start, 'Flow pattern selector found');

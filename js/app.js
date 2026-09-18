@@ -1276,7 +1276,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         releaseActivePreset({ announce: false });
-        
+        if (isAutopilot) toggleAutopilot(false);
         lastPresetKey = key;
         updateHudPresetName(key);
         activePresetLocks = getPresetSignatureKeys(p);
