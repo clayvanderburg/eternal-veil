@@ -19,13 +19,13 @@ console.log("✅ Passed: HTML #speed-slider range and step are configured for ul
 const schemaPath = path.resolve(__dirname, "../js/state-schema.js");
 const schemaCode = fs.readFileSync(schemaPath, "utf-8");
 const expectedShapes = [
-    "nebulaSpark", "solarFlare", "jadeCurrents", "quantumDrift", "violetUndertow", "prismDrift", "cosmicStrings"
+    "nebulaSpark", "solarFlare", "jadeCurrents", "quantumDrift", "violetUndertow", "prismDrift"
 ];
 for (const shape of expectedShapes) {
     assert(schemaCode.includes(`"${shape}"`), `StateSchema must include "${shape}" in VALID_PARTICLE_SHAPES`);
     assert(html.includes(`value="${shape}"`), `index.html particle shape select must include option for "${shape}"`);
 }
-console.log("✅ Passed: All 7 new particle shapes are present in StateSchema and index.html.");
+console.log("✅ Passed: All new particle shapes are present in StateSchema and index.html.");
 
 // 3. Check PRESETS configurations
 const presetsPath = path.resolve(__dirname, "../js/presets.js");
@@ -61,7 +61,10 @@ assert(presets.mandala, "mandala (Prism Drift) preset exists");
 assert(presets.mandala.particleShape === "prismDrift", "mandala particleShape is prismDrift");
 
 assert(presets.strings, "strings (Cosmic Strings) preset exists");
-assert(presets.strings.particleShape === "cosmicStrings", "strings particleShape is cosmicStrings");
+assert(!presets.strings.particleShape || presets.strings.particleShape === "ellipse", "strings uses extreme stretch and curl rather than custom shape");
+assert(presets.strings.stretch >= 6.0, "strings has extreme stretch >= 6.0");
+assert(presets.strings.density >= 3000, "strings has high density >= 3000");
+assert(presets.strings.dissipation <= 0.003, "strings has low dissipation <= 0.003");
 assert(presets.strings.kaleidoscopeEnabled === true, "strings has kaleidoscope enabled");
 assert(presets.strings.kaleidoscopeSegments === 8, "strings has 8-fold kaleidoscope symmetry");
 
@@ -80,7 +83,7 @@ assert(
 );
 console.log("✅ Passed: app.js pauses autopilot when loading presets.");
 
-// 5. Check simulation.js authored shapes and bounded spiral
+// 5. Check simulation.js authored shapes, prism rotation, and nebula/solar dynamics
 const simPath = path.resolve(__dirname, "../js/simulation.js");
 const simCode = fs.readFileSync(simPath, "utf-8");
 for (const shape of expectedShapes) {
@@ -91,10 +94,26 @@ assert(
     "simulation.js Particle must track dedicated hero orbs"
 );
 assert(
-    simCode.includes("minR * Math.pow(maxR / minR, this.spiralProgress)"),
+    simCode.includes("minR * Math.pow(maxR / minR, swing)"),
     "simulation.js pendulumSpiral must use strictly bounded logarithmic radius"
 );
-console.log("✅ Passed: simulation.js implements dedicated hero orbs and bounded spiral dynamics.");
+assert(
+    simCode.includes("this.prismRot"),
+    "simulation.js Particle must track independent random prism rotation"
+);
+assert(
+    simCode.includes("this.isNebulaCloud"),
+    "simulation.js Particle must support cosmic nebula cloud lifecycle"
+);
+assert(
+    simCode.includes("this.isEclipsedSun"),
+    "simulation.js Particle must support eclipsed suns and flares"
+);
+assert(
+    simCode.includes("this.isWavySpiral"),
+    "simulation.js Particle must support secondary wavy spiral for violetUndertow"
+);
+console.log("✅ Passed: simulation.js implements dedicated hero orbs, bounded spiral, independent prism rotation, and custom dynamics.");
 
 console.log("--------------------------------------------------");
 console.log("🎉 ALL PRESET AUDIT TESTS PASSED SUCCESSFULLY!");
