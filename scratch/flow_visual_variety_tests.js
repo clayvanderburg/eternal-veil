@@ -27,9 +27,12 @@ for (const personality of ['serene', 'alive', 'wild']) {
         previous = next;
     }
     const mandalaRate = counts.get('zenMandala') / 10000;
-    assert(mandalaRate > (personality === 'serene' ? 0.14 : 0.10), `${personality}: mandala remains too rare`);
+    assert(mandalaRate > (personality === 'serene' ? 0.12 : 0.09), `${personality}: mandala remains too rare`);
     assert(mandalaRate < 0.32, `${personality}: mandala crowds out variety`);
     assert(counts.size >= (personality === 'serene' ? 12 : 22), `${personality}: other patterns still appear`);
+    const newShapes = ['jadeCurrents', 'prismDrift', 'violetUndertow'];
+    if (personality !== 'serene') newShapes.push('quantumDrift', 'nebulaSpark', 'solarFlare');
+    for (const shape of newShapes) assert(counts.get(shape) > 0, `${shape} must actually occur in ${personality} Flow`);
 }
 
 shapeUnlocked = false;

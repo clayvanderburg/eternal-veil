@@ -19,6 +19,8 @@
 
 ## Rules
 
+- For every new or substantially changed preset, follow `PRESET_INTEGRATION_CHECKLIST.md` and record evidence, music behavior, and known mode gaps. See `PRESET_IMPLEMENTATION_REVIEW.md` for the 2026-09-18 baseline review.
+
 - Prefer small, testable visual/sim changes.  
 - Don’t commit secrets or chrome profile junk (`chrome-profile/` is local).  
 - Avoid bloating primary UI; advanced controls stay progressive.  

@@ -10,7 +10,8 @@ const pool = source.slice(poolStart, poolEnd);
 // Every recent flagship composition must have a path into Flow, not only a preset card.
 for (const shape of [
     'tightTailVortex', 'zenMandala', 'quantumLattice', 'gravityWell',
-    'fractalBloom', 'chromeRibbon', 'pendulumSpiral', 'painterlyVortex'
+    'fractalBloom', 'chromeRibbon', 'pendulumSpiral', 'painterlyVortex',
+    'jadeCurrents', 'quantumDrift', 'prismDrift', 'nebulaSpark', 'solarFlare', 'violetUndertow'
 ]) {
     assert(pool.includes(`"${shape}"`), `${shape} is missing from the Flow pool`);
 }

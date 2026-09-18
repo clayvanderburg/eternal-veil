@@ -1960,11 +1960,12 @@ document.addEventListener("DOMContentLoaded", () => {
         const serenePatterns = [
             "ellipse", "drop", "ring", "nebula", "aquatic",
             "aurora", "lotus", "pendulumSpiral", "painterlyVortex", "chromeRibbon",
-            "tightTailVortex", "zenMandala", "gravityWell"
+            "tightTailVortex", "zenMandala", "gravityWell", "jadeCurrents", "prismDrift", "violetUndertow"
         ];
         const alivePatterns = [
             ...serenePatterns, "ocean", "orbitals", "brush", "cluster", "spiral", "pipes",
-            "pipesTight", "pipesCathedral", "pipesShrine", "quantumLattice", "fractalBloom"
+            "pipesTight", "pipesCathedral", "pipesShrine", "quantumLattice", "fractalBloom",
+            "quantumDrift", "nebulaSpark", "solarFlare"
         ];
         const wildPatterns = [...alivePatterns, "acid"];
         const pool = effectivePersonality === "serene"
@@ -2173,6 +2174,25 @@ document.addEventListener("DOMContentLoaded", () => {
         // tighter circuit families make striking geometric mandalas, while
         // horizon/curtain scenes and most authored compositions keep their
         // original visual grammar.
+        // New particle families inherit their authored identity, not the previous
+        // preset's extreme size/speed. Manual controls are never overwritten.
+        const familyPresetKeys = {
+            jadeCurrents: "liquid", quantumDrift: "quantum", prismDrift: "mandala",
+            nebulaSpark: "cosmic", solarFlare: "supernova", violetUndertow: "vortex"
+        };
+        const familyPreset = StylePresets[familyPresetKeys[nextPatternShape]];
+        if (familyPreset) {
+            const spread = effectivePersonality === "serene" ? 0.12 : effectivePersonality === "wild" ? 0.28 : 0.20;
+            const aliases = { size: "baseSize", sizeVar: "sizeVariation", curl: "flowOrganic" };
+            for (const field of ["speed", "turbulence", "density", "dissipation", "zoom", "size", "sizeVar", "stretch", "curl", "rotationSpeed", "wobble", "interaction", "drag"]) {
+                const key = aliases[field] || field;
+                if (!Number.isFinite(familyPreset[field]) || !isFlowEnabled(key)) continue;
+                let value = familyPreset[field] * rnd(1 - spread, 1 + spread);
+                if (field === "density") value = Math.round(value);
+                if (field === "drag") value = Math.min(0.98, value);
+                startMorph(key, value, baseDuration * 0.72);
+            }
+        }
         const activeFlowShape = nextPatternShape || sim.settings.particleShape;
         const isProtectedAuthoredFlow = ["pendulumSpiral", "painterlyVortex", "chromeRibbon", "tightTailVortex", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"].includes(activeFlowShape);
         const kaleidoEligibleShapes = new Set(["ellipse", "drop", "ring", "nebula", "brush", "cluster", "spiral", "lotus", "orbitals", "quantumLattice", "pipesTight", "pipesCathedral", "pipesShrine"]);
@@ -2477,10 +2497,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 processMeditationMode();
                 processMorphs();
                 
-                // Track music pulse and treble intensity in both renderers
-                const audioValues = window.audioReactivityValues || { bass: 0, mid: 0, treble: 0, volume: 0 };
-                sim3D.sizePulse = audioValues.bass * (sim.settings.zoom ?? 1.0);
-                sim3D.trebleIntensity = audioValues.treble;
+                // processMusicReactivity owns the bounded, toggle-aware pulses.
+                // Do not overwrite them with raw audio after applying VR gain.
                 
                 // Decoupled flow scheduler (only runs if dome style is active)
                 const profile = window.RenderQuality.getProfile();
@@ -3919,6 +3937,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 // Restore scale and glow defaults
                 const canvasEl = document.getElementById("canvas");
                 if (canvasEl) canvasEl.style.transform = "";
+                const webglCanvasEl = document.getElementById("webgl-canvas");
+                if (webglCanvasEl) webglCanvasEl.style.transform = "";
                 
                 const ambientGlowEl = document.getElementById("ambient-glow");
                 if (ambientGlowEl) {
@@ -3926,6 +3946,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     ambientGlowEl.style.opacity = 1.0;
                 }
                 sim.settings.trebleIntensity = 0;
+                if (sim3D) { sim3D.sizePulse = 0; sim3D.trebleIntensity = 0; }
+                sizePulse = speedPulse = turbPulse = wobblePulse = stretchPulse = 0;
+                prevBass = prevTreble = 0;
             }
             return;
         }
@@ -4079,10 +4102,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         
         // Feed Treble pulse to settings to drive particle sparkles
-        sim.settings.trebleIntensity = appliedSpeedPulse;
+        sim.settings.trebleIntensity = elements.pulseTrebleToggle.checked ? appliedSpeedPulse : 0;
         if (is3DMode && sim3D) {
-            sim3D.sizePulse = appliedSizePulse;
-            sim3D.trebleIntensity = appliedSpeedPulse;
+            sim3D.sizePulse = elements.pulseBassToggle.checked ? appliedSizePulse : 0;
+            sim3D.trebleIntensity = sim.settings.trebleIntensity;
         }
         
         // Bass Modulations (Particle Size & Dissipation)
@@ -4092,7 +4115,7 @@ document.addEventListener("DOMContentLoaded", () => {
             sim.settings.baseSize = baseSettings.baseSize * sizeMod;
             
             // Temporarily decrease dissipation to make flow trails glow on attacks
-            const dissMod = Math.max(0.004, baseSettings.dissipation - Math.min(0.04, appliedSizePulse * 0.05));
+            const dissMod = Math.max(Math.min(0.004, baseSettings.dissipation), baseSettings.dissipation - Math.min(0.04, appliedSizePulse * 0.05));
             sim.settings.dissipation = dissMod;
             
             // Trigger physical starbursts & explosions ONLY on hard transient attacks (not sustained drones)

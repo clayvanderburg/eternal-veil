@@ -328,7 +328,7 @@ class Particle {
         // speed teleports particles and draws diagonal shortcuts across a route.
         const progress = isJunction
             ? Math.floor(phase * 8) / 8
-            : (this.pipeProgress ?? phase) + Math.min(dt, 3) * 0.00115 * (0.72 + (settings.speed || 1) * 0.72 + this.effectRole * 0.18);
+            : (this.pipeProgress ?? phase) + Math.min(dt, 3) * 0.00115 * (0.72 + (settings.speed ?? 1) * 0.72 + this.effectRole * 0.18);
         this.pipeProgress = progress % 1;
         const point = this.getPipeRoutePoint(progress);
         this.x = point.x;
@@ -415,9 +415,9 @@ class Particle {
             this.y = this.h * 0.5 + Math.sin(angle) * radius;
         } else if (shape === "pendulumSpiral") {
             const miniCount = this.miniSpiralCountFrom(settings);
-            const wander = Math.max(0.06, Math.min(0.28, settings.wanderMix ?? 0.12));
+            const wander = Math.max(0.05, Math.min(0.40, settings.wanderMix ?? 0.12));
             const miniShare = 0.38;
-            const mainShare = Math.max(0.42, 1 - wander - miniShare);
+            const mainShare = 1 - wander - miniShare;
             if (this.effectRole < mainShare) {
                 this.spiralFamily = 0;
             } else if (this.effectRole < mainShare + miniShare) {
@@ -480,6 +480,9 @@ class Particle {
             const minDim = Math.min(this.w, this.h);
             const eclipseN = this.eclipseCountFrom(settings);
             const sizeScale = Math.max(0.45, Math.min(1.6, settings.eclipseSize ?? 1));
+            this.solarHero = this.isEclipsedSun(settings);
+            this.sunSizeScale = sizeScale;
+            if (!this.solarHero) this.maxLife = this.life = 160 + Math.random() * 120;
             this.sunId = this.isEclipsedSun(settings) ? this.index : Math.floor(this.effectLane * eclipseN);
             const sizeRoll = this.isEclipsedSun(settings) ? this.index % 10 : this.sunId % 10;
             this.sunBaseR = minDim * sizeScale * (sizeRoll < 7
@@ -579,7 +582,7 @@ class Particle {
         
         // Get natural flow forces (Curl vs Turbulence)
         const zoom = settings.zoom || 1.0;
-        const speed = (settings.speed || 1.0) * (settings.meditationMotionScale || 1.0);
+        const speed = (settings.speed ?? 1.0) * (settings.meditationMotionScale ?? 1.0);
         const flowFreq = 0.007 / zoom;
         const organic = settings.flowOrganic ?? 0.85;
         const turb = settings.turbulence ?? 0.65;
@@ -589,9 +592,20 @@ class Particle {
             "jadeCurrents", "quantumDrift", "prismDrift",
             "nebulaSpark", "solarFlare", "violetUndertow"
         ];
+        if (this.activeEffectShape === "solarFlare" && settings.particleShape !== "solarFlare" && this.solarHero) {
+            this.maxLife = this.life = 160 + Math.random() * 120;
+            this.solarHero = false;
+        }
         if (authoredShapes.includes(settings.particleShape)) {
-            if (this.activeEffectShape !== settings.particleShape) {
+            if (this.activeEffectShape !== settings.particleShape ||
+                (settings.particleShape === "solarFlare" && this.solarHero !== this.isEclipsedSun(settings))) {
                 this.configureAuthoredEffect(settings.particleShape, globalTime, settings);
+            }
+            if (settings.particleShape === "solarFlare") {
+                const sizeScale = Math.max(0.45, Math.min(1.6, settings.eclipseSize ?? 1));
+                this.sunBaseR *= sizeScale / (this.sunSizeScale ?? sizeScale);
+                this.sunSizeScale = sizeScale;
+                if (!this.solarHero) this.sunId %= this.eclipseCountFrom(settings);
             }
         } else {
             this.activeEffectShape = null;
@@ -704,9 +718,9 @@ class Particle {
             targetVy = (targetY - this.y) * 0.08;
         } else if (settings.particleShape === "pendulumSpiral") {
             const miniCount = this.miniSpiralCountFrom(settings);
-            const wander = Math.max(0.06, Math.min(0.28, settings.wanderMix ?? 0.12));
+            const wander = Math.max(0.05, Math.min(0.40, settings.wanderMix ?? 0.12));
             const miniShare = 0.38;
-            const mainShare = Math.max(0.42, 1 - wander - miniShare);
+            const mainShare = 1 - wander - miniShare;
             let family;
             if (this.effectRole < mainShare) family = 0;
             else if (this.effectRole < mainShare + miniShare) {
@@ -817,7 +831,7 @@ class Particle {
             targetVy = (targetY - this.y) * 0.12;
         } else if (settings.particleShape === "prismDrift") {
             // Individual shapes rotate on their own randomly (8 spokes, centered)
-            this.prismRot = (this.prismRot || 0) + (this.prismRotSpeed || 0.02) * dt * (speed || 1);
+            this.prismRot = (this.prismRot ?? 0) + (this.prismRotSpeed ?? 0.02) * dt * speed;
             const minDim = Math.min(this.w, this.h);
             const cx = this.w * 0.5;
             const cy = this.h * 0.5;
@@ -2147,9 +2161,8 @@ class FlowSimulation {
 
     syncMiniHosts(dt) {
         if (!this.miniHosts) this.miniHosts = [];
-        this.miniCountPhase = (this.miniCountPhase || 0) + dt * 0.00032;
         const base = Math.max(4, Math.min(8, Math.round(this.settings.miniSpiralCount ?? 6)));
-        this.liveMiniCount = Math.max(4, Math.min(8, Math.round(base + Math.sin(this.miniCountPhase) * 1.7)));
+        this.liveMiniCount = base;
         while (this.miniHosts.length < 8) {
             const i = this.miniHosts.length;
             this.miniHosts.push({
@@ -2231,7 +2244,7 @@ class FlowSimulation {
         const x1 = this.width * 0.70;
         const y0 = this.height * 0.30;
         const y1 = this.height * 0.70;
-        const speed = this.settings.speed || 1;
+        const speed = this.settings.speed ?? 1;
         for (let i = 0; i < this.miniSpiralActors.length; i++) {
             const m = this.miniSpiralActors[i];
             m.x += m.vx * dt * (0.65 + speed * 0.55);

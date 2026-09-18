@@ -10,6 +10,13 @@ Browser-based immersive visual / meditation / music-reactive experience (2D + 3D
 
 ## Working now
 
+- 2026-09-18 Codex integration release: restored six new Flow families, bounded targets,
+  live eclipse controls, manual spiral count, zero-speed and music-state fixes.
+  Review/checklist: `PRESET_IMPLEMENTATION_REVIEW.md`, `PRESET_INTEGRATION_CHECKLIST.md`.
+- Clay's priority: phone-friendly 2D and music response first. Defer the broad native
+  3D/VR overhaul; only inexpensive basic adaptations are optional. No new 3D work in
+  this release. Deployment verification is recorded in the shared release log.
+
 - Core app + simulation modules under `js/`  
 - Developer guide: `DEVELOPER_GUIDE.md`  
 - Scratch tests under `scratch/`  

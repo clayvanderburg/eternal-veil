@@ -9,6 +9,11 @@
 
 ## Multi-agent handoffs (Codex / Antigravity / Hermes / Grok)
 
+Preset work must follow [PRESET_INTEGRATION_CHECKLIST.md](PRESET_INTEGRATION_CHECKLIST.md).
+Record Flow controls/ranges, music response, renderer coverage, evidence, and explicit
+limitations without prescribing the artistic style. See
+[PRESET_IMPLEMENTATION_REVIEW.md](PRESET_IMPLEMENTATION_REVIEW.md) for the September 18 integration review.
+
 | What | Where |
 |------|--------|
 | **Dated handoffs** | `Y:\grok-shared\agents-hub\log\` (or `\\BB8\grok-shared\agents-hub\log\`) |
