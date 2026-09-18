@@ -2812,6 +2812,15 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
 
+        // Listen for URL seed hash changes while page is open
+        window.addEventListener("hashchange", () => {
+            const state = UrlStateSync.parseUrlState();
+            if (state) {
+                applyLoadedState(state);
+                showToast("Cosmic seed loaded successfully from URL");
+            }
+        });
+
         // Toggle Sidebar panel
         elements.menuToggleBtn.onclick = () => togglePanel();
         elements.closePanelBtn.onclick = () => togglePanel(false);
@@ -3911,6 +3920,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Apply URL State values
     function applyLoadedState(data) {
+        releaseActivePreset({ announce: false });
         // Set settings
         Object.keys(data.settings).forEach(key => {
             sim.settings[key] = data.settings[key];
@@ -3998,6 +4008,20 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // Reconcile loaded density target on live particles
         sim.updateDensity();
+
+        // Lock loaded scene settings to manual mode so the authored scene is preserved
+        FLOWABLE_OPTIONS.forEach(opt => {
+            if (opt.key === "colors") {
+                if (data.palette && data.palette.length > 0) {
+                    setOptionToManual("colors");
+                }
+            } else if (data.settings && data.settings[opt.key] !== undefined) {
+                setOptionToManual(opt.key);
+            }
+        });
+
+        updateSliderTextDisplays();
+        updateFlowStatusBanner();
     }
 
     // Sync Text values dynamically beside slider handles

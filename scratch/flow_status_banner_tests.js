@@ -1,4 +1,4 @@
-﻿const assert = require('node:assert/strict');
+const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
 console.log('--------------------------------------------------');
@@ -77,6 +77,16 @@ console.log('✅ Passed: Core flow status banner and reset controller functions 
 // 6. Verification of unified setOptionToManual / setOptionToFlow
 assert(js.includes('pillGroups.forEach(pillGroup => {'), 'app.js must synchronize all matching pill groups');
 assert(js.includes('updateFlowStatusBanner()'), 'app.js must update flow status banner on manual/flow changes');
+
+// 7. Verification of applyLoadedState locking custom scene / shared URL settings to manual
+const applyStart = js.indexOf('function applyLoadedState(data) {');
+const applyEnd = js.indexOf('function updateSliderTextDisplays() {', applyStart);
+assert(applyStart > 0 && applyEnd > applyStart, 'applyLoadedState function must exist');
+const applyCode = js.slice(applyStart, applyEnd);
+assert(applyCode.includes('FLOWABLE_OPTIONS.forEach'), 'applyLoadedState must iterate FLOWABLE_OPTIONS to set manual');
+assert(applyCode.includes('setOptionToManual'), 'applyLoadedState must call setOptionToManual');
+assert(applyCode.includes('updateFlowStatusBanner()'), 'applyLoadedState must call updateFlowStatusBanner');
+console.log('✅ Passed: applyLoadedState locks custom scene and shared URL settings to manual mode.');
 
 console.log('--------------------------------------------------');
 console.log('🎉 ALL FLOW STATUS BANNER TESTS PASSED SUCCESSFULLY!');
