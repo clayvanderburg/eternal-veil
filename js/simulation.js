@@ -12,6 +12,16 @@ const grad3 = [
     [0, 1], [0, -1], [0, 1], [0, -1]
 ];
 
+const ECLIPSED_SUNS = 66;
+
+const MINI_SPIRALS = [
+    { minR: 0.010, maxR: 0.15, turns: 11, dir: -1, spin: 0.0062, travel: 0.00050 },
+    { minR: 0.010, maxR: 0.12, turns: 13, dir: 1, spin: 0.0048, travel: 0.00042 },
+    { minR: 0.010, maxR: 0.16, turns: 10, dir: -1, spin: 0.0055, travel: 0.00046 },
+    { minR: 0.010, maxR: 0.13, turns: 14, dir: 1, spin: 0.0070, travel: 0.00058 }
+];
+const SPIRAL_WANDER_FAMILY = 9;
+
 const p_table = [
     151,160,137,91,90,15,131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,
     190,6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,88,237,149,56,87,174,
@@ -141,6 +151,90 @@ class Particle {
         this.prismRotSpeed = (Math.random() - 0.5) * 0.05;
         
         this.color = this.pickColor();
+    }
+
+    isDedicatedHero(shape) {
+        return shape === "lotus" && (this.index === 0 || this.index === 1);
+    }
+
+    eclipseCountFrom(settings) {
+        const n = Math.round(settings?.eclipseCount ?? ECLIPSED_SUNS);
+        return Math.max(12, Math.min(90, n));
+    }
+
+    isEclipsedSun(settings) {
+        return this.index >= 0 && this.index < this.eclipseCountFrom(settings);
+    }
+
+    mainSpiralCoilSpin(globalTime, settings) {
+        return globalTime * (0.0024 + (settings.rotationSpeed || 0) * 0.008);
+    }
+
+    mainSpiralPoint(progress, globalTime, settings) {
+        const minR = Math.min(this.w, this.h) * 0.010;
+        const extent = Math.max(0.45, Math.min(0.98, settings?.spiralExtent ?? 0.88));
+        const maxR = Math.max(this.w, this.h) * (0.42 + extent * 0.38);
+        const breath = 0.97 + Math.sin(globalTime * 0.0008) * 0.03;
+        const t = Math.pow(progress, 0.58);
+        const radius = minR * Math.pow(maxR / minR, t) * breath;
+        const arm = Math.floor(this.effectLane * 2);
+        const angle = arm * Math.PI + progress * Math.PI * 18 + this.mainSpiralCoilSpin(globalTime, settings);
+        return {
+            x: this.w * 0.5 + Math.cos(angle) * radius,
+            y: this.h * 0.5 + Math.sin(angle) * radius,
+            minR
+        };
+    }
+
+    miniSpec(family) {
+        const idx = family >= 6 ? (family - 6) % MINI_SPIRALS.length : Math.max(0, family - 1) % MINI_SPIRALS.length;
+        return MINI_SPIRALS[idx];
+    }
+
+    miniSpiralCountFrom(settings) {
+        const sim = window.simInstance;
+        if (sim && sim.liveMiniCount) return sim.liveMiniCount;
+        const n = Math.round(settings?.miniSpiralCount ?? 6);
+        return Math.max(4, Math.min(8, n));
+    }
+
+    miniSpiralPoint(progress, globalTime, settings) {
+        const minDimension = Math.min(this.w, this.h);
+        const family = this.spiralFamily || 1;
+        const spec = this.miniSpec(family);
+        const count = this.miniSpiralCountFrom(settings);
+        const slot = Math.max(0, (family - 1) % count);
+        const host = window.simInstance?.miniHosts?.[slot];
+        let cx;
+        let cy;
+        let dir = slot % 2 === 0 ? 1 : -1;
+        let sizeMul = 1;
+        let spinMul = 1;
+        if (host) {
+            const hostR = minDimension * Math.max(0.10, Math.min(0.36, host.radius + Math.sin(host.radiusPhase) * host.radiusAmp));
+            cx = this.w * 0.5 + Math.cos(host.angle) * hostR;
+            cy = this.h * 0.5 + Math.sin(host.angle) * hostR;
+            dir = host.coilDir;
+            sizeMul = host.sizeMul;
+            spinMul = host.spinMul;
+        } else {
+            const outerR = minDimension * 0.22;
+            const hostAngle = slot * (Math.PI * 2 / count) + 0.25 + this.mainSpiralCoilSpin(globalTime, settings);
+            cx = this.w * 0.5 + Math.cos(hostAngle) * outerR;
+            cy = this.h * 0.5 + Math.sin(hostAngle) * outerR;
+        }
+        const minR = minDimension * spec.minR * sizeMul;
+        const maxR = minDimension * spec.maxR * sizeMul;
+        const coilSpin = globalTime * (spec.spin * spinMul + (settings.rotationSpeed || 0) * 0.008) * dir;
+        const arm = Math.floor(this.effectLane * 2);
+        const t = Math.pow(progress, 0.72);
+        const radius = minR * Math.pow(maxR / minR, t);
+        const angle = arm * Math.PI + progress * Math.PI * spec.turns + coilSpin;
+        return {
+            x: cx + Math.cos(angle) * radius,
+            y: cy + Math.sin(angle) * radius,
+            minR
+        };
     }
 
     pickColor() {
@@ -290,21 +384,28 @@ class Particle {
             this.x = this.w * 0.5 + Math.cos(angle) * radius;
             this.y = this.h * 0.5 + Math.sin(angle) * radius * 0.68;
         } else if (shape === "lotus") {
-            const petal = Math.floor(this.effectLane * 10);
             const isMeditating = settings.meditationBreathLevel !== undefined;
             const centerX = isMeditating
                 ? this.w * 0.5
-                : this.w * (0.5 + Math.sin(globalTime * 0.0009) * 0.10);
+                : this.w * (0.5 + Math.sin(globalTime * 0.0009) * 0.04);
             const centerY = isMeditating
                 ? this.h * 0.5
-                : this.h * (0.5 + Math.cos(globalTime * 0.00073) * 0.08);
-            const spin = globalTime * 0.0024;
-            const angle = petal * Math.PI * 0.2 + spin + (this.effectRole - 0.5) * 0.86;
-            const radius = Math.min(this.w, this.h) * (0.08 + this.effectRole * 0.40);
+                : this.h * (0.5 + Math.cos(globalTime * 0.00073) * 0.03);
             this.lotusCenterX = centerX;
             this.lotusCenterY = centerY;
-            this.x = centerX + Math.cos(angle) * radius;
-            this.y = centerY + Math.sin(angle) * radius;
+            if (this.isDedicatedHero("lotus")) {
+                const radius = Math.min(this.w, this.h) * 0.24;
+                const baseAngle = this.index === 0 ? 0.32 : Math.PI + 0.32;
+                this.x = centerX + Math.cos(baseAngle) * radius;
+                this.y = centerY + Math.sin(baseAngle) * radius;
+            } else {
+                const petal = Math.floor(this.effectLane * 10);
+                const spin = globalTime * 0.0012;
+                const angle = petal * Math.PI * 0.2 + spin + (this.effectRole - 0.5) * 0.86;
+                const radius = Math.min(this.w, this.h) * (0.08 + this.effectRole * 0.40);
+                this.x = centerX + Math.cos(angle) * radius;
+                this.y = centerY + Math.sin(angle) * radius;
+            }
         } else if (shape === "spiral") {
             const arm = Math.floor(this.effectLane * 6);
             const progress = (this.effectRole + globalTime * 0.0007) % 1;
@@ -313,23 +414,30 @@ class Particle {
             this.x = this.w * 0.5 + Math.cos(angle) * radius;
             this.y = this.h * 0.5 + Math.sin(angle) * radius;
         } else if (shape === "pendulumSpiral") {
-            const minDimension = Math.min(this.w, this.h);
-            const isPendulumOrb = this.effectRole > 0.993;
-            if (isPendulumOrb) {
-                const swing = Math.sin(globalTime * 0.00030 + (this.effectLane < 0.5 ? 0 : Math.PI)) * 0.88;
-                const length = minDimension * (0.38 + this.effectLane * 0.11);
-                this.x = this.w * 0.5 + Math.sin(swing) * length;
-                this.y = this.h * 0.20 + Math.cos(swing) * length;
+            const miniCount = this.miniSpiralCountFrom(settings);
+            const wander = Math.max(0.06, Math.min(0.28, settings.wanderMix ?? 0.12));
+            const miniShare = 0.38;
+            const mainShare = Math.max(0.42, 1 - wander - miniShare);
+            if (this.effectRole < mainShare) {
+                this.spiralFamily = 0;
+            } else if (this.effectRole < mainShare + miniShare) {
+                const u = (this.effectRole - mainShare) / miniShare;
+                this.spiralFamily = 1 + Math.min(miniCount - 1, Math.floor(u * miniCount));
             } else {
-                const progress = (this.effectRole + globalTime * 0.000036) % 1;
-                const breath = 0.93 + Math.sin(globalTime * 0.0011) * 0.07;
-                // A logarithmic curve has no visually obvious start or finish:
-                // it vanishes into the center on one end and leaves the frame on
-                // the other, creating the feeling of an endless spiral.
-                const radius = minDimension * 0.0025 * Math.exp(progress * 5.85) * breath;
-                const angle = progress * Math.PI * 18 + globalTime * 0.00090;
-                this.x = this.w * 0.5 + Math.cos(angle) * radius;
-                this.y = this.h * 0.52 + Math.sin(angle) * radius * 0.68;
+                this.spiralFamily = SPIRAL_WANDER_FAMILY;
+            }
+            this.spiralProgress = this.effectRole;
+            if (this.spiralFamily === SPIRAL_WANDER_FAMILY) {
+                this.x = Math.random() * this.w;
+                this.y = Math.random() * this.h;
+            } else if (this.spiralFamily > 0) {
+                const pose = this.miniSpiralPoint(this.spiralProgress, globalTime, settings);
+                this.x = pose.x;
+                this.y = pose.y;
+            } else {
+                const pose = this.mainSpiralPoint(this.spiralProgress, globalTime, settings);
+                this.x = pose.x;
+                this.y = pose.y;
             }
         } else if (shape === "tightTailVortex") {
             // Seed a broad, flat disc.  From here particles move through a real
@@ -356,6 +464,65 @@ class Particle {
             this.pipeSegment = point.segment;
             this.lastPipeSegment = point.segment;
             this.pipeSegmentT = point.segmentT;
+        } else if (shape === "nebulaSpark") {
+            this.isNebulaCloud = this.effectRole < 0.40;
+            this.x = Math.random() * this.w;
+            this.y = Math.random() * this.h;
+            if (this.isNebulaCloud) {
+                this.cloudHomeX = this.w * (0.12 + Math.random() * 0.76);
+                this.cloudHomeY = this.h * (0.14 + Math.random() * 0.72);
+                this.x = this.cloudHomeX;
+                this.y = this.cloudHomeY;
+                this.life = 160 + Math.random() * 120;
+                this.maxLife = this.life;
+            }
+        } else if (shape === "solarFlare") {
+            const minDim = Math.min(this.w, this.h);
+            const eclipseN = this.eclipseCountFrom(settings);
+            const sizeScale = Math.max(0.45, Math.min(1.6, settings.eclipseSize ?? 1));
+            this.sunId = this.isEclipsedSun(settings) ? this.index : Math.floor(this.effectLane * eclipseN);
+            const sizeRoll = this.isEclipsedSun(settings) ? this.index % 10 : this.sunId % 10;
+            this.sunBaseR = minDim * sizeScale * (sizeRoll < 7
+                ? 0.014 + (this.sunId % 6) * 0.0022
+                : sizeRoll < 9
+                    ? 0.028 + (this.sunId % 4) * 0.004
+                    : 0.046 + (this.sunId % 3) * 0.007);
+            this.isFlareParticle = !this.isEclipsedSun(settings) && this.effectRole < 0.22;
+            if (this.isEclipsedSun(settings)) {
+                const minDim = Math.min(this.w, this.h);
+                this.sunHomeX = this.w * (0.22 + ((this.index * 0.37) % 1) * 0.56);
+                this.sunHomeY = this.h * (0.24 + ((this.index * 0.61) % 1) * 0.52);
+                this.sunFreqX = 0.0020 * (1.1 + (this.index * 0.73) % 2.5);
+                this.sunFreqY = 0.0017 * (1.0 + (this.index * 1.19) % 2.8);
+                this.sunAmpX = minDim * (0.04 + ((this.index * 0.41) % 1) * 0.09);
+                this.sunAmpY = minDim * (0.03 + ((this.index * 0.57) % 1) * 0.08);
+                this.sunOrbit = (this.index % 2 === 0 ? 1 : -1) * (0.0018 + (this.index % 5) * 0.0009);
+                this.sunLobes = 5 + (this.index % 5);
+                this.sunSpinSpeed = (this.index % 3 === 0 ? -1 : 1) * (0.0011 + (this.index % 7) * 0.0004);
+                this.sunCenterX = this.sunHomeX;
+                this.sunCenterY = this.sunHomeY;
+                this.x = this.sunCenterX;
+                this.y = this.sunCenterY;
+                this.life = 999999;
+                this.maxLife = this.life;
+            } else if (this.isFlareParticle) {
+                const host = window.particleArray?.[this.sunId];
+                this.sunCenterX = host?.sunCenterX ?? this.w * (0.2 + (this.sunId / Math.max(1, eclipseN)) * 0.6);
+                this.sunCenterY = host?.sunCenterY ?? this.h * (0.25 + ((this.sunId * 3) % Math.max(1, eclipseN)) / Math.max(1, eclipseN) * 0.5);
+                const flareAngle = this.effectPhase;
+                const flareDist = this.sunBaseR * (0.95 + Math.random() * 0.35);
+                this.x = this.sunCenterX + Math.cos(flareAngle) * flareDist;
+                this.y = this.sunCenterY + Math.sin(flareAngle) * flareDist;
+            } else {
+                this.x = Math.random() * this.w;
+                this.y = Math.random() * this.h;
+            }
+        } else if (shape === "violetUndertow") {
+            this.isWavySpiral = this.effectRole < 0.14;
+            const minDim = Math.min(this.w, this.h);
+            const radius = minDim * (0.05 + Math.pow(this.effectLane, 1.1) * 0.42);
+            this.x = this.w * 0.5 + Math.cos(this.effectPhase) * radius;
+            this.y = this.h * 0.5 + Math.sin(this.effectPhase) * radius * 0.82;
         } else if (shape === "jadeCurrents") {
             this.x = Math.random() * this.w;
             const band = Math.floor(this.effectLane * 6);
@@ -419,7 +586,8 @@ class Particle {
         const authoredShapes = [
             "ocean", "aurora", "orbitals", "lotus", "spiral", "pendulumSpiral", "tightTailVortex", "painterlyVortex",
             "pipes", "pipesTight", "pipesCathedral", "pipesShrine",
-            "jadeCurrents", "quantumDrift", "prismDrift"
+            "jadeCurrents", "quantumDrift", "prismDrift",
+            "nebulaSpark", "solarFlare", "violetUndertow"
         ];
         if (authoredShapes.includes(settings.particleShape)) {
             if (this.activeEffectShape !== settings.particleShape) {
@@ -488,28 +656,40 @@ class Particle {
             targetVx = (targetX - this.x) * 0.028;
             targetVy = (targetY - this.y) * 0.028;
         } else if (settings.particleShape === "lotus") {
-            const petal = Math.floor(this.effectLane * 10);
-            const breathe = 0.82 + Math.sin(globalTime * 0.0042) * 0.18;
             const isMeditating = settings.meditationBreathLevel !== undefined;
             const centerX = isMeditating ? this.w * 0.5 : this.w * (
                 0.5
-                + Math.sin(globalTime * 0.0009) * 0.10
-                + Math.sin(globalTime * 0.00037 + 1.4) * 0.035
+                + Math.sin(globalTime * 0.0009) * 0.04
+                + Math.sin(globalTime * 0.00037 + 1.4) * 0.015
             );
             const centerY = isMeditating ? this.h * 0.5 : this.h * (
                 0.5
-                + Math.cos(globalTime * 0.00073) * 0.08
-                + Math.sin(globalTime * 0.00043 + 2.1) * 0.025
+                + Math.cos(globalTime * 0.00073) * 0.03
+                + Math.sin(globalTime * 0.00043 + 2.1) * 0.012
             );
-            const spin = globalTime * (0.0024 + (settings.rotationSpeed || 0) * 0.012);
-            const petalAngle = petal * Math.PI * 0.2 + spin + (this.effectRole - 0.5) * 0.86;
-            const radius = Math.min(this.w, this.h) * (0.07 + this.effectRole * 0.42) * breathe;
-            const targetX = centerX + Math.cos(petalAngle) * radius;
-            const targetY = centerY + Math.sin(petalAngle) * radius;
             this.lotusCenterX = centerX;
             this.lotusCenterY = centerY;
-            targetVx = (targetX - this.x) * 0.042;
-            targetVy = (targetY - this.y) * 0.042;
+            if (this.isDedicatedHero("lotus")) {
+                const radius = Math.min(this.w, this.h) * 0.24;
+                const baseAngle = this.index === 0 ? 0.32 : Math.PI + 0.32;
+                const swing = Math.sin(globalTime * (0.00055 + speed * 0.00025)) * 0.62;
+                const angle = baseAngle + swing;
+                const targetX = centerX + Math.cos(angle) * radius;
+                const targetY = centerY + Math.sin(angle) * radius;
+                targetVx = (targetX - this.x) * 0.045;
+                targetVy = (targetY - this.y) * 0.045;
+            } else {
+                const petal = Math.floor(this.effectLane * 10);
+                const breathe = 0.90 + Math.sin(globalTime * 0.0016) * 0.08;
+                const spin = globalTime * (0.0012 + (settings.rotationSpeed || 0) * 0.012);
+                const petalAngle = petal * Math.PI * 0.2 + spin + (this.effectRole - 0.5) * 0.86;
+                const radius = Math.min(this.w, this.h) * (0.07 + this.effectRole * 0.42) * breathe;
+                const targetX = centerX + Math.cos(petalAngle) * radius;
+                const targetY = centerY + Math.sin(petalAngle) * radius;
+                const chase = 0.018 + speed * 0.012;
+                targetVx = (targetX - this.x) * chase;
+                targetVy = (targetY - this.y) * chase;
+            }
         } else if (settings.particleShape === "spiral") {
             const arm = Math.floor(this.effectLane * 6);
             const travelerSpeed = 0.00055 + speed * 0.00034;
@@ -523,26 +703,89 @@ class Particle {
             targetVx = (targetX - this.x) * 0.08;
             targetVy = (targetY - this.y) * 0.08;
         } else if (settings.particleShape === "pendulumSpiral") {
-            const minDimension = Math.min(this.w, this.h);
-            const isPendulumOrb = this.effectRole > 0.993;
-            let targetX;
-            let targetY;
-            if (isPendulumOrb) {
-                const swing = Math.sin(globalTime * (0.00030 + speed * 0.000035)
-                    + (this.effectLane < 0.5 ? 0 : Math.PI)) * 0.88;
-                const length = minDimension * (0.38 + this.effectLane * 0.11);
-                targetX = this.w * 0.5 + Math.sin(swing) * length;
-                targetY = this.h * 0.20 + Math.cos(swing) * length;
+            const miniCount = this.miniSpiralCountFrom(settings);
+            const wander = Math.max(0.06, Math.min(0.28, settings.wanderMix ?? 0.12));
+            const miniShare = 0.38;
+            const mainShare = Math.max(0.42, 1 - wander - miniShare);
+            let family;
+            if (this.effectRole < mainShare) family = 0;
+            else if (this.effectRole < mainShare + miniShare) {
+                const u = (this.effectRole - mainShare) / miniShare;
+                family = 1 + Math.min(miniCount - 1, Math.floor(u * miniCount));
+            } else family = SPIRAL_WANDER_FAMILY;
+            const isMini = family > 0 && family !== SPIRAL_WANDER_FAMILY;
+            this.spiralFamily = family;
+            if (family === SPIRAL_WANDER_FAMILY) {
+                targetVx *= 1.35;
+                targetVy *= 1.35;
             } else {
-                const progress = (this.effectRole + globalTime * (0.000028 + speed * 0.000020)) % 1;
-                const breath = 0.93 + Math.sin(globalTime * 0.0011) * 0.07;
-                const radius = minDimension * 0.0025 * Math.exp(progress * 5.85) * breath;
-                const angle = progress * Math.PI * 18 + globalTime * (0.00090 + (settings.rotationSpeed || 0) * 0.008);
-                targetX = this.w * 0.5 + Math.cos(angle) * radius;
-                targetY = this.h * 0.52 + Math.sin(angle) * radius * 0.68;
+                const curlVx = targetVx;
+                const curlVy = targetVy;
+                const spec = isMini ? this.miniSpec(family) : null;
+                const travel = isMini ? spec.travel : 0.00028;
+                this.spiralProgress = (this.spiralProgress ?? this.effectRole) + dt * (travel + speed * 0.00022);
+                if (this.spiralProgress >= 1) {
+                    this.spiralProgress -= 1;
+                    const reset = isMini
+                        ? this.miniSpiralPoint(this.spiralProgress, globalTime, settings)
+                        : this.mainSpiralPoint(this.spiralProgress, globalTime, settings);
+                    this.x = reset.x;
+                    this.y = reset.y;
+                    this.lastX = this.x;
+                    this.lastY = this.y;
+                }
+                const pose = isMini
+                    ? this.miniSpiralPoint(this.spiralProgress, globalTime, settings)
+                    : this.mainSpiralPoint(this.spiralProgress, globalTime, settings);
+                const chase = isMini ? 0.10 : 0.08;
+                const weave = isMini ? 0.06 : 0.16;
+                targetVx = (pose.x - this.x) * chase + curlVx * weave;
+                targetVy = (pose.y - this.y) * chase + curlVy * weave;
             }
-            targetVx = (targetX - this.x) * (isPendulumOrb ? 0.12 : 0.09);
-            targetVy = (targetY - this.y) * (isPendulumOrb ? 0.12 : 0.09);
+        } else if (settings.particleShape === "nebulaSpark") {
+            if (this.isNebulaCloud) {
+                targetVx = 0;
+                targetVy = 0;
+            }
+            // Sparks keep the natural curl already computed above.
+        } else if (settings.particleShape === "solarFlare") {
+            if (this.isEclipsedSun(settings)) {
+                targetVx = 0;
+                targetVy = 0;
+            } else if (this.isFlareParticle) {
+                const host = window.particleArray?.[this.sunId];
+                this.sunCenterX = host?.sunCenterX ?? this.sunCenterX ?? this.w * 0.5;
+                this.sunCenterY = host?.sunCenterY ?? this.sunCenterY ?? this.h * 0.5;
+                this.sunBaseR = host?.sunBaseR ?? this.sunBaseR;
+                const dx = this.x - this.sunCenterX;
+                const dy = this.y - this.sunCenterY;
+                const dist = Math.max(1, Math.hypot(dx, dy));
+                const curl = getCurlNoise(this.x / scaleRef, this.y / scaleRef, globalTime * 0.12, 0.005 / zoom);
+                targetVx = (dx / dist) * (0.42 * speed * scaleRef) + curl.vx * 0.28 * scaleRef;
+                targetVy = (dy / dist) * (0.42 * speed * scaleRef) + curl.vy * 0.28 * scaleRef;
+                if (dist > (this.sunBaseR || 50) * 3.2) {
+                    const angle = this.effectPhase + globalTime * 0.0004;
+                    this.x = this.sunCenterX + Math.cos(angle) * (this.sunBaseR * 0.96);
+                    this.y = this.sunCenterY + Math.sin(angle) * (this.sunBaseR * 0.96);
+                    this.lastX = this.x;
+                    this.lastY = this.y;
+                }
+            }
+            // Remaining embers keep the natural curl already computed above.
+        } else if (settings.particleShape === "violetUndertow") {
+            if (this.isWavySpiral) {
+                const minDim = Math.min(this.w, this.h);
+                const cx = this.w * 0.5;
+                const cy = this.h * 0.5;
+                const waveAngle = this.effectPhase + globalTime * (0.0032 + speed * 0.0018);
+                const waveR = minDim * (0.06 + this.effectLane * 0.36)
+                    + Math.sin(waveAngle * 3 + globalTime * 0.012) * (minDim * 0.032);
+                const tx = cx + Math.cos(waveAngle) * waveR;
+                const ty = cy + Math.sin(waveAngle) * waveR * 0.82;
+                targetVx = (tx - this.x) * 0.07;
+                targetVy = (ty - this.y) * 0.07;
+            }
+            // Primary current keeps the natural curl already computed above.
         } else if (settings.particleShape === "jadeCurrents") {
             // Transverse wave ribbons flowing across the screen
             const bandY = this.h * (0.18 + (this.currentBand ?? 0) * 0.13);
@@ -822,6 +1065,31 @@ class Particle {
         this.x += this.vx * dt;
         this.y += this.vy * dt;
 
+        if (settings.particleShape === "nebulaSpark" && this.isNebulaCloud) {
+            const wander = 14 * scaleRef;
+            this.x = (this.cloudHomeX ?? this.x) + Math.sin(globalTime * 0.0014 + this.effectPhase) * wander;
+            this.y = (this.cloudHomeY ?? this.y) + Math.cos(globalTime * 0.0011 + this.effectLane * 5) * wander * 0.75;
+            this.vx = 0;
+            this.vy = 0;
+            this.lastX = this.x;
+            this.lastY = this.y;
+        } else if (settings.particleShape === "solarFlare" && this.isEclipsedSun(settings)) {
+            const t = globalTime * (0.35 + speed);
+            const orbit = t * (this.sunOrbit || 0.002);
+            const hx = (this.sunHomeX ?? this.w * 0.5) + Math.cos(orbit) * (this.sunAmpX || 40) * 0.55;
+            const hy = (this.sunHomeY ?? this.h * 0.5) + Math.sin(orbit * 0.83) * (this.sunAmpY || 30) * 0.55;
+            this.sunCenterX = hx + Math.sin(t * (this.sunFreqX || 0.005) + this.effectPhase) * (this.sunAmpX || 40);
+            this.sunCenterY = hy + Math.cos(t * (this.sunFreqY || 0.004) + this.effectLane * 8) * (this.sunAmpY || 30);
+            const margin = (this.sunBaseR || 24) * 1.35;
+            this.sunCenterX = Math.min(this.w - margin, Math.max(margin, this.sunCenterX));
+            this.sunCenterY = Math.min(this.h - margin, Math.max(margin, this.sunCenterY));
+            this.x = this.sunCenterX;
+            this.y = this.sunCenterY;
+            this.vx = 0;
+            this.vy = 0;
+            this.lastX = this.x;
+            this.lastY = this.y;
+        }
 
         // Calculate new perpendicular unit vector based on current velocity heading
         const headingAngle = Math.atan2(this.vy, this.vx);
@@ -833,28 +1101,44 @@ class Particle {
             this.lastPerpY = this.perpY;
         }
 
-        // Wrap around boundaries
-        let wrapped = false;
-        if (this.x < 0) { this.x = this.w; this.vx *= 0.5; wrapped = true; }
-        else if (this.x > this.w) { this.x = 0; this.vx *= 0.5; wrapped = true; }
-        
-        if (this.y < 0) { this.y = this.h; this.vy *= 0.5; wrapped = true; }
-        else if (this.y > this.h) { this.y = 0; this.vy *= 0.5; wrapped = true; }
-        
-        if (wrapped) {
-            this.lastX = this.x;
-            this.lastY = this.y;
-            this.lastPerpX = this.perpX;
-            this.lastPerpY = this.perpY;
+        // Wrap around boundaries. Radial authored scenes stay composed instead
+        // of jumping to the opposite edge when a coil or orb reaches the rim.
+        const skipWrap = settings.particleShape === "lotus"
+            || (settings.particleShape === "pendulumSpiral" && (this.spiralFamily || 0) !== SPIRAL_WANDER_FAMILY)
+            || (settings.particleShape === "solarFlare" && this.isEclipsedSun(settings))
+            || (settings.particleShape === "nebulaSpark" && this.isNebulaCloud)
+            || (settings.particleShape === "violetUndertow" && this.isWavySpiral);
+        if (!skipWrap) {
+            let wrapped = false;
+            if (this.x < 0) { this.x = this.w; this.vx *= 0.5; wrapped = true; }
+            else if (this.x > this.w) { this.x = 0; this.vx *= 0.5; wrapped = true; }
+
+            if (this.y < 0) { this.y = this.h; this.vy *= 0.5; wrapped = true; }
+            else if (this.y > this.h) { this.y = 0; this.vy *= 0.5; wrapped = true; }
+
+            if (wrapped) {
+                this.lastX = this.x;
+                this.lastY = this.y;
+                this.lastPerpX = this.perpX;
+                this.lastPerpY = this.perpY;
+            }
         }
 
-        // Age
-        this.life -= dt;
-        if (this.life <= 0) {
-            if (this.isBurst) {
-                this.dead = true;
-            } else {
-                this.reset();
+        // Age. Dedicated hero orbs and eclipsed suns stay put.
+        if (this.isDedicatedHero(settings.particleShape) || (settings.particleShape === "solarFlare" && this.isEclipsedSun(settings))) {
+            this.life = this.maxLife;
+        } else {
+            this.life -= dt;
+            if (this.life <= 0) {
+                if (this.isBurst) {
+                    this.dead = true;
+                } else {
+                    const shape = settings.particleShape;
+                    this.reset();
+                    if (authoredShapes.includes(shape)) {
+                        this.configureAuthoredEffect(shape, globalTime, settings);
+                    }
+                }
             }
         }
     }
@@ -914,6 +1198,76 @@ class Particle {
             ctx.arc(this.x, this.y, radius * 0.91, 0, Math.PI * 2);
             ctx.stroke();
         }
+        ctx.restore();
+    }
+
+    eclipseRimRadius(a, base, spin, amp, seed) {
+        const w1 = Math.sin(a * (2.7 + (seed % 3) * 0.4) + spin + seed);
+        const w2 = Math.sin(a * (4.6 + seed * 0.35) - spin * 1.41 + seed * 1.7);
+        const w3 = Math.sin(a * (7.3 + (seed % 5) * 0.2) + spin * 0.58);
+        const w4 = Math.sin(a * (11.1 - seed * 0.15) + spin * 2.05 + seed * 0.6);
+        const spike = Math.pow(Math.max(0, Math.sin(a * (2.15 + seed * 0.18) + spin * 1.85 + seed * 2.1)), 5 + (seed % 4));
+        return base * (1 + amp * (0.38 * w1 + 0.28 * w2 + 0.20 * w3 + 0.16 * w4) + spike * amp * 1.8);
+    }
+
+    strokeEclipseRim(ctx, base, spin, amp, seed, color, alpha, width) {
+        const steps = 80;
+        ctx.beginPath();
+        for (let i = 0; i <= steps; i++) {
+            const a = (i / steps) * Math.PI * 2;
+            const rr = this.eclipseRimRadius(a, base, spin, amp, seed);
+            const x = this.x + Math.cos(a) * rr;
+            const y = this.y + Math.sin(a) * rr;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = color;
+        ctx.globalAlpha = alpha;
+        ctx.lineWidth = width;
+        ctx.stroke();
+    }
+
+    drawWavyEclipse(ctx, drawAlpha) {
+        const r = this.sunBaseR || 40;
+        const seed = this.index + 1;
+        const spinA = Date.now() * (this.sunSpinSpeed || 0.0015) + (this.effectPhase || 0);
+        const spinB = -Date.now() * ((this.sunSpinSpeed || 0.0015) * 1.35) + seed * 0.9;
+        ctx.save();
+
+        ctx.beginPath();
+        const steps = 80;
+        for (let i = 0; i <= steps; i++) {
+            const a = (i / steps) * Math.PI * 2;
+            const rr = this.eclipseRimRadius(a, r * 1.06, spinA, 0.16, seed);
+            const x = this.x + Math.cos(a) * rr;
+            const y = this.y + Math.sin(a) * rr;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fillStyle = this.color;
+        ctx.globalAlpha = drawAlpha * 0.22;
+        ctx.fill();
+        ctx.strokeStyle = this.color;
+        ctx.globalAlpha = drawAlpha * 0.9;
+        ctx.lineWidth = Math.max(2.2, r * 0.14);
+        ctx.stroke();
+
+        this.strokeEclipseRim(
+            ctx, r * 0.93, spinA, 0.09, seed,
+            "#ffffff", drawAlpha * 0.55, Math.max(0.9, r * 0.05)
+        );
+        this.strokeEclipseRim(
+            ctx, r * 1.08, spinB, 0.12, seed + 3,
+            "#ffffff", drawAlpha * 0.40, Math.max(0.7, r * 0.035)
+        );
+
+        ctx.fillStyle = "#020205";
+        ctx.globalAlpha = 0.96;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, r * 0.80, 0, Math.PI * 2);
+        ctx.fill();
         ctx.restore();
     }
 
@@ -1038,13 +1392,13 @@ class Particle {
 
         if (shape === "lotus") {
             const isMeditating = settings.meditationBreathLevel !== undefined;
-            if (this.effectRole > 0.995 && !isMeditating) {
-                this.drawLitOrb(ctx, drawSize * 6.5, drawAlpha, settings);
+            if (this.isDedicatedHero("lotus") && !isMeditating) {
+                this.drawLitOrb(ctx, drawSize * 14, drawAlpha, settings);
             } else {
                 const centerX = this.lotusCenterX ?? this.w * 0.5;
                 const centerY = this.lotusCenterY ?? this.h * 0.5;
                 const angle = Math.atan2(this.y - centerY, this.x - centerX) + 0.34;
-                const sanctuaryAccent = isMeditating && this.effectRole > 0.995 ? 2.6 : 1.0;
+                const sanctuaryAccent = isMeditating && this.isDedicatedHero("lotus") ? 2.6 : 1.0;
                 ctx.fillStyle = this.color;
                 ctx.globalAlpha = drawAlpha * (isMeditating ? 0.16 : 0.22);
                 ctx.beginPath();
@@ -1086,22 +1440,38 @@ class Particle {
         }
 
         if (shape === "pendulumSpiral") {
-            const isPendulumOrb = this.effectRole > 0.993;
-            if (isPendulumOrb) {
-                this.drawLitOrb(ctx, drawSize * (10.5 + this.effectLane * 4.5), drawAlpha * 0.54, settings);
-            } else {
-                const trailX = this.x + (this.lastX - this.x) * 0.28;
-                const trailY = this.y + (this.lastY - this.y) * 0.28;
+            if ((this.spiralFamily || 0) === SPIRAL_WANDER_FAMILY) {
+                const heading = Math.atan2(this.vy, this.vx) || this.effectPhase;
+                const w = 3.4 + Math.abs(this.randomSizeOffset) * 2.2;
+                const h = 1.15 + Math.abs(this.randomSizeOffset) * 0.4;
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = drawAlpha * 0.38;
+                ctx.beginPath();
+                ctx.ellipse(this.x, this.y, w * 1.35, h, heading, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = drawAlpha * 0.82;
+                ctx.beginPath();
+                ctx.ellipse(this.x, this.y, w * 0.7, h * 0.55, heading, 0, Math.PI * 2);
+                ctx.fill();
+                return true;
+            }
+            const isMini = (this.spiralFamily || 0) > 0 && (this.spiralFamily || 0) !== SPIRAL_WANDER_FAMILY;
+            const prog = this.spiralProgress ?? this.effectRole;
+            const taper = isMini ? (0.50 + prog * 0.50) : (0.40 + prog * 0.90);
+            const edgeFade = Math.min(1, prog * 22, (1 - prog) * 28);
+            const alpha = drawAlpha * edgeFade;
+            const jump = Math.hypot(this.x - this.lastX, this.y - this.lastY);
+            if (alpha > 0.01 && jump < 42) {
                 ctx.strokeStyle = this.color;
                 ctx.lineCap = "round";
-                ctx.globalAlpha = drawAlpha * 0.24;
-                ctx.lineWidth = Math.max(1.4, drawSize * 3.2);
+                ctx.globalAlpha = alpha * 0.28;
+                ctx.lineWidth = Math.max(0.8, drawSize * (isMini ? 2.2 : 2.8) * taper);
                 ctx.beginPath();
-                ctx.moveTo(trailX, trailY);
+                ctx.moveTo(this.lastX, this.lastY);
                 ctx.lineTo(this.x, this.y);
                 ctx.stroke();
-                ctx.globalAlpha = drawAlpha * 0.92;
-                ctx.lineWidth = Math.max(0.65, drawSize * 0.38);
+                ctx.globalAlpha = alpha * 0.92;
+                ctx.lineWidth = Math.max(isMini ? 0.5 : 0.45, drawSize * 0.42 * taper);
                 ctx.stroke();
             }
             return true;
@@ -1202,6 +1572,93 @@ class Particle {
             return true;
         }
 
+
+        if (shape === "nebulaSpark") {
+            if (this.isNebulaCloud) {
+                const progress = Math.max(0, Math.min(1, 1 - (this.life / (this.maxLife || 100))));
+                let scale;
+                let alphaMul;
+                let mixWhite = 0;
+                let mixBlack = 0;
+                if (progress < 0.28) {
+                    const t = progress / 0.28;
+                    scale = 3.2 + t * 3.4;
+                    alphaMul = 0.10 + t * 0.04;
+                    mixBlack = 0.42 - t * 0.22;
+                } else if (progress < 0.58) {
+                    const t = (progress - 0.28) / 0.30;
+                    scale = 6.6 + t * 5.5;
+                    const flash = 1 - Math.abs(t - 0.45) * 2;
+                    alphaMul = 0.08 + Math.max(0, flash) * 0.10;
+                    mixWhite = Math.max(0, flash) * 0.55;
+                } else {
+                    const t = (progress - 0.58) / 0.42;
+                    scale = 12.1 + t * 5.0;
+                    alphaMul = Math.max(0, (1 - t) * 0.055);
+                }
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = drawAlpha * alphaMul;
+                ctx.beginPath();
+                ctx.ellipse(this.x, this.y, drawSize * scale, drawSize * scale * 0.88, this.effectPhase * 0.15, 0, Math.PI * 2);
+                ctx.fill();
+                if (mixBlack > 0.02) {
+                    ctx.fillStyle = "#020617";
+                    ctx.globalAlpha = drawAlpha * alphaMul * mixBlack;
+                    ctx.beginPath();
+                    ctx.ellipse(this.x, this.y, drawSize * scale * 0.85, drawSize * scale * 0.62, this.effectPhase, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                if (mixWhite > 0.02) {
+                    ctx.fillStyle = "#ffffff";
+                    ctx.globalAlpha = drawAlpha * mixWhite * 0.35;
+                    ctx.beginPath();
+                    ctx.ellipse(this.x, this.y, drawSize * scale * 0.28, drawSize * scale * 0.22, this.effectPhase, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                return true;
+            }
+            return false;
+        }
+
+        if (shape === "solarFlare") {
+            if (this.isEclipsedSun(settings)) {
+                this.drawWavyEclipse(ctx, drawAlpha);
+                return true;
+            }
+            if (this.isFlareParticle) {
+                const jump = Math.hypot(this.x - this.lastX, this.y - this.lastY);
+                if (jump < 14) {
+                    ctx.strokeStyle = this.color;
+                    ctx.lineCap = "round";
+                    ctx.globalAlpha = drawAlpha * 0.38;
+                    ctx.lineWidth = Math.max(1.2, drawSize * 1.6);
+                    ctx.beginPath();
+                    ctx.moveTo(this.lastX, this.lastY);
+                    ctx.lineTo(this.x, this.y);
+                    ctx.stroke();
+                }
+                return true;
+            }
+            return false;
+        }
+
+        if (shape === "violetUndertow") {
+            if (this.isWavySpiral) {
+                const jump = Math.hypot(this.x - this.lastX, this.y - this.lastY);
+                if (jump < 16) {
+                    ctx.strokeStyle = this.color;
+                    ctx.lineCap = "round";
+                    ctx.globalAlpha = drawAlpha * 0.62;
+                    ctx.lineWidth = Math.max(2.4, drawSize * 2.8);
+                    ctx.beginPath();
+                    ctx.moveTo(this.lastX, this.lastY);
+                    ctx.lineTo(this.x, this.y);
+                    ctx.stroke();
+                }
+                return true;
+            }
+            return false;
+        }
 
         if (shape === "jadeCurrents") {
             // Calligraphic tapered brushstroke along velocity heading
@@ -1333,6 +1790,11 @@ class Particle {
                 const flicker = 0.10 + Math.sin(timeSec * 16.0 + this.twinkleOffset) * 0.90; // highly twinkly/blinky
                 drawAlpha = alpha * flicker * 0.95;
             }
+        } else if (shape === "nebulaSpark" || shape === "solarFlare" || shape === "violetUndertow") {
+            shape = "ellipse";
+        } else if (shape === "pendulumSpiral") {
+            shape = "ellipse";
+            drawSize = size * 0.26;
         }
         
         // Calculate rotation angle matching velocity direction
@@ -1580,6 +2042,11 @@ class FlowSimulation {
             veilDriftRotation: 0.55,
             veilDriftZoom: 0.75,
             veilDriftWander: 0.45,
+            miniSpiralCount: 6,
+            spiralExtent: 0.88,
+            wanderMix: 0.18,
+            eclipseCount: 66,
+            eclipseSize: 1,
             
             // Psychedelic Mode additions
             psychedelicMode: false,
@@ -1678,6 +2145,32 @@ class FlowSimulation {
         }
     }
 
+    syncMiniHosts(dt) {
+        if (!this.miniHosts) this.miniHosts = [];
+        this.miniCountPhase = (this.miniCountPhase || 0) + dt * 0.00032;
+        const base = Math.max(4, Math.min(8, Math.round(this.settings.miniSpiralCount ?? 6)));
+        this.liveMiniCount = Math.max(4, Math.min(8, Math.round(base + Math.sin(this.miniCountPhase) * 1.7)));
+        while (this.miniHosts.length < 8) {
+            const i = this.miniHosts.length;
+            this.miniHosts.push({
+                angle: i * Math.PI * 0.25 + Math.random() * 0.5,
+                angleVel: (0.0032 + Math.random() * 0.009) * (i % 2 === 0 ? 1 : -1),
+                radius: 0.16 + Math.random() * 0.08,
+                radiusAmp: 0.06 + Math.random() * 0.08,
+                radiusPhase: Math.random() * Math.PI * 2,
+                radiusFreq: 0.0035 + Math.random() * 0.006,
+                sizeMul: 0.72 + Math.random() * 0.55,
+                spinMul: 0.8 + Math.random() * 1.4,
+                coilDir: i % 2 === 0 ? 1 : -1
+            });
+        }
+        for (let i = 0; i < this.miniHosts.length; i++) {
+            const h = this.miniHosts[i];
+            h.angle += h.angleVel * dt + Math.sin(h.radiusPhase * 1.6) * 0.002;
+            h.radiusPhase += h.radiusFreq * dt;
+        }
+    }
+
     spawnParticles() {
         this.particles = [];
         // Scale particle count slightly based on screen width so mobile isn't overloaded
@@ -1704,6 +2197,93 @@ class FlowSimulation {
         }
         while (this.particles.length > target) {
             this.particles.pop();
+        }
+    }
+
+    syncMiniSpiralActors() {
+        const n = Math.max(4, Math.min(8, Math.round(this.settings.miniSpiralCount ?? 6)));
+        if (!this.miniSpiralActors) this.miniSpiralActors = [];
+        const seeds = [
+            [0.34, 0.36], [0.66, 0.38], [0.36, 0.64], [0.64, 0.62],
+            [0.50, 0.32], [0.50, 0.68], [0.32, 0.50], [0.68, 0.50]
+        ];
+        while (this.miniSpiralActors.length < n) {
+            const i = this.miniSpiralActors.length;
+            const seed = seeds[i % seeds.length];
+            this.miniSpiralActors.push({
+                x: this.width * seed[0],
+                y: this.height * seed[1],
+                vx: (i % 2 === 0 ? 1 : -1) * (1.8 + (i % 3) * 0.7),
+                vy: (i % 3 === 0 ? -1 : 1) * (1.5 + (i % 4) * 0.6),
+                dir: i % 2 === 0 ? 1 : -1,
+                spin: 0.02 + (i % 5) * 0.006,
+                turns: 8 + (i % 4),
+                maxR: 0.16 + (i % 4) * 0.02,
+                phase: i * 0.9
+            });
+        }
+        while (this.miniSpiralActors.length > n) this.miniSpiralActors.pop();
+    }
+
+    updateMiniSpiralActors(dt) {
+        // Keep mini coils inside the region that stays on-screen under Veil Drift zoom.
+        const x0 = this.width * 0.30;
+        const x1 = this.width * 0.70;
+        const y0 = this.height * 0.30;
+        const y1 = this.height * 0.70;
+        const speed = this.settings.speed || 1;
+        for (let i = 0; i < this.miniSpiralActors.length; i++) {
+            const m = this.miniSpiralActors[i];
+            m.x += m.vx * dt * (0.65 + speed * 0.55);
+            m.y += m.vy * dt * (0.65 + speed * 0.55);
+            m.phase += m.spin * dt * m.dir;
+            if (m.x < x0) { m.x = x0; m.vx = Math.abs(m.vx); }
+            else if (m.x > x1) { m.x = x1; m.vx = -Math.abs(m.vx); }
+            if (m.y < y0) { m.y = y0; m.vy = Math.abs(m.vy); }
+            else if (m.y > y1) { m.y = y1; m.vy = -Math.abs(m.vy); }
+        }
+    }
+
+    drawMiniSpiralActors() {
+        const ctx = this.ctx;
+        const minDim = Math.min(this.width, this.height);
+        const palette = this.palette || ["#c084fc", "#67e8f9"];
+        for (let i = 0; i < this.miniSpiralActors.length; i++) {
+            const m = this.miniSpiralActors[i];
+            const maxR = minDim * m.maxR;
+            const minR = minDim * 0.014;
+            const steps = 240;
+            const color = i % 2 === 0 ? (palette[3] || "#67e8f9") : (palette[2] || "#c084fc");
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 18;
+            ctx.beginPath();
+            for (let s = 0; s <= steps; s++) {
+                const p = s / steps;
+                const r = minR + (maxR - minR) * p;
+                const a = p * Math.PI * 2 * m.turns + m.phase;
+                const x = m.x + Math.cos(a) * r;
+                const y = m.y + Math.sin(a) * r;
+                if (s === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.globalAlpha = 0.55;
+            ctx.lineWidth = Math.max(5.5, minDim * 0.01);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = "#e0f2fe";
+            ctx.globalAlpha = 0.95;
+            ctx.lineWidth = Math.max(1.8, minDim * 0.004);
+            ctx.stroke();
+            ctx.fillStyle = "#67e8f9";
+            ctx.globalAlpha = 1;
+            ctx.beginPath();
+            ctx.arc(m.x, m.y, Math.max(5, minDim * 0.008), 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
         }
     }
 
@@ -1789,6 +2369,7 @@ class FlowSimulation {
         this.lastFrameTime = now;
         const dt = Math.min(delta * 60, 2.0); // normalized step, 1.0 at 60 FPS
         this.globalTime += delta * 60; // normalized speed steps
+        if (this.settings.particleShape === "pendulumSpiral") this.syncMiniHosts(dt);
         const currentSpeed = Math.max(0, Number(this.settings.speed ?? 1.0));
         this.compositionTime = (this.compositionTime || 0) + delta * Math.max(0, Number(this.settings.speed ?? 1.0)) * 8;
 
@@ -1941,10 +2522,20 @@ class FlowSimulation {
                     depthOrderedParticles[i].draw(this.ctx, this.settings);
                 }
             } else {
+                const overlay = [];
+                const shape = this.settings.particleShape;
                 for (let i = 0; i < this.particles.length; i++) {
                     const p = this.particles[i];
                     p.update(this.settings, this.globalTime, this.mouse, this.customForces, this.shockwaves, this.vortices, dt, this.compositionTime);
-                    p.draw(this.ctx, this.settings);
+                    if ((shape === "solarFlare" && p.isEclipsedSun(this.settings))
+                        || (shape === "lotus" && p.isDedicatedHero(shape))) {
+                        overlay.push(p);
+                    } else {
+                        p.draw(this.ctx, this.settings);
+                    }
+                }
+                for (let i = 0; i < overlay.length; i++) {
+                    overlay[i].draw(this.ctx, this.settings);
                 }
             }
 

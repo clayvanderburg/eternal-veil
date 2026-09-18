@@ -17,7 +17,7 @@ assert.equal(presets.fractalNebula.density, 3600);
 assert.equal(presets.quantum.name, 'Quantum Drift');
 assert.equal(presets.quantum.density, 2800);
 assert.equal(presets.mandala.density, 1200);
-assert.equal(presets.vortex.rotationSpeed, 1.10);
+assert.equal(presets.vortex.rotationSpeed, 0.70);
 assert.equal(presets.quantum.particleShape, 'quantumDrift');
 for (const shape of ['zenMandala', 'quantumLattice', 'gravityWell', 'fractalBloom']) {
     assert(compositions.supports(shape));

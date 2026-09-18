@@ -224,7 +224,12 @@ document.addEventListener("DOMContentLoaded", () => {
             veilDriftRotation: "veil-drift-rotation-slider",
             veilDriftZoom: "veil-drift-zoom-slider",
             veilDriftWander: "veil-drift-wander-slider",
-            kaleidoscopeSegments: "kaleido-segments-slider"
+            kaleidoscopeSegments: "kaleido-segments-slider",
+            miniSpiralCount: "mini-spiral-count-slider",
+            spiralExtent: "spiral-extent-slider",
+            wanderMix: "wander-mix-slider",
+            eclipseCount: "eclipse-count-slider",
+            eclipseSize: "eclipse-size-slider"
         };
         Object.keys(sliderMap).forEach(key => {
             const slider = document.getElementById(sliderMap[key]);
@@ -315,7 +320,12 @@ document.addEventListener("DOMContentLoaded", () => {
             morphingBg: occasionallyChange(sim.settings.morphingBg, 0.12, 0.24),
             spinningKaleido: occasionallyChange(sim.settings.spinningKaleido, 0.07, 0.08),
             particleShape: nextShape,
-            particleLighting: nextLighting
+            particleLighting: nextLighting,
+            miniSpiralCount: rndInt(4, 8),
+            spiralExtent: rnd(0.72, 0.96),
+            wanderMix: rnd(0.10, 0.28),
+            eclipseCount: rndInt(24, 80),
+            eclipseSize: rnd(0.7, 1.35)
         };
         if (isComfortMode) {
             randomSettings.speed = Math.min(randomSettings.speed, 1.35);
@@ -346,7 +356,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 kaleidoscopeEnabled: false,
                 psychedelicMode: false,
                 morphingBg: false,
-                spinningKaleido: false
+                spinningKaleido: false,
+                miniSpiralCount: rndInt(4, 8),
+                spiralExtent: rnd(0.82, 0.96),
+                wanderMix: rnd(0.12, 0.24)
             });
         } else if (nextShape === "chromeRibbon") {
             Object.assign(randomSettings, {
@@ -541,6 +554,16 @@ document.addEventListener("DOMContentLoaded", () => {
         veilDriftZoomVal: document.getElementById("veil-drift-zoom-val"),
         veilDriftWanderSlider: document.getElementById("veil-drift-wander-slider"),
         veilDriftWanderVal: document.getElementById("veil-drift-wander-val"),
+        miniSpiralCountSlider: document.getElementById("mini-spiral-count-slider"),
+        miniSpiralCountVal: document.getElementById("mini-spiral-count-val"),
+        spiralExtentSlider: document.getElementById("spiral-extent-slider"),
+        spiralExtentVal: document.getElementById("spiral-extent-val"),
+        wanderMixSlider: document.getElementById("wander-mix-slider"),
+        wanderMixVal: document.getElementById("wander-mix-val"),
+        eclipseCountSlider: document.getElementById("eclipse-count-slider"),
+        eclipseCountVal: document.getElementById("eclipse-count-val"),
+        eclipseSizeSlider: document.getElementById("eclipse-size-slider"),
+        eclipseSizeVal: document.getElementById("eclipse-size-val"),
         
         // Export & Audio
         soundEnableToggle: document.getElementById("sound-enable-toggle"),
@@ -929,7 +952,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 veilDriftRotation: "veil-drift-rotation-slider",
                 veilDriftZoom: "veil-drift-zoom-slider",
                 veilDriftWander: "veil-drift-wander-slider",
-                kaleidoscopeSegments: "kaleido-segments-slider"
+                kaleidoscopeSegments: "kaleido-segments-slider",
+                miniSpiralCount: "mini-spiral-count-slider",
+                spiralExtent: "spiral-extent-slider",
+                wanderMix: "wander-mix-slider",
+                eclipseCount: "eclipse-count-slider",
+                eclipseSize: "eclipse-size-slider"
             };
             
             const targetSlider = document.getElementById(customSliderMap[key] || sliderId);
@@ -1195,6 +1223,11 @@ document.addEventListener("DOMContentLoaded", () => {
         if (preset.psychedelicMode) keys.push("psychedelicMode");
         if (preset.morphingBg) keys.push("morphingBg");
         if (preset.spinningKaleido) keys.push("spinningKaleido");
+        if (preset.miniSpiralCount != null) keys.push("miniSpiralCount");
+        if (preset.spiralExtent != null) keys.push("spiralExtent");
+        if (preset.wanderMix != null) keys.push("wanderMix");
+        if (preset.eclipseCount != null) keys.push("eclipseCount");
+        if (preset.eclipseSize != null) keys.push("eclipseSize");
         return keys;
     }
 
@@ -1305,6 +1338,11 @@ document.addEventListener("DOMContentLoaded", () => {
         startMorph("interaction", p.interaction);
         startMorph("rotationSpeed", presetTarget("rotationSpeed", p.rotationSpeed));
         startMorph("wobble", presetTarget("wobble", p.wobble));
+        if (p.miniSpiralCount != null) startMorph("miniSpiralCount", p.miniSpiralCount);
+        if (p.spiralExtent != null) startMorph("spiralExtent", p.spiralExtent);
+        if (p.wanderMix != null) startMorph("wanderMix", p.wanderMix);
+        if (p.eclipseCount != null) startMorph("eclipseCount", p.eclipseCount);
+        if (p.eclipseSize != null) startMorph("eclipseSize", p.eclipseSize);
         
         // Colors travel the same gentle path instead of snapping to the preset.
         startPaletteMorph([...p.colors], 7000);
@@ -1761,6 +1799,11 @@ document.addEventListener("DOMContentLoaded", () => {
             { key: "veilDriftRotation", selector: "#veil-drift-rotation-slider", type: "slider" },
             { key: "veilDriftZoom", selector: "#veil-drift-zoom-slider", type: "slider" },
             { key: "veilDriftWander", selector: "#veil-drift-wander-slider", type: "slider" },
+            { key: "miniSpiralCount", selector: "#mini-spiral-count-slider", type: "slider" },
+            { key: "spiralExtent", selector: "#spiral-extent-slider", type: "slider" },
+            { key: "wanderMix", selector: "#wander-mix-slider", type: "slider" },
+            { key: "eclipseCount", selector: "#eclipse-count-slider", type: "slider" },
+            { key: "eclipseSize", selector: "#eclipse-size-slider", type: "slider" },
             { key: "kaleidoscopeSegments", selector: "#kaleido-segments-slider", type: "slider" },
             { key: "kaleidoscopeEnabled", selector: "#kaleidoscope-toggle", type: "switch" },
             { key: "psychedelicMode", selector: "#psychedelic-toggle", type: "switch" },
@@ -1982,7 +2025,12 @@ document.addEventListener("DOMContentLoaded", () => {
             wobble: [0.05, 0.62, 0.1, 0.0, 0.95],
             veilDriftRotation: [0.55, 0.72, 0.06, 0.55, 0.82],
             veilDriftZoom: [0.65, 0.75, 0.04, 0.65, 0.75],
-            veilDriftWander: [0.18, 0.7, 0.08, 0.04, 0.85]
+            veilDriftWander: [0.18, 0.7, 0.08, 0.04, 0.85],
+            miniSpiralCount: [4, 8, 1, 4, 8, true],
+            spiralExtent: [0.72, 0.95, 0.05, 0.55, 0.98],
+            wanderMix: [0.10, 0.28, 0.04, 0.06, 0.38],
+            eclipseCount: [28, 78, 8, 16, 90, true],
+            eclipseSize: [0.7, 1.3, 0.08, 0.5, 1.55]
         };
         const sereneFields = {
             speed: [0.1, 0.9, 0.12, 0.1, 0.9], turbulence: [0.02, 0.48, 0.09, 0.02, 0.48],
@@ -1992,7 +2040,9 @@ document.addEventListener("DOMContentLoaded", () => {
             stretch: [0.1, 1.8, 0.22, 0.1, 1.8], interaction: [0.08, 1.1, 0.14, 0.08, 1.1],
             mouseInfluence: [0.2, 1.5, 0.2, 0.2, 1.5], rotationSpeed: [0, 0.1, 0.018, 0, 0.1],
             wobble: [0.02, 0.22, 0.035, 0.02, 0.22],
-            veilDriftRotation: [0.55, 0.65, 0.04, 0.55, 0.7], veilDriftZoom: [0.6, 0.7, 0.03, 0.6, 0.7], veilDriftWander: [0.12, 0.48, 0.05, 0.05, 0.6]
+            veilDriftRotation: [0.55, 0.65, 0.04, 0.55, 0.7], veilDriftZoom: [0.6, 0.7, 0.03, 0.6, 0.7], veilDriftWander: [0.12, 0.48, 0.05, 0.05, 0.6],
+            miniSpiralCount: [4, 6, 1, 4, 6, true], spiralExtent: [0.78, 0.92, 0.03, 0.7, 0.94],
+            wanderMix: [0.08, 0.18, 0.02, 0.06, 0.22], eclipseCount: [20, 50, 4, 16, 60, true], eclipseSize: [0.75, 1.15, 0.05, 0.65, 1.25]
         };
         const wildFields = {
             speed: [0.18, 3.3, 0.6, 0.05, 5], turbulence: [0.08, 2.1, 0.4, 0, 3.8],
@@ -2002,7 +2052,9 @@ document.addEventListener("DOMContentLoaded", () => {
             stretch: [0.1, 4.2, 0.75, 0, 6.5], interaction: [0.05, 2.7, 0.5, 0, 4],
             mouseInfluence: [0.2, 3.6, 0.65, 0, 5], rotationSpeed: [0, 0.45, 0.08, 0, 0.8],
             wobble: [0.04, 0.82, 0.14, 0, 1.25],
-            veilDriftRotation: [0.55, 0.82, 0.08, 0.55, 0.9], veilDriftZoom: [0.68, 0.75, 0.04, 0.68, 0.75], veilDriftWander: [0.2, 0.82, 0.1, 0.04, 0.95]
+            veilDriftRotation: [0.55, 0.82, 0.08, 0.55, 0.9], veilDriftZoom: [0.68, 0.75, 0.04, 0.68, 0.75], veilDriftWander: [0.2, 0.82, 0.1, 0.04, 0.95],
+            miniSpiralCount: [5, 8, 1, 4, 8, true], spiralExtent: [0.7, 0.96, 0.06, 0.55, 0.98],
+            wanderMix: [0.12, 0.32, 0.05, 0.08, 0.4], eclipseCount: [36, 86, 10, 20, 90, true], eclipseSize: [0.6, 1.45, 0.1, 0.5, 1.6]
         };
         const fields = effectivePersonality === "serene" ? sereneFields : (effectivePersonality === "wild" ? wildFields : defaultFields);
 
@@ -2096,7 +2148,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 interaction: 0.45,
                 rotationSpeed: 0.025,
                 wobble: 0.08,
-                drag: 0.93
+                drag: 0.93,
+                miniSpiralCount: rndInt(4, 8),
+                spiralExtent: rnd(0.82, 0.96),
+                wanderMix: rnd(0.12, 0.24)
             };
             Object.entries(authoredTargets).forEach(([key, value]) => {
                 if (isFlowEnabled(key)) startMorph(key, value, baseDuration * 0.72);
@@ -2981,6 +3036,11 @@ document.addEventListener("DOMContentLoaded", () => {
         bindSlider(elements.veilDriftRotationSlider, elements.veilDriftRotationVal, "veilDriftRotation");
         bindSlider(elements.veilDriftZoomSlider, elements.veilDriftZoomVal, "veilDriftZoom");
         bindSlider(elements.veilDriftWanderSlider, elements.veilDriftWanderVal, "veilDriftWander");
+        bindSlider(elements.miniSpiralCountSlider, elements.miniSpiralCountVal, "miniSpiralCount");
+        bindSlider(elements.spiralExtentSlider, elements.spiralExtentVal, "spiralExtent");
+        bindSlider(elements.wanderMixSlider, elements.wanderMixVal, "wanderMix");
+        bindSlider(elements.eclipseCountSlider, elements.eclipseCountVal, "eclipseCount");
+        bindSlider(elements.eclipseSizeSlider, elements.eclipseSizeVal, "eclipseSize");
 
         // Psychedelic Drives
         elements.psychedelicToggle.onchange = () => {
@@ -3463,6 +3523,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 "veil-drift-rotation-slider": "veilDriftRotation",
                 "veil-drift-zoom-slider": "veilDriftZoom",
                 "veil-drift-wander-slider": "veilDriftWander",
+                "mini-spiral-count-slider": "miniSpiralCount",
+                "spiral-extent-slider": "spiralExtent",
+                "wander-mix-slider": "wanderMix",
+                "eclipse-count-slider": "eclipseCount",
+                "eclipse-size-slider": "eclipseSize",
                 "veil-drift-toggle": "veilDriftEnabled",
                 "kaleido-segments-slider": "kaleidoscopeSegments",
                 "kaleidoscope-toggle": "kaleidoscopeEnabled",
@@ -3714,6 +3779,11 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.veilDriftRotationSlider.value = sim.settings.veilDriftRotation;
         elements.veilDriftZoomSlider.value = sim.settings.veilDriftZoom;
         elements.veilDriftWanderSlider.value = sim.settings.veilDriftWander;
+        if (elements.miniSpiralCountSlider) elements.miniSpiralCountSlider.value = sim.settings.miniSpiralCount;
+        if (elements.spiralExtentSlider) elements.spiralExtentSlider.value = sim.settings.spiralExtent;
+        if (elements.wanderMixSlider) elements.wanderMixSlider.value = sim.settings.wanderMix;
+        if (elements.eclipseCountSlider) elements.eclipseCountSlider.value = sim.settings.eclipseCount;
+        if (elements.eclipseSizeSlider) elements.eclipseSizeSlider.value = sim.settings.eclipseSize;
         
         // Sync Psychedelic Drive UIs
         elements.psychedelicToggle.checked = sim.settings.psychedelicMode;
@@ -3788,6 +3858,11 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.veilDriftRotationVal.textContent = sim.settings.veilDriftRotation.toFixed(2);
         elements.veilDriftZoomVal.textContent = sim.settings.veilDriftZoom.toFixed(2);
         elements.veilDriftWanderVal.textContent = sim.settings.veilDriftWander.toFixed(2);
+        if (elements.miniSpiralCountVal) elements.miniSpiralCountVal.textContent = Math.round(sim.settings.miniSpiralCount ?? 6);
+        if (elements.spiralExtentVal) elements.spiralExtentVal.textContent = Number(sim.settings.spiralExtent ?? 0.88).toFixed(2);
+        if (elements.wanderMixVal) elements.wanderMixVal.textContent = Number(sim.settings.wanderMix ?? 0.18).toFixed(2);
+        if (elements.eclipseCountVal) elements.eclipseCountVal.textContent = Math.round(sim.settings.eclipseCount ?? 66);
+        if (elements.eclipseSizeVal) elements.eclipseSizeVal.textContent = Number(sim.settings.eclipseSize ?? 1).toFixed(2);
     }
 
     // Helper Toast

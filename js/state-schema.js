@@ -12,7 +12,7 @@ const StateSchema = {
     VALID_PARTICLE_SHAPES: new Set([
         "ellipse", "drop", "ring", "aquatic", "acid", "nebula", "brush", "cluster",
         "ocean", "aurora", "orbitals", "lotus", "spiral", "pendulumSpiral", "tightTailVortex", "painterlyVortex", "pipes", "pipesTight", "pipesCathedral", "pipesShrine", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom", "chromeRibbon",
-        "jadeCurrents", "quantumDrift", "prismDrift"
+        "jadeCurrents", "quantumDrift", "prismDrift", "nebulaSpark", "solarFlare", "violetUndertow"
     ]),
 
     VALID_PARTICLE_LIGHTING: new Set(["glow", "reactive", "pearl", "metal"]),
@@ -108,6 +108,11 @@ const StateSchema = {
                 veilDriftRotation: this.sanitizeNumber(rawState.settings?.veilDriftRotation, 0.55, 0.0, 1.0),
                 veilDriftZoom: this.sanitizeNumber(rawState.settings?.veilDriftZoom, 0.75, 0.0, 0.75),
                 veilDriftWander: this.sanitizeNumber(rawState.settings?.veilDriftWander, 0.45, 0.0, 1.0),
+                miniSpiralCount: Math.round(this.sanitizeNumber(rawState.settings?.miniSpiralCount, 6, 4, 8)),
+                spiralExtent: this.sanitizeNumber(rawState.settings?.spiralExtent, 0.88, 0.45, 0.98),
+                wanderMix: this.sanitizeNumber(rawState.settings?.wanderMix, 0.18, 0.05, 0.40),
+                eclipseCount: Math.round(this.sanitizeNumber(rawState.settings?.eclipseCount, 66, 12, 90)),
+                eclipseSize: this.sanitizeNumber(rawState.settings?.eclipseSize, 1.0, 0.45, 1.6),
 
                 // Psychedelic Drives
                 psychedelicMode: this.sanitizeBoolean(rawState.settings?.psychedelicMode, false),

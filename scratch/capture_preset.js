@@ -6,7 +6,7 @@ const { spawn } = require('child_process');
 
 const rootDir = path.resolve(__dirname, '..');
 const presetKey = process.argv[2] || 'liquid';
-const durationMs = Number(process.argv[3]) || 3500;
+const durationMs = Number(process.argv[3]) || 6500;
 const outputFile = process.argv[4] || path.resolve(__dirname, `preset_${presetKey}.png`);
 
 const mimeTypes = {
@@ -47,7 +47,7 @@ async function main() {
         `--remote-debugging-port=${cdpPort}`,
         `--user-data-dir=${tempProfile}`,
         '--no-first-run',
-        '--disable-gpu',
+        '--hide-scrollbars',
         '--window-size=1280,720',
         siteUrl
     ], { stdio: 'ignore' });
@@ -116,6 +116,8 @@ async function main() {
         eventListeners.add(onMsg);
     });
 
+    await new Promise(r => setTimeout(r, 700));
+
     // Dismiss splash screen, click the requested preset card, and hide UI for clear capture
     const evalRes = await send('Runtime.evaluate', {
         expression: `
@@ -154,6 +156,27 @@ async function main() {
     console.log('Eval result:', evalRes.result?.result?.value);
     console.log(`Rendering preset "${presetKey}" for ${durationMs}ms...`);
     await new Promise(r => setTimeout(r, durationMs));
+    const statsRes = await send('Runtime.evaluate', {
+        expression: `
+            (function() {
+                const parts = window.particleArray || window.sim?.particles || [];
+                const families = {};
+                for (const p of parts) {
+                    const f = p.spiralFamily;
+                    families[f] = (families[f] || 0) + 1;
+                }
+                return {
+                    shape: window.sim?.settings?.particleShape,
+                    miniSpiralCount: window.sim?.settings?.miniSpiralCount,
+                    actors: (window.simInstance?.miniSpiralActors || window.sim?.miniSpiralActors || []).length,
+                    n: parts.length,
+                    families
+                };
+            })()
+        `,
+        returnByValue: true
+    }, sessionId);
+    console.log('Particle families:', JSON.stringify(statsRes.result?.result?.value));
 
     // Capture screenshot
     const shotRes = await send('Page.captureScreenshot', { format: 'png' }, sessionId);

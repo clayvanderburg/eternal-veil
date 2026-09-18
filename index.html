@@ -619,6 +619,50 @@
                         <input type="range" id="veil-drift-wander-slider" class="range-slider" min="0" max="1" step="0.05" value="0.45">
                     </div>
                 </div>
+
+                <div class="setting-group">
+                    <span class="setting-label-header">SIGNATURE EFFECTS</span>
+                    <div class="control-item">
+                        <div class="slider-header">
+                            <span class="setting-label">Mini Spirals</span>
+                            <span class="slider-value" id="mini-spiral-count-val">6</span>
+                        </div>
+                        <input type="range" id="mini-spiral-count-slider" class="range-slider" min="4" max="8" step="1" value="6">
+                        <p class="micro-tip">How many small bouncing spirals fly through Chaotic Spiral. Flow rolls 4–8.</p>
+                    </div>
+                    <div class="control-item">
+                        <div class="slider-header">
+                            <span class="setting-label">Spiral Extent</span>
+                            <span class="slider-value" id="spiral-extent-val">0.88</span>
+                        </div>
+                        <input type="range" id="spiral-extent-slider" class="range-slider" min="0.45" max="0.98" step="0.01" value="0.88">
+                        <p class="micro-tip">How far the main coil reaches toward the screen edges.</p>
+                    </div>
+                    <div class="control-item">
+                        <div class="slider-header">
+                            <span class="setting-label">Wander Mix</span>
+                            <span class="slider-value" id="wander-mix-val">0.18</span>
+                        </div>
+                        <input type="range" id="wander-mix-slider" class="range-slider" min="0.05" max="0.40" step="0.01" value="0.18">
+                        <p class="micro-tip">Share of thin zigzag particles around the coil.</p>
+                    </div>
+                    <div class="control-item">
+                        <div class="slider-header">
+                            <span class="setting-label">Eclipse Count</span>
+                            <span class="slider-value" id="eclipse-count-val">66</span>
+                        </div>
+                        <input type="range" id="eclipse-count-slider" class="range-slider" min="12" max="90" step="1" value="66">
+                        <p class="micro-tip">How many eclipsed suns Solar Flare draws. Flow rolls this.</p>
+                    </div>
+                    <div class="control-item">
+                        <div class="slider-header">
+                            <span class="setting-label">Eclipse Size</span>
+                            <span class="slider-value" id="eclipse-size-val">1.00</span>
+                        </div>
+                        <input type="range" id="eclipse-size-slider" class="range-slider" min="0.45" max="1.60" step="0.01" value="1.00">
+                        <p class="micro-tip">Overall scale of Solar Flare eclipses.</p>
+                    </div>
+                </div>
             </section>
 
             <!-- TAB 3: PARTICLE DYNAMICS -->
@@ -787,7 +831,7 @@
                             <option value="aurora">Aurora Cathedral (Light Curtains)</option>
                             <option value="orbitals">Celestial Orrery (Orbital Rings)</option>
                             <option value="lotus">Lotus Pulse (Radial Petals)</option>
-                            <option value="pendulumSpiral">Pendulum Coil (Slow Hypnosis)</option>
+                            <option value="pendulumSpiral">Chaotic Spiral (Main + 4 On Coil)</option>
                             <option value="spiral">Astral Tangle (Braided Arms)</option>
                             <option value="tightTailVortex">Tight Tail Vortex (Flat Spiral Tunnel)</option>
                             <option value="painterlyVortex">Painted Depth Spiral (Layered Daubs)</option>
@@ -1056,19 +1100,19 @@
     <!-- Core Javascript Scripts -->
     <!-- Load Three.js from Cloudflare CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="js/state-schema.js?v=veil-drift-2"></script>
+    <script src="js/state-schema.js?v=audit-2d-23"></script>
     <script src="js/render-quality.js?v=90375e6"></script>
     <script src="js/color-theory.js?v=Paletton-1"></script>
     <script src="js/color-cycles.js?v=color-cycles-1"></script>
-    <script src="js/presets.js?v=chrome-5"></script>
+    <script src="js/presets.js?v=audit-2d-32"></script>
     <script src="js/synth.js?v=foundation-batch-1"></script>
     <script src="js/exporter.js?v=90375e6"></script>
     <script src="js/url-sync.js?v=faithful-scene-share-1"></script>
     <script src="js/preset-compositions.js?v=mandala-layers-1"></script>
     <script src="js/chrome-ribbons.js?v=chrome-11"></script>
-    <script src="js/simulation.js?v=veil-drift-8"></script>
+    <script src="js/simulation.js?v=audit-2d-41"></script>
     <script src="js/simulation3d.js?v=breath-sanctuary-1"></script>
     <script src="js/simulation3d-native.js?v=mandala-layers-1"></script>
-    <script src="js/app.js?v=flow-geometry-8"></script>
+    <script src="js/app.js?v=flow-geometry-9"></script>
 </body>
 </html>
