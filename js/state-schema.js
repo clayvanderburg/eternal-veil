@@ -11,10 +11,10 @@ const StateSchema = {
     // Valid particle rendering shapes
     VALID_PARTICLE_SHAPES: new Set([
         "ellipse", "drop", "ring", "aquatic", "acid", "nebula", "brush", "cluster",
-        "ocean", "aurora", "orbitals", "lotus", "spiral", "pendulumSpiral", "tightTailVortex", "painterlyVortex", "pipes", "pipesTight", "pipesCathedral", "pipesShrine", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"
+        "ocean", "aurora", "orbitals", "lotus", "spiral", "pendulumSpiral", "tightTailVortex", "painterlyVortex", "pipes", "pipesTight", "pipesCathedral", "pipesShrine", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom", "chromeRibbon"
     ]),
 
-    VALID_PARTICLE_LIGHTING: new Set(["glow", "reactive", "pearl"]),
+    VALID_PARTICLE_LIGHTING: new Set(["glow", "reactive", "pearl", "metal"]),
     VALID_BINAURAL_MODES: new Set(["delta", "theta", "alpha", "beta", "gamma"]),
 
     // Helper to sanitize numeric values within strict boundaries
@@ -105,6 +105,10 @@ const StateSchema = {
                 // Rotational Physics
                 rotationSpeed: this.sanitizeNumber(rawState.settings?.rotationSpeed, 0.0, 0.0, 1.2),
                 wobble: this.sanitizeNumber(rawState.settings?.wobble, 0.0, 0.0, 1.5),
+                veilDriftEnabled: this.sanitizeBoolean(rawState.settings?.veilDriftEnabled, true),
+                veilDriftRotation: this.sanitizeNumber(rawState.settings?.veilDriftRotation, 0.55, 0.0, 1.0),
+                veilDriftZoom: this.sanitizeNumber(rawState.settings?.veilDriftZoom, 0.75, 0.0, 0.75),
+                veilDriftWander: this.sanitizeNumber(rawState.settings?.veilDriftWander, 0.45, 0.0, 1.0),
 
                 // Psychedelic Drives
                 psychedelicMode: this.sanitizeBoolean(rawState.settings?.psychedelicMode, false),

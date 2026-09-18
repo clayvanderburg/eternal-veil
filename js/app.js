@@ -221,6 +221,9 @@ document.addEventListener("DOMContentLoaded", () => {
             mouseInfluence: "mouse-influence-slider",
             rotationSpeed: "rotation-slider",
             wobble: "wobble-slider",
+            veilDriftRotation: "veil-drift-rotation-slider",
+            veilDriftZoom: "veil-drift-zoom-slider",
+            veilDriftWander: "veil-drift-wander-slider",
             kaleidoscopeSegments: "kaleido-segments-slider"
         };
         Object.keys(sliderMap).forEach(key => {
@@ -344,6 +347,26 @@ document.addEventListener("DOMContentLoaded", () => {
                 psychedelicMode: false,
                 morphingBg: false,
                 spinningKaleido: false
+            });
+        } else if (nextShape === "chromeRibbon") {
+            Object.assign(randomSettings, {
+                speed: rnd(0.48, 0.9),
+                turbulence: 0.02,
+                density: Math.round(rnd(8, 24) * (1920 / 18)),
+                flowOrganic: 0.95,
+                dissipation: 0.35,
+                zoom: rnd(0.92, 1.12),
+                baseSize: rnd(5.2, 7.2),
+                sizeVariation: 0.3,
+                stretch: 1,
+                interaction: 0,
+                rotationSpeed: 0,
+                wobble: 0.02,
+                kaleidoscopeEnabled: false,
+                psychedelicMode: false,
+                morphingBg: false,
+                spinningKaleido: false,
+                particleLighting: "metal"
             });
         } else if (nextShape === "painterlyVortex") {
             Object.assign(randomSettings, {
@@ -511,6 +534,13 @@ document.addEventListener("DOMContentLoaded", () => {
         rotationVal: document.getElementById("rotation-val"),
         wobbleSlider: document.getElementById("wobble-slider"),
         wobbleVal: document.getElementById("wobble-val"),
+        veilDriftToggle: document.getElementById("veil-drift-toggle"),
+        veilDriftRotationSlider: document.getElementById("veil-drift-rotation-slider"),
+        veilDriftRotationVal: document.getElementById("veil-drift-rotation-val"),
+        veilDriftZoomSlider: document.getElementById("veil-drift-zoom-slider"),
+        veilDriftZoomVal: document.getElementById("veil-drift-zoom-val"),
+        veilDriftWanderSlider: document.getElementById("veil-drift-wander-slider"),
+        veilDriftWanderVal: document.getElementById("veil-drift-wander-val"),
         
         // Export & Audio
         soundEnableToggle: document.getElementById("sound-enable-toggle"),
@@ -896,6 +926,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 baseSize: "size-slider",
                 sizeVariation: "size-var-slider",
                 mouseInfluence: "mouse-influence-slider",
+                veilDriftRotation: "veil-drift-rotation-slider",
+                veilDriftZoom: "veil-drift-zoom-slider",
+                veilDriftWander: "veil-drift-wander-slider",
                 kaleidoscopeSegments: "kaleido-segments-slider"
             };
             
@@ -1724,6 +1757,10 @@ document.addEventListener("DOMContentLoaded", () => {
             { key: "mouseInfluence", selector: "#mouse-influence-slider", type: "slider" },
             { key: "rotationSpeed", selector: "#rotation-slider", type: "slider" },
             { key: "wobble", selector: "#wobble-slider", type: "slider" },
+            { key: "veilDriftEnabled", selector: "#veil-drift-toggle", type: "switch" },
+            { key: "veilDriftRotation", selector: "#veil-drift-rotation-slider", type: "slider" },
+            { key: "veilDriftZoom", selector: "#veil-drift-zoom-slider", type: "slider" },
+            { key: "veilDriftWander", selector: "#veil-drift-wander-slider", type: "slider" },
             { key: "kaleidoscopeSegments", selector: "#kaleido-segments-slider", type: "slider" },
             { key: "kaleidoscopeEnabled", selector: "#kaleidoscope-toggle", type: "switch" },
             { key: "psychedelicMode", selector: "#psychedelic-toggle", type: "switch" },
@@ -1879,11 +1916,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const serenePatterns = [
             "ellipse", "drop", "ring", "nebula", "aquatic",
-            "aurora", "lotus", "pendulumSpiral", "painterlyVortex"
+            "aurora", "lotus", "pendulumSpiral", "painterlyVortex", "chromeRibbon",
+            "tightTailVortex", "zenMandala", "gravityWell"
         ];
         const alivePatterns = [
             ...serenePatterns, "ocean", "orbitals", "brush", "cluster", "spiral", "pipes",
-            "pipesTight", "pipesCathedral", "pipesShrine"
+            "pipesTight", "pipesCathedral", "pipesShrine", "quantumLattice", "fractalBloom"
         ];
         const wildPatterns = [...alivePatterns, "acid"];
         const pool = effectivePersonality === "serene"
@@ -1929,7 +1967,10 @@ document.addEventListener("DOMContentLoaded", () => {
             interaction: [0.1, 2.0, 0.32, 0.0, 3.2],
             mouseInfluence: [0.25, 2.8, 0.45, 0.0, 4.0],
             rotationSpeed: [0.0, 0.32, 0.055, 0.0, 0.58],
-            wobble: [0.05, 0.62, 0.1, 0.0, 0.95]
+            wobble: [0.05, 0.62, 0.1, 0.0, 0.95],
+            veilDriftRotation: [0.55, 0.72, 0.06, 0.55, 0.82],
+            veilDriftZoom: [0.65, 0.75, 0.04, 0.65, 0.75],
+            veilDriftWander: [0.18, 0.7, 0.08, 0.04, 0.85]
         };
         const sereneFields = {
             speed: [0.1, 0.9, 0.12, 0.1, 0.9], turbulence: [0.02, 0.48, 0.09, 0.02, 0.48],
@@ -1938,7 +1979,8 @@ document.addEventListener("DOMContentLoaded", () => {
             baseSize: [0.7, 4.8, 0.42, 0.7, 4.8], sizeVariation: [0.15, 1.6, 0.22, 0.15, 1.6],
             stretch: [0.1, 1.8, 0.22, 0.1, 1.8], interaction: [0.08, 1.1, 0.14, 0.08, 1.1],
             mouseInfluence: [0.2, 1.5, 0.2, 0.2, 1.5], rotationSpeed: [0, 0.1, 0.018, 0, 0.1],
-            wobble: [0.02, 0.22, 0.035, 0.02, 0.22]
+            wobble: [0.02, 0.22, 0.035, 0.02, 0.22],
+            veilDriftRotation: [0.55, 0.65, 0.04, 0.55, 0.7], veilDriftZoom: [0.6, 0.7, 0.03, 0.6, 0.7], veilDriftWander: [0.12, 0.48, 0.05, 0.05, 0.6]
         };
         const wildFields = {
             speed: [0.18, 3.3, 0.6, 0.05, 5], turbulence: [0.08, 2.1, 0.4, 0, 3.8],
@@ -1947,9 +1989,17 @@ document.addEventListener("DOMContentLoaded", () => {
             baseSize: [0.6, 9, 1.4, 0.3, 13], sizeVariation: [0.1, 4.6, 0.8, 0, 6.5],
             stretch: [0.1, 4.2, 0.75, 0, 6.5], interaction: [0.05, 2.7, 0.5, 0, 4],
             mouseInfluence: [0.2, 3.6, 0.65, 0, 5], rotationSpeed: [0, 0.45, 0.08, 0, 0.8],
-            wobble: [0.04, 0.82, 0.14, 0, 1.25]
+            wobble: [0.04, 0.82, 0.14, 0, 1.25],
+            veilDriftRotation: [0.55, 0.82, 0.08, 0.55, 0.9], veilDriftZoom: [0.68, 0.75, 0.04, 0.68, 0.75], veilDriftWander: [0.2, 0.82, 0.1, 0.04, 0.95]
         };
         const fields = effectivePersonality === "serene" ? sereneFields : (effectivePersonality === "wild" ? wildFields : defaultFields);
+
+        // Ambient Motion remains present throughout Flow. Manual can still
+        // switch it off; Flow randomizes the motion strengths instead.
+        if (isFlowEnabled("veilDriftEnabled")) {
+            sim.settings.veilDriftEnabled = true;
+            elements.veilDriftToggle.checked = true;
+        }
 
         Object.entries(fields).forEach(([key, field]) => {
             if (!isFlowEnabled(key)) return;
@@ -1970,8 +2020,24 @@ document.addEventListener("DOMContentLoaded", () => {
         // This authored composition needs a stable visual anchor even when
         // Autopilot discovers it. Let other Flow shapes roam freely, but keep
         // Hypnotic Spiral from inheriting extreme speed, stretch, or density.
-        if (nextPatternShape === "pendulumSpiral" || nextPatternShape === "painterlyVortex") {
-            const authoredTargets = nextPatternShape === "painterlyVortex" ? {
+        if (["pendulumSpiral", "painterlyVortex", "chromeRibbon", "tightTailVortex", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"].includes(nextPatternShape)) {
+            const authoredTargets = nextPatternShape === "chromeRibbon" ? {
+                // Liquid Chrome has its own meaningful Flow range: 8–24 ribbons.
+                // Density maps to layers in ChromeRibbons (1920 = signature 18).
+                speed: rnd(0.48, 0.9),
+                turbulence: 0.02,
+                density: Math.round(rnd(8, 24) * (1920 / 18)),
+                flowOrganic: 0.95,
+                dissipation: 0.35,
+                zoom: rnd(0.92, 1.12),
+                baseSize: rnd(5.2, 7.2),
+                sizeVariation: 0.3,
+                stretch: 1,
+                interaction: 0,
+                rotationSpeed: 0,
+                wobble: 0.02,
+                drag: 0.93
+            } : nextPatternShape === "painterlyVortex" ? {
                 speed: 0.48,
                 turbulence: 0.035,
                 density: 1050,
@@ -1985,6 +2051,26 @@ document.addEventListener("DOMContentLoaded", () => {
                 rotationSpeed: 0,
                 wobble: 0.02,
                 drag: 0.93
+            } : nextPatternShape === "tightTailVortex" ? {
+                speed: rnd(0.48, 0.7), turbulence: rnd(0.02, 0.06), density: Math.round(rnd(1850, 2550)), flowOrganic: rnd(0.94, 1.08),
+                dissipation: rnd(0.02, 0.032), zoom: rnd(0.92, 1.08), baseSize: rnd(4.0, 5.0), sizeVariation: rnd(0.5, 0.95),
+                stretch: rnd(1.2, 1.65), interaction: 0, rotationSpeed: 0, wobble: 0.02, drag: 0.93
+            } : nextPatternShape === "zenMandala" ? {
+                speed: rnd(0.78, 1.12), turbulence: 0, density: Math.round(rnd(2600, 3400)), flowOrganic: rnd(0.9, 1.02),
+                dissipation: rnd(0.02, 0.032), zoom: rnd(0.94, 1.07), baseSize: rnd(4.1, 4.9), sizeVariation: rnd(0.35, 0.7),
+                stretch: 1, interaction: 0, rotationSpeed: 0, wobble: 0, drag: 0.93
+            } : nextPatternShape === "quantumLattice" ? {
+                speed: rnd(3.0, 4.1), turbulence: 0, density: Math.round(rnd(2000, 2700)), flowOrganic: rnd(0.82, 1.0),
+                dissipation: rnd(0.055, 0.08), zoom: rnd(0.92, 1.1), baseSize: rnd(4.8, 6.1), sizeVariation: rnd(0.42, 0.82),
+                stretch: 1, interaction: 0, rotationSpeed: 0, wobble: 0, drag: 0.93
+            } : nextPatternShape === "gravityWell" ? {
+                speed: rnd(0.38, 0.68), turbulence: 0, density: Math.round(rnd(1250, 1800)), flowOrganic: rnd(0.86, 1.02),
+                dissipation: rnd(0.014, 0.024), zoom: rnd(0.9, 1.1), baseSize: rnd(2.9, 4.0), sizeVariation: rnd(0.45, 0.95),
+                stretch: rnd(1.5, 2.2), interaction: 0, rotationSpeed: 0, wobble: 0, drag: 0.93
+            } : nextPatternShape === "fractalBloom" ? {
+                speed: rnd(0.95, 1.38), turbulence: 0, density: Math.round(rnd(3000, 4200)), flowOrganic: rnd(0.9, 1.05),
+                dissipation: rnd(0.028, 0.043), zoom: rnd(0.9, 1.1), baseSize: rnd(2.7, 3.8), sizeVariation: rnd(0.55, 1.0),
+                stretch: 1, interaction: 0, rotationSpeed: 0, wobble: 0, drag: 0.93
             } : {
                 speed: 0.42,
                 turbulence: 0.05,
@@ -2017,7 +2103,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         // Rare state changes prevent every cycle from flipping the scene's identity.
-        const isProtectedAuthoredFlow = nextPatternShape === "pendulumSpiral" || nextPatternShape === "painterlyVortex";
+        const isProtectedAuthoredFlow = ["pendulumSpiral", "painterlyVortex", "chromeRibbon", "tightTailVortex", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"].includes(nextPatternShape);
         const nextKaleidoEnabledFlow = !isProtectedAuthoredFlow && isFlowEnabled("kaleidoscopeEnabled");
         const nextKaleidoSegmentsFlow = isFlowEnabled("kaleidoscopeSegments");
 
@@ -2057,13 +2143,18 @@ document.addEventListener("DOMContentLoaded", () => {
             elements.spinningKaleidoToggle.checked = spinKaleidoOn;
         }
 
-        if (isFlowEnabled("particleLighting") && Math.random() < 0.32) {
+        if (isFlowEnabled("particleLighting")) {
+            // Chrome's authored appearance has metallic highlights. On leaving
+            // Chrome, restore one of the lighting modes supported by particles.
             const lightingStyles = ["glow", "reactive", "pearl"];
-            const currentLighting = sim.settings.particleLighting || "glow";
-            const lightingChoices = lightingStyles.filter(style => style !== currentLighting);
-            const lighting = lightingChoices[Math.floor(Math.random() * lightingChoices.length)];
-            sim.settings.particleLighting = lighting;
-            elements.particleLightingSelect.value = lighting;
+            if (nextPatternShape === "chromeRibbon") {
+                sim.settings.particleLighting = "metal";
+            } else if (sim.settings.particleLighting === "metal" || Math.random() < 0.32) {
+                const currentLighting = sim.settings.particleLighting || "glow";
+                const lightingChoices = lightingStyles.filter(style => style !== currentLighting);
+                sim.settings.particleLighting = lightingChoices[Math.floor(Math.random() * lightingChoices.length)];
+            }
+            elements.particleLightingSelect.value = sim.settings.particleLighting;
         }
 
         if (nextPatternShape) {
@@ -2852,6 +2943,13 @@ document.addEventListener("DOMContentLoaded", () => {
         // Rotation & Wobble
         bindSlider(elements.rotationSlider, elements.rotationVal, "rotationSpeed");
         bindSlider(elements.wobbleSlider, elements.wobbleVal, "wobble");
+        elements.veilDriftToggle.onchange = () => {
+            sim.settings.veilDriftEnabled = elements.veilDriftToggle.checked;
+            showToast(elements.veilDriftToggle.checked ? "Veil Drift on." : "Veil Drift paused.");
+        };
+        bindSlider(elements.veilDriftRotationSlider, elements.veilDriftRotationVal, "veilDriftRotation");
+        bindSlider(elements.veilDriftZoomSlider, elements.veilDriftZoomVal, "veilDriftZoom");
+        bindSlider(elements.veilDriftWanderSlider, elements.veilDriftWanderVal, "veilDriftWander");
 
         // Psychedelic Drives
         elements.psychedelicToggle.onchange = () => {
@@ -3292,6 +3390,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (elements.splashScreen) {
             const enterVeil = preferComfort => {
                 setComfortMode(preferComfort, { persist: true, announce: false });
+                // The render loop runs behind the welcome screen. Start the
+                // first visible ambient-motion cycle at neutral size/angle.
+                sim.veilDriftBreathTime = 0;
+                sim.veilDriftAngle = 0;
                 elements.splashScreen.classList.add("fade-out");
                 window.CosmicSynth.init();
             };
@@ -3327,6 +3429,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 "mouse-influence-slider": "mouseInfluence",
                 "rotation-slider": "rotationSpeed",
                 "wobble-slider": "wobble",
+                "veil-drift-rotation-slider": "veilDriftRotation",
+                "veil-drift-zoom-slider": "veilDriftZoom",
+                "veil-drift-wander-slider": "veilDriftWander",
+                "veil-drift-toggle": "veilDriftEnabled",
                 "kaleido-segments-slider": "kaleidoscopeSegments",
                 "kaleidoscope-toggle": "kaleidoscopeEnabled",
                 "psychedelic-toggle": "psychedelicMode",
@@ -3573,6 +3679,10 @@ document.addEventListener("DOMContentLoaded", () => {
         
         elements.rotationSlider.value = sim.settings.rotationSpeed;
         elements.wobbleSlider.value = sim.settings.wobble;
+        elements.veilDriftToggle.checked = sim.settings.veilDriftEnabled !== false;
+        elements.veilDriftRotationSlider.value = sim.settings.veilDriftRotation;
+        elements.veilDriftZoomSlider.value = sim.settings.veilDriftZoom;
+        elements.veilDriftWanderSlider.value = sim.settings.veilDriftWander;
         
         // Sync Psychedelic Drive UIs
         elements.psychedelicToggle.checked = sim.settings.psychedelicMode;
@@ -3644,6 +3754,9 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.kaleidoSegmentsVal.textContent = Math.floor(sim.settings.kaleidoscopeSegments);
         elements.rotationVal.textContent = sim.settings.rotationSpeed.toFixed(2);
         elements.wobbleVal.textContent = sim.settings.wobble.toFixed(2);
+        elements.veilDriftRotationVal.textContent = sim.settings.veilDriftRotation.toFixed(2);
+        elements.veilDriftZoomVal.textContent = sim.settings.veilDriftZoom.toFixed(2);
+        elements.veilDriftWanderVal.textContent = sim.settings.veilDriftWander.toFixed(2);
     }
 
     // Helper Toast

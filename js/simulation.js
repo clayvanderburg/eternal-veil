@@ -1417,6 +1417,11 @@ class FlowSimulation {
             kaleidoscopeSegments: 6,
             rotationSpeed: 0.0,
             wobble: 0.0,
+            // Veil Drift is a presentation layer shared by all 2D presets.
+            veilDriftEnabled: true,
+            veilDriftRotation: 0.55,
+            veilDriftZoom: 0.75,
+            veilDriftWander: 0.45,
             
             // Psychedelic Mode additions
             psychedelicMode: false,
@@ -1619,7 +1624,8 @@ class FlowSimulation {
 
         // Delta time calculator
         const now = Date.now();
-        const delta = Math.min((now - this.lastFrameTime) / 1000, 0.05); // cap at 50ms (20fps min)
+        const elapsedSeconds = Math.max(0, (now - this.lastFrameTime) / 1000);
+        const delta = Math.min(elapsedSeconds, 0.05); // cap particle-physics steps at 50ms
         this.lastFrameTime = now;
         const dt = Math.min(delta * 60, 2.0); // normalized step, 1.0 at 60 FPS
         this.globalTime += delta * 60; // normalized speed steps
@@ -1701,33 +1707,67 @@ class FlowSimulation {
                 this.ctx.translate(-breathCx, -breathCy);
             }
 
-            // Apply global scene rotation & wobble
+            // Veil Drift transforms the new drawing while the untransformed
+            // background above continues covering the complete canvas.
+            const driftOn = this.settings.veilDriftEnabled !== false;
+            if (this.veilDriftBlend === undefined) this.veilDriftBlend = driftOn ? 1 : 0;
+            this.veilDriftBlend += ((driftOn ? 1 : 0) - this.veilDriftBlend) * Math.min(1, dt * 0.018);
+            const driftRotation = this.veilDriftBlend * Math.max(0, Math.min(1, Number(this.settings.veilDriftRotation) || 0));
+            const driftZoom = this.veilDriftBlend * Math.max(0, Math.min(1, Number(this.settings.veilDriftZoom) || 0));
+            const driftWander = this.veilDriftBlend * Math.max(0, Math.min(1, Number(this.settings.veilDriftWander) || 0));
+            const driftTime = this.globalTime;
+            // Real elapsed time keeps the four-second turn and fifteen-second breath
+            // consistent even when an expensive preset lowers the frame rate.
+            const motionStep = Math.min(elapsedSeconds, 0.25);
+            this.veilDriftAngle = ((this.veilDriftAngle || 0)
+                + (Math.PI / 6 / 4) * (driftRotation / 0.55) * motionStep) % (Math.PI * 2);
+            const driftAngle = this.veilDriftAngle;
+            const driftX = (Math.sin(driftTime * 0.00078 + 1.1) + Math.sin(driftTime * 0.00031 + 2.7) * 0.45)
+                * this.width * driftWander * 0.026;
+            const driftY = (Math.sin(driftTime * 0.00065 + 2.1) + Math.sin(driftTime * 0.00027 + 0.4) * 0.5)
+                * this.height * driftWander * 0.022;
+            // Grow for 7.5 seconds, then return over 7.5. The breathing
+            // component only adds scale; it never uncovers a scene edge.
+            if (!driftOn) this.veilDriftBreathTime = 0;
+            else this.veilDriftBreathTime = (this.veilDriftBreathTime || 0) + motionStep;
+            const breathPhase = (1 - Math.cos((this.veilDriftBreathTime || 0) * Math.PI / 7.5)) / 2;
+            const breathingZoom = 1 + Math.min(0.75, driftZoom) * breathPhase;
+
+            // Apply legacy global scene rotation/wobble on top of Veil Drift.
             if (this.settings.rotationSpeed > 0.005) {
                 const wobbleAmount = this.settings.wobble * 0.03;
                 const wobbleVal = Math.sin(this.globalTime * 0.05) * wobbleAmount;
                 
                 this.globalRotation += ((this.settings.rotationSpeed * 0.004) + wobbleVal * 0.002) * dt;
-                
-                const cx = this.width / 2;
-                const cy = this.height / 2;
-
-                // Adjust scale so rotated bounds never clip screen corners (leaving black edges)
-                const absCos = Math.abs(Math.cos(this.globalRotation));
-                const absSin = Math.abs(Math.sin(this.globalRotation));
-                const neededScale = Math.max(
-                    (this.width * absCos + this.height * absSin) / this.width,
-                    (this.width * absSin + this.height * absCos) / this.height
-                ) * 1.02;
-
-                this.ctx.translate(cx, cy);
-                this.ctx.scale(neededScale, neededScale);
-                this.ctx.rotate(this.globalRotation);
-                this.ctx.translate(-cx, -cy);
             }
+            const sceneAngle = this.globalRotation + driftAngle;
+            const cx = this.width / 2;
+            const cy = this.height / 2;
+            // Cover the *rotated* source rectangle, including wander, at every
+            // angle. Both the art and its trails are drawn directly into the
+            // full-resolution canvas; this is not a scaled canvas bitmap.
+            const cosAngle = Math.cos(sceneAngle);
+            const sinAngle = Math.sin(sceneAngle);
+            const absCos = Math.abs(cosAngle);
+            const absSin = Math.abs(sinAngle);
+            const sourceOffsetX = Math.abs(cosAngle * driftX + sinAngle * driftY);
+            const sourceOffsetY = Math.abs(-sinAngle * driftX + cosAngle * driftY);
+            const coverScale = Math.max(
+                1,
+                absCos + absSin * this.height / this.width + sourceOffsetX / cx,
+                absCos + absSin * this.width / this.height + sourceOffsetY / cy
+            ) * 1.08;
+            const sceneScale = coverScale * breathingZoom;
+            this.ctx.translate(cx + driftX, cy + driftY);
+            this.ctx.scale(sceneScale, sceneScale);
+            this.ctx.rotate(sceneAngle);
+            this.ctx.translate(-cx, -cy);
 
             // Painterly Depth Spiral renders far marks first, so larger nearer
             // daubs visibly pass over the distant layer.
-            if (this.settings.particleShape === "painterlyVortex") {
+            if (this.settings.particleShape === "chromeRibbon" && window.ChromeRibbons) {
+                window.ChromeRibbons.draw(this.ctx, this.width, this.height, this.compositionTime, this.settings, this.palette);
+            } else if (this.settings.particleShape === "painterlyVortex") {
                 for (let i = 0; i < this.particles.length; i++) {
                     this.particles[i].update(this.settings, this.globalTime, this.mouse, this.customForces, this.shockwaves, this.vortices, dt);
                 }

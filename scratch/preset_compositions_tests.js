@@ -5,7 +5,7 @@ const vm = require('node:vm');
 const compositions = require('../js/preset-compositions.js');
 const root = path.resolve(__dirname, '..');
 const presets = vm.runInNewContext(fs.readFileSync(path.join(root, 'js/presets.js'), 'utf8') + '\nStylePresets;');
-assert.equal(Object.keys(presets).length, 32);
+assert.equal(Object.keys(presets).length, 33);
 assert.equal(presets.fractal.name, 'Prismatic Lace');
 assert.equal(presets.fractal.density, 2500);
 assert.equal(presets.fractal.particleShape, 'ring');

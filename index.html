@@ -531,6 +531,7 @@
                     </div>
                     <p class="micro-tip" style="margin-top: 5px;">Solid Ambient Display hides particle trails to show a solid focus color, saving CPU.</p>
                 </div>
+
             </section>
 
             <!-- TAB 2: PHYSICS CONTROLS -->
@@ -593,6 +594,30 @@
                     </div>
                     <input type="range" id="zoom-slider" class="range-slider" min="0.1" max="7.0" step="0.05" value="1.00">
                     <p class="micro-tip">Visual zoom of the noise waves. High zooms create huge sweeps; low zooms show tiny waves.</p>
+                </div>
+
+                <div class="setting-group" id="veil-drift-controls">
+                    <span class="setting-label-header">VEIL DRIFT — AMBIENT MOTION</span>
+                    <div class="setting-switch flex-end">
+                        <span class="setting-label" style="font-size: 11px; margin-right: 8px;">Ambient Motion</span>
+                        <label class="switch small">
+                            <input type="checkbox" id="veil-drift-toggle" checked>
+                            <span class="switch-slider"></span>
+                        </label>
+                    </div>
+                    <p class="micro-tip">The scene turns about 30° in four seconds. Breathing Zoom grows up to 75% over 7.5 seconds, then returns over 7.5. Edge coverage stays filled as it turns; Manual can switch it off.</p>
+                    <div class="control-item">
+                        <div class="slider-header"><span class="setting-label">Drift Rotation</span><span class="slider-value" id="veil-drift-rotation-val">0.55</span></div>
+                        <input type="range" id="veil-drift-rotation-slider" class="range-slider" min="0" max="1" step="0.05" value="0.55">
+                    </div>
+                    <div class="control-item">
+                        <div class="slider-header"><span class="setting-label">Breathing Zoom</span><span class="slider-value" id="veil-drift-zoom-val">0.75</span></div>
+                        <input type="range" id="veil-drift-zoom-slider" class="range-slider" min="0" max="0.75" step="0.05" value="0.75">
+                    </div>
+                    <div class="control-item">
+                        <div class="slider-header"><span class="setting-label">Veil Wander</span><span class="slider-value" id="veil-drift-wander-val">0.45</span></div>
+                        <input type="range" id="veil-drift-wander-slider" class="range-slider" min="0" max="1" step="0.05" value="0.45">
+                    </div>
                 </div>
             </section>
 
@@ -770,6 +795,7 @@
                             <option value="quantumLattice">Quantum Lattice (Ordered Nodes)</option>
                             <option value="gravityWell">Gravity Well (Inward Spiral)</option>
                             <option value="fractalBloom">Fractal Bloom (Recursive Branches)</option>
+                            <option value="chromeRibbon">Chrome Ribbons (Metallic Folds)</option>
                             <option value="pipes">Neon Conduits (90° Pipe Network)</option>
                             <option value="pipesTight">Circuit City (Dense Micro-Conduits)</option>
                             <option value="pipesCathedral">Conduit Cathedral (Monumental Frames)</option>
@@ -783,6 +809,7 @@
                             <option value="glow" selected>Soft Cosmic Glow</option>
                             <option value="reactive">Reactive Moving Lights</option>
                             <option value="pearl">Pearlescent Rim Light</option>
+                            <option value="metal">Metallic Chrome Highlights</option>
                         </select>
                     </div>
 
@@ -1023,18 +1050,19 @@
     <!-- Core Javascript Scripts -->
     <!-- Load Three.js from Cloudflare CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="js/state-schema.js?v=fractal-bloom-1"></script>
+    <script src="js/state-schema.js?v=veil-drift-2"></script>
     <script src="js/render-quality.js?v=90375e6"></script>
     <script src="js/color-theory.js?v=Paletton-1"></script>
     <script src="js/color-cycles.js?v=color-cycles-1"></script>
-    <script src="js/presets.js?v=mandala-layers-1"></script>
+    <script src="js/presets.js?v=chrome-5"></script>
     <script src="js/synth.js?v=foundation-batch-1"></script>
     <script src="js/exporter.js?v=90375e6"></script>
     <script src="js/url-sync.js?v=faithful-scene-share-1"></script>
     <script src="js/preset-compositions.js?v=mandala-layers-1"></script>
-    <script src="js/simulation.js?v=continuous-motion-2"></script>
+    <script src="js/chrome-ribbons.js?v=chrome-10"></script>
+    <script src="js/simulation.js?v=veil-drift-6"></script>
     <script src="js/simulation3d.js?v=breath-sanctuary-1"></script>
     <script src="js/simulation3d-native.js?v=mandala-layers-1"></script>
-    <script src="js/app.js?v=motion-diagnostics-1"></script>
+    <script src="js/app.js?v=flow-inventory-6"></script>
 </body>
 </html>

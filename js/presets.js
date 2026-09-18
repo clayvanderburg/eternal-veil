@@ -81,8 +81,8 @@ const StylePresets = {
         colors: ["#ef4444", "#f97316", "#eab308", "#f43f5e", "#fda4af", "#fb923c"]
     },
     liquid: {
-        name: "Liquid Chrome",
-        desc: "Dense, viscous flowing ribbons with strong particle-to-particle repel.",
+        name: "Jade Currents",
+        desc: "Mint, teal, and pale blue brushstrokes wander through soft curling trails.",
         speed: 0.60,
         turbulence: 0.35,
         curl: 0.98,
@@ -677,6 +677,16 @@ StylePresets.fractalNebula = {
     colors: ["#6366f1", "#a855f7", "#d946ef", "#22d3ee", "#818cf8", "#c084fc"],
     psychedelicMode: false, morphingBg: false, spinningKaleido: false,
     bilateralEnabled: false, asmrEnabled: false
+};
+
+StylePresets.liquidChrome = {
+    ...StylePresets.mandalaZen,
+    name: "Liquid Chrome",
+    desc: "Broad metallic ribbons fold through one another, carrying silver highlights and colored reflections across dark polished surfaces.",
+    particleShape: "chromeRibbon", particleLighting: "metal",
+    speed: 0.7, density: 1920, dissipation: 0.35,
+    size: 6, sizeVar: 0.3, zoom: 1, stretch: 1,
+    colors: ["#64748b", "#a5b4fc", "#0891b2", "#94a3b8", "#7c3aed", "#cbd5e1"]
 };
 
 // Curated Palettes for Autopilot changes & Randomizer

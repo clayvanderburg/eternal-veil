@@ -75,12 +75,16 @@ try {
             kaleidoscopeSegments: 8,
             rotationSpeed: 0.8,
             wobble: 1.1,
+            veilDriftEnabled: true,
+            veilDriftRotation: 0.7,
+            veilDriftZoom: 0.6,
+            veilDriftWander: 0.5,
             psychedelicMode: true,
             morphingBg: true,
             spinningKaleido: true,
             shockwavesEnabled: false,
             particleShape: "ocean",
-            particleLighting: "pearl",
+            particleLighting: "metal",
             bilateralEnabled: true,
             asmrEnabled: true
         },
@@ -96,7 +100,8 @@ try {
     assert.strictEqual(outValid.settings.density, 2500, "Density should remain 2500");
     assert.strictEqual(outValid.settings.mouseMode, "paint", "Mouse mode should remain paint");
     assert.strictEqual(outValid.settings.particleShape, "ocean", "Authored shape should remain ocean");
-    assert.strictEqual(outValid.settings.particleLighting, "pearl", "Lighting should remain pearl");
+    assert.strictEqual(outValid.settings.particleLighting, "metal", "Metal lighting should remain valid");
+    assert.strictEqual(outValid.settings.veilDriftRotation, 0.7, "Veil Drift rotation should remain valid");
     assert.strictEqual(outValid.palette[0], "#ff0000", "Palette colors should remain valid");
     assert.strictEqual(outValid.backgroundColor, "#112233", "Background color should remain valid");
     assert.strictEqual(outValid.isSolidMode, true, "isSolidMode should remain true");
