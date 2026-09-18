@@ -30,7 +30,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     
     <!-- Custom Style Sheet -->
-    <link rel="stylesheet" href="styles.css?v=hud-dice-controls-1">
+    <link rel="stylesheet" href="styles.css?v=flow-status-banner-1">
 </head>
 <body>
     <!-- Entry Splash Screen Overlay -->
@@ -79,6 +79,45 @@
     <!-- Headphones Overlay Warning Prompt -->
     <div id="headphones-prompt" class="headphones-prompt hidden">
         <span class="prompt-icon">🎧</span> Wear headphones for full binaural effect
+    </div>
+
+    <!-- Top-Center Flow Status & Reset Overlay -->
+    <div id="flow-status-banner" class="flow-status-banner hidden" role="region" aria-label="Flow Mode Status">
+        <div class="flow-status-pill" id="flow-status-pill">
+            <button class="flow-status-info" id="flow-status-info" type="button" title="View manual settings" aria-expanded="false" aria-controls="flow-manual-popover">
+                <span class="flow-status-dot"></span>
+                <span class="flow-status-count" id="flow-manual-count">0</span>
+                <span class="flow-status-label">MANUAL</span>
+                <span class="flow-status-chevron" id="flow-status-chevron">▾</span>
+            </button>
+            <button class="flow-reset-btn" id="flow-reset-all-btn" type="button" title="Return all settings to organic Flow">
+                <svg class="flow-reset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="1 4 1 10 7 10"></polyline>
+                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                </svg>
+                <span>BACK TO FLOW</span>
+            </button>
+        </div>
+        <!-- Expandable Manual Settings Drawer / Popover -->
+        <div class="flow-manual-popover hidden" id="flow-manual-popover">
+            <div class="flow-manual-popover-header">
+                <div class="flow-manual-popover-title">
+                    <span>MANUAL SETTINGS (<span id="flow-popover-count">0</span>)</span>
+                </div>
+                <button class="flow-popover-close-btn" id="flow-popover-close-btn" type="button" aria-label="Close manual settings list">✕</button>
+            </div>
+            <p class="flow-manual-popover-hint">
+                These settings are locked to manual values. Return them to Flow individually or all at once.
+            </p>
+            <div class="flow-manual-items-list" id="flow-manual-items-list">
+                <!-- Populated dynamically -->
+            </div>
+            <div class="flow-manual-popover-footer">
+                <button class="flow-popover-reset-all-btn" id="flow-popover-reset-all-btn" type="button">
+                    RESET ALL TO FLOW
+                </button>
+            </div>
+        </div>
     </div>
     
     <!-- HUD Overlay (Top-Left) -->
@@ -1113,6 +1152,6 @@
     <script src="js/simulation.js?v=audit-2d-41"></script>
     <script src="js/simulation3d.js?v=breath-sanctuary-1"></script>
     <script src="js/simulation3d-native.js?v=mandala-layers-1"></script>
-    <script src="js/app.js?v=flow-geometry-9"></script>
+    <script src="js/app.js?v=flow-status-banner-1"></script>
 </body>
 </html>

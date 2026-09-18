@@ -449,6 +449,18 @@ document.addEventListener("DOMContentLoaded", () => {
         closePanelBtn: document.getElementById("close-panel-btn"),
         sidebarHandle: document.getElementById("sidebar-handle"),
         floatingActions: document.getElementById("floating-actions"),
+
+        // Top-Center Flow Status & Reset Overlay
+        flowStatusBanner: document.getElementById("flow-status-banner"),
+        flowStatusPill: document.getElementById("flow-status-pill"),
+        flowStatusInfo: document.getElementById("flow-status-info"),
+        flowManualCount: document.getElementById("flow-manual-count"),
+        flowResetAllBtn: document.getElementById("flow-reset-all-btn"),
+        flowManualPopover: document.getElementById("flow-manual-popover"),
+        flowPopoverCount: document.getElementById("flow-popover-count"),
+        flowPopoverCloseBtn: document.getElementById("flow-popover-close-btn"),
+        flowManualItemsList: document.getElementById("flow-manual-items-list"),
+        flowPopoverResetAllBtn: document.getElementById("flow-popover-reset-all-btn"),
         
         // Modal & Guide
         shortcutLegendBtn: document.getElementById("shortcut-legend-btn"),
@@ -714,6 +726,7 @@ document.addEventListener("DOMContentLoaded", () => {
         setupInteractionEvents();
         updateSliderTextDisplays();
         renderSwatches();
+        updateFlowStatusBanner();
 
         // Shared scenes retain their viewing surface too. This waits until the
         // page controls exist, then restores desktop 3D without attempting to
@@ -1490,6 +1503,39 @@ document.addEventListener("DOMContentLoaded", () => {
     let basePalette = null;
     const optionModes = {};
 
+    const FLOWABLE_OPTIONS = [
+        { key: "speed", label: "Flow Speed", selector: "#speed-slider", type: "slider" },
+        { key: "turbulence", label: "Turbulence", selector: "#turbulence-slider", type: "slider" },
+        { key: "density", label: "Particle Density", selector: "#density-slider", type: "slider" },
+        { key: "flowOrganic", label: "Fluidity / Curl", selector: "#curl-slider", type: "slider" },
+        { key: "dissipation", label: "Dissipation", selector: "#dissipation-slider", type: "slider" },
+        { key: "zoom", label: "Field Zoom", selector: "#zoom-slider", type: "slider" },
+        { key: "baseSize", label: "Particle Size", selector: "#size-slider", type: "slider" },
+        { key: "sizeVariation", label: "Size Variation", selector: "#size-var-slider", type: "slider" },
+        { key: "stretch", label: "Velocity Stretch", selector: "#stretch-slider", type: "slider" },
+        { key: "interaction", label: "Interaction", selector: "#interaction-slider", type: "slider" },
+        { key: "mouseInfluence", label: "Mouse Influence", selector: "#mouse-influence-slider", type: "slider" },
+        { key: "rotationSpeed", label: "Rotation Speed", selector: "#rotation-slider", type: "slider" },
+        { key: "wobble", label: "Oscillation Wobble", selector: "#wobble-slider", type: "slider" },
+        { key: "veilDriftEnabled", label: "Veil Drift", selector: "#veil-drift-toggle", type: "switch" },
+        { key: "veilDriftRotation", label: "Veil Drift Rotation", selector: "#veil-drift-rotation-slider", type: "slider" },
+        { key: "veilDriftZoom", label: "Veil Drift Zoom", selector: "#veil-drift-zoom-slider", type: "slider" },
+        { key: "veilDriftWander", label: "Veil Drift Wander", selector: "#veil-drift-wander-slider", type: "slider" },
+        { key: "miniSpiralCount", label: "Mini Spirals", selector: "#mini-spiral-count-slider", type: "slider" },
+        { key: "spiralExtent", label: "Spiral Extent", selector: "#spiral-extent-slider", type: "slider" },
+        { key: "wanderMix", label: "Wander Mix", selector: "#wander-mix-slider", type: "slider" },
+        { key: "eclipseCount", label: "Eclipse Count", selector: "#eclipse-count-slider", type: "slider" },
+        { key: "eclipseSize", label: "Eclipse Size", selector: "#eclipse-size-slider", type: "slider" },
+        { key: "kaleidoscopeSegments", label: "Kaleido Segments", selector: "#kaleido-segments-slider", type: "slider" },
+        { key: "kaleidoscopeEnabled", label: "Kaleidoscope", selector: "#kaleidoscope-toggle", type: "switch" },
+        { key: "psychedelicMode", label: "Color Inversion", selector: "#psychedelic-toggle", type: "switch" },
+        { key: "morphingBg", label: "Morphing Background", selector: "#morphing-bg-toggle", type: "switch" },
+        { key: "spinningKaleido", label: "Spinning Kaleido", selector: "#spinning-kaleido-toggle", type: "switch" },
+        { key: "particleShape", label: "Particle Shape", selector: "#particle-shape-select", type: "select" },
+        { key: "particleLighting", label: "Particle Lighting", selector: "#particle-lighting-select", type: "select" },
+        { key: "colors", label: "Color Palette", selector: "#swatches-palette", type: "palette" }
+    ];
+
     function updateActiveSetting(key, value) {
         sim.settings[key] = value;
         // If music reactivity is active and caching, sync manual overrides
@@ -1704,10 +1750,107 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.hudMode.textContent = is3DMode ? "MEDITATE 3D" : "MEDITATE";
     }
 
+    function getManualOptions() {
+        return FLOWABLE_OPTIONS.filter(opt => optionModes[opt.key] === "manual");
+    }
+
+    function updateFlowStatusBanner() {
+        if (!elements.flowStatusBanner) return;
+        const manualItems = getManualOptions();
+        const count = manualItems.length;
+
+        if (count > 0) {
+            elements.flowStatusBanner.classList.remove("hidden");
+            if (elements.flowManualCount) elements.flowManualCount.textContent = count;
+            if (elements.flowPopoverCount) elements.flowPopoverCount.textContent = count;
+            renderFlowManualList(manualItems);
+        } else {
+            elements.flowStatusBanner.classList.add("hidden");
+            if (elements.flowManualPopover) {
+                elements.flowManualPopover.classList.add("hidden");
+            }
+            if (elements.flowStatusInfo) {
+                elements.flowStatusInfo.setAttribute("aria-expanded", "false");
+            }
+        }
+    }
+
+    function renderFlowManualList(items) {
+        if (!elements.flowManualItemsList) return;
+        elements.flowManualItemsList.innerHTML = "";
+
+        items.forEach(item => {
+            const row = document.createElement("div");
+            row.className = "flow-manual-item";
+            row.setAttribute("data-key", item.key);
+
+            row.innerHTML = `
+                <span class="flow-manual-item-label">${item.label}</span>
+                <div class="flow-manual-item-actions">
+                    <div class="flow-toggle-group mini" data-key="${item.key}">
+                        <span class="flow-toggle-option active" data-val="manual">Man</span>
+                        <span class="flow-toggle-option" data-val="flow">Flow</span>
+                    </div>
+                    <button class="flow-item-remove-btn" data-key="${item.key}" title="Return ${item.label} to Flow" aria-label="Return ${item.label} to Flow">✕</button>
+                </div>
+            `;
+
+            // Flow pill click inside popover
+            const flowOption = row.querySelector('.flow-toggle-option[data-val="flow"]');
+            if (flowOption) {
+                flowOption.onclick = (e) => {
+                    e.stopPropagation();
+                    setOptionToFlow(item.key);
+                    showToast(`${item.label} returned to Flow.`);
+                };
+            }
+
+            // X button click
+            const removeBtn = row.querySelector(".flow-item-remove-btn");
+            if (removeBtn) {
+                removeBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    setOptionToFlow(item.key);
+                    showToast(`${item.label} returned to Flow.`);
+                };
+            }
+
+            elements.flowManualItemsList.appendChild(row);
+        });
+    }
+
+    function resetAllToFlow() {
+        FLOWABLE_OPTIONS.forEach(opt => {
+            setOptionToFlow(opt.key);
+        });
+        if (activePresetLocks && activePresetLocks.length > 0) {
+            releaseActivePreset({ announce: false });
+        }
+        if (!isAutopilot) {
+            toggleAutopilot(true);
+        }
+        updateFlowStatusBanner();
+        showToast("All settings returned to Flow. Simulation flowing.");
+    }
+
+    function toggleFlowManualPopover(forceState) {
+        if (!elements.flowManualPopover) return;
+        const isHidden = elements.flowManualPopover.classList.contains("hidden");
+        const shouldShow = forceState !== undefined ? forceState : isHidden;
+
+        if (shouldShow) {
+            elements.flowManualPopover.classList.remove("hidden");
+            if (elements.flowStatusInfo) elements.flowStatusInfo.setAttribute("aria-expanded", "true");
+        } else {
+            elements.flowManualPopover.classList.add("hidden");
+            if (elements.flowStatusInfo) elements.flowStatusInfo.setAttribute("aria-expanded", "false");
+        }
+    }
+
     function setOptionToManual(key) {
         optionModes[key] = "manual";
-        const pillGroup = document.querySelector(`.flow-toggle-group[data-key="${key}"]`);
-        if (pillGroup) {
+        const pillGroups = document.querySelectorAll(`.flow-toggle-group[data-key="${key}"]`);
+        pillGroups.forEach(pillGroup => {
             const options = pillGroup.querySelectorAll(".flow-toggle-option");
             options.forEach(span => {
                 if (span.getAttribute("data-val") === "manual") {
@@ -1716,16 +1859,19 @@ document.addEventListener("DOMContentLoaded", () => {
                     span.classList.remove("active");
                 }
             });
-        }
+        });
+        updateFlowStatusBanner();
     }
 
     function setOptionToFlow(key) {
         optionModes[key] = "flow";
-        const pillGroup = document.querySelector(`.flow-toggle-group[data-key="${key}"]`);
-        if (!pillGroup) return;
-        pillGroup.querySelectorAll(".flow-toggle-option").forEach(option => {
-            option.classList.toggle("active", option.getAttribute("data-val") === "flow");
+        const pillGroups = document.querySelectorAll(`.flow-toggle-group[data-key="${key}"]`);
+        pillGroups.forEach(pillGroup => {
+            pillGroup.querySelectorAll(".flow-toggle-option").forEach(option => {
+                option.classList.toggle("active", option.getAttribute("data-val") === "flow");
+            });
         });
+        updateFlowStatusBanner();
     }
 
     function setFlowPersonality(personality, { announce = true, restart = true } = {}) {
@@ -1781,40 +1927,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function setupFlowToggles() {
-        const flowableOptions = [
-            { key: "speed", selector: "#speed-slider", type: "slider" },
-            { key: "turbulence", selector: "#turbulence-slider", type: "slider" },
-            { key: "density", selector: "#density-slider", type: "slider" },
-            { key: "flowOrganic", selector: "#curl-slider", type: "slider" },
-            { key: "dissipation", selector: "#dissipation-slider", type: "slider" },
-            { key: "zoom", selector: "#zoom-slider", type: "slider" },
-            { key: "baseSize", selector: "#size-slider", type: "slider" },
-            { key: "sizeVariation", selector: "#size-var-slider", type: "slider" },
-            { key: "stretch", selector: "#stretch-slider", type: "slider" },
-            { key: "interaction", selector: "#interaction-slider", type: "slider" },
-            { key: "mouseInfluence", selector: "#mouse-influence-slider", type: "slider" },
-            { key: "rotationSpeed", selector: "#rotation-slider", type: "slider" },
-            { key: "wobble", selector: "#wobble-slider", type: "slider" },
-            { key: "veilDriftEnabled", selector: "#veil-drift-toggle", type: "switch" },
-            { key: "veilDriftRotation", selector: "#veil-drift-rotation-slider", type: "slider" },
-            { key: "veilDriftZoom", selector: "#veil-drift-zoom-slider", type: "slider" },
-            { key: "veilDriftWander", selector: "#veil-drift-wander-slider", type: "slider" },
-            { key: "miniSpiralCount", selector: "#mini-spiral-count-slider", type: "slider" },
-            { key: "spiralExtent", selector: "#spiral-extent-slider", type: "slider" },
-            { key: "wanderMix", selector: "#wander-mix-slider", type: "slider" },
-            { key: "eclipseCount", selector: "#eclipse-count-slider", type: "slider" },
-            { key: "eclipseSize", selector: "#eclipse-size-slider", type: "slider" },
-            { key: "kaleidoscopeSegments", selector: "#kaleido-segments-slider", type: "slider" },
-            { key: "kaleidoscopeEnabled", selector: "#kaleidoscope-toggle", type: "switch" },
-            { key: "psychedelicMode", selector: "#psychedelic-toggle", type: "switch" },
-            { key: "morphingBg", selector: "#morphing-bg-toggle", type: "switch" },
-            { key: "spinningKaleido", selector: "#spinning-kaleido-toggle", type: "switch" },
-            { key: "particleShape", selector: "#particle-shape-select", type: "select" },
-            { key: "particleLighting", selector: "#particle-lighting-select", type: "select" },
-            { key: "colors", selector: "#swatches-palette", type: "palette" }
-        ];
-
-        flowableOptions.forEach(opt => {
+        FLOWABLE_OPTIONS.forEach(opt => {
             optionModes[opt.key] = "flow"; // default state
 
             const target = document.querySelector(opt.selector);
@@ -1834,10 +1947,12 @@ document.addEventListener("DOMContentLoaded", () => {
             options.forEach(span => {
                 span.onclick = (e) => {
                     e.stopPropagation();
-                    options.forEach(s => s.classList.remove("active"));
-                    span.classList.add("active");
                     const value = span.getAttribute("data-val");
-                    optionModes[opt.key] = value;
+                    if (value === "manual") {
+                        setOptionToManual(opt.key);
+                    } else {
+                        setOptionToFlow(opt.key);
+                    }
                 };
             });
 
@@ -1882,6 +1997,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             }
         });
+
+        updateFlowStatusBanner();
     }
 
     // --- AUTOPILOT MORPH ROTATOR ---
@@ -2655,6 +2772,46 @@ document.addEventListener("DOMContentLoaded", () => {
             };
         }
 
+        // Top-Center Flow Status Banner & Manual Settings Inspector
+        if (elements.flowStatusInfo) {
+            elements.flowStatusInfo.onclick = (e) => {
+                e.stopPropagation();
+                toggleFlowManualPopover();
+            };
+        }
+        if (elements.flowResetAllBtn) {
+            elements.flowResetAllBtn.onclick = (e) => {
+                e.stopPropagation();
+                resetAllToFlow();
+            };
+        }
+        if (elements.flowPopoverCloseBtn) {
+            elements.flowPopoverCloseBtn.onclick = (e) => {
+                e.stopPropagation();
+                toggleFlowManualPopover(false);
+            };
+        }
+        if (elements.flowPopoverResetAllBtn) {
+            elements.flowPopoverResetAllBtn.onclick = (e) => {
+                e.stopPropagation();
+                resetAllToFlow();
+            };
+        }
+
+        // Close manual popover when clicking outside or pressing Escape
+        window.addEventListener("click", (e) => {
+            if (elements.flowManualPopover && !elements.flowManualPopover.classList.contains("hidden")) {
+                if (elements.flowStatusBanner && !elements.flowStatusBanner.contains(e.target)) {
+                    toggleFlowManualPopover(false);
+                }
+            }
+        });
+        window.addEventListener("keydown", (e) => {
+            if (e.key === "Escape" && elements.flowManualPopover && !elements.flowManualPopover.classList.contains("hidden")) {
+                toggleFlowManualPopover(false);
+            }
+        });
+
         // Toggle Sidebar panel
         elements.menuToggleBtn.onclick = () => togglePanel();
         elements.closePanelBtn.onclick = () => togglePanel(false);
@@ -2936,23 +3093,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 startAutopilotIntervals();
             }
         };
-        elements.resetAllFlowBtn.onclick = () => {
-            releaseActivePreset({ announce: false });
-            const flowToggles = document.querySelectorAll(".flow-toggle-group");
-            flowToggles.forEach(group => {
-                const key = group.getAttribute("data-key");
-                optionModes[key] = "flow";
-                const options = group.querySelectorAll(".flow-toggle-option");
-                options.forEach(span => {
-                    if (span.getAttribute("data-val") === "flow") {
-                        span.classList.add("active");
-                    } else {
-                        span.classList.remove("active");
-                    }
-                });
-            });
-            showToast("All settings reset to Flow co-pilot 🌊");
-        };
+        if (elements.resetAllFlowBtn) {
+            elements.resetAllFlowBtn.onclick = () => {
+                resetAllToFlow();
+            };
+        }
 
         // Color additions
         elements.randomizePaletteBtn.onclick = () => {

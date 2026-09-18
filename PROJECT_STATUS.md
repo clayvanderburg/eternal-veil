@@ -39,6 +39,7 @@ Browser-based immersive visual / meditation / music-reactive experience (2D + 3D
   - Chaotic Spiral (was Hypnotic Spiral): full-screen main coil plus 4–8 extra particle coils that drift around it
 - Autopilot pauses on preset select. Speed slider `[0.00, 4.00]` step `0.01`.
 - Signature Effects sliders (Flow/Man): Mini Spirals, Spiral Extent, Wander Mix, Eclipse Count, Eclipse Size.
+- Top-center Flow Status Banner & Inspector: Appears whenever parameters are in Manual mode. Displays manual count, expandable inspector popover with individual `✕` and `Man | Flow` toggles per setting, and a primary "BACK TO FLOW" button that resets all settings, clears preset lock, and engages Autopilot.
 - `node_modules/` and `chrome-profile/` are local — don’t treat as source of truth for handoffs.
 
 ## Next
