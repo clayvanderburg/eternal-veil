@@ -363,8 +363,8 @@ class Particle {
             this.y = this.h * (0.18 + band * 0.13) + (this.effectRole - 0.5) * this.h * 0.08;
         } else if (shape === "quantumDrift") {
             const minDim = Math.min(this.w, this.h);
-            const node = Math.floor(this.effectLane * 7);
-            const nodeAngle = node * (Math.PI * 2 / 7);
+            const node = Math.floor(this.effectLane * 14);
+            const nodeAngle = node * (Math.PI * 2 / 14);
             const nodeRadius = minDim * (0.10 + (this.effectRole % 0.3) * 1.1);
             this.quantumNodeX = this.w * 0.5 + Math.cos(nodeAngle) * nodeRadius;
             this.quantumNodeY = this.h * 0.5 + Math.sin(nodeAngle) * nodeRadius * 0.75;
@@ -372,9 +372,9 @@ class Particle {
             this.y = this.quantumNodeY + (Math.random() - 0.5) * minDim * 0.08;
         } else if (shape === "prismDrift") {
             const minDim = Math.min(this.w, this.h);
-            this.prismFacet = Math.floor(this.effectLane * 6);
-            const r = minDim * (0.05 + this.effectRole * 0.42);
-            const angle = this.prismFacet * (Math.PI / 3) + this.effectPhase * 0.2;
+            this.prismFacet = Math.floor(this.effectLane * 8);
+            const r = minDim * (0.05 + (this.effectRole % 0.35) * 0.85);
+            const angle = this.prismFacet * (Math.PI * 2 / 8) + this.effectPhase * 0.2;
             this.x = this.w * 0.5 + Math.cos(angle) * r;
             this.y = this.h * 0.5 + Math.sin(angle) * r;
         }
@@ -550,14 +550,14 @@ class Particle {
             targetVx = (0.55 + this.effectLane * 0.35) * speed * scaleRef;
             targetVy = (waveY - this.y) * 0.05 + Math.cos(this.x * 0.004 + globalTime * 0.01) * 0.15 * speed * scaleRef;
         } else if (settings.particleShape === "quantumDrift") {
-            // Quantum wave packets with probability cloud oscillation and stochastic tunneling
+            // Quantum wave packets with probability cloud oscillation and stochastic tunneling (14 spokes)
             const minDim = Math.min(this.w, this.h);
             this.tunnelTimer = (this.tunnelTimer || 0) + dt;
             if (this.tunnelTimer > 180 + this.effectLane * 200) {
                 this.tunnelTimer = 0;
-                // Quantum jump: tunneling to a new probability node
-                const newNode = Math.floor(Math.random() * 7);
-                const nodeAngle = newNode * (Math.PI * 2 / 7);
+                // Quantum jump: tunneling to a new probability node (14 spokes)
+                const newNode = Math.floor(Math.random() * 14);
+                const nodeAngle = newNode * (Math.PI * 2 / 14);
                 const nodeRadius = minDim * (0.10 + Math.random() * 0.3);
                 this.quantumNodeX = this.w * 0.5 + Math.cos(nodeAngle) * nodeRadius;
                 this.quantumNodeY = this.h * 0.5 + Math.sin(nodeAngle) * nodeRadius * 0.75;
@@ -573,18 +573,18 @@ class Particle {
             targetVx = (targetX - this.x) * 0.12;
             targetVy = (targetY - this.y) * 0.12;
         } else if (settings.particleShape === "prismDrift") {
-            // Individual shapes rotate on their own randomly
+            // Individual shapes rotate on their own randomly (8 spokes, centered)
             this.prismRot = (this.prismRot || 0) + (this.prismRotSpeed || 0.02) * dt * (speed || 1);
             const minDim = Math.min(this.w, this.h);
             const cx = this.w * 0.5;
             const cy = this.h * 0.5;
-            const facetAngle = (this.prismFacet ?? 0) * (Math.PI / 3) + globalTime * (0.0010 + speed * 0.0006);
-            const facetRadius = minDim * (0.08 + (this.effectRole % 0.35) * 1.1);
-            const wobble = Math.sin(globalTime * 0.004 + this.effectPhase) * minDim * 0.02;
+            const facetAngle = (this.prismFacet ?? 0) * (Math.PI * 2 / 8) + globalTime * (0.0010 + speed * 0.0006);
+            const facetRadius = minDim * (0.05 + (this.effectRole % 0.35) * 0.85);
+            const wobble = Math.sin(globalTime * 0.004 + this.effectPhase) * minDim * 0.015;
             const tx = cx + Math.cos(facetAngle) * (facetRadius + wobble);
             const ty = cy + Math.sin(facetAngle) * (facetRadius + wobble);
-            targetVx = (tx - this.x) * 0.07;
-            targetVy = (ty - this.y) * 0.07;
+            targetVx = (tx - this.x) * 0.08;
+            targetVy = (ty - this.y) * 0.08;
         } else if (settings.particleShape === "tightTailVortex") {
             // Clean rebuild: a bounded velocity field, not a procedural line.
             // The tangent makes a tight orbit; the gentle phase-driven radial

@@ -141,7 +141,7 @@ const StylePresets = {
         curl: 0.92,
         density: 1200,
         dissipation: 0.020,
-        zoom: 1.05,
+        zoom: 0.95,
         size: 3.8,
         sizeVar: 1.5,
         stretch: 0.6,
