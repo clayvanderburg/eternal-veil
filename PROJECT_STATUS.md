@@ -18,19 +18,14 @@ Browser-based immersive visual / meditation / music-reactive experience (2D + 3D
 
 ## Agent notes
 
-- Presets audited and tuned with zero freestyling:
-  - `breathSanctuary` (lotus): 2 opposing hero orbs rocking in unison along perimeter, petals 50% slower.
-  - `ethereal`: natural flow, no custom shape, speed 0.20, size 2.5, 6-segment kaleidoscope.
-  - `cosmic` (Nebula Spark): clouds cycle through small/dense/dark -> bright explosion spark -> disperse & fade, alongside fine curling sparks.
-  - `supernova` (Solar Flare): constellation of 6 eclipsed suns (black discs with fiery coronas) + flares bursting off them.
-  - `liquid` (Jade Currents): transverse wave ribbons with calligraphic brushstrokes.
-  - `quantum` (Quantum Drift): probability cloud nodes with entanglement lines.
-  - `mandala` (Prism Drift): crystalline diamonds & triangles with independent random rotation.
-  - `vortex` (Violet Undertow): primary deep undertow vortex + secondary vibrant electric wavy spiral.
-  - `strings` (Cosmic Strings): natural curl flow with extreme stretch (6.5), low dissipation, high density, and 8-segment kaleidoscope.
-  - `hypno` (Hypnotic Spiral): dual pendulums swinging along tightly bounded 8-turn spiral.
+- Kept presets with new custom shapes:
+  - `liquid` (Jade Currents): transverse wave ribbons with calligraphic brushstrokes (`jadeCurrents`).
+  - `quantum` (Quantum Drift): probability cloud nodes with entanglement lines (`quantumDrift`).
+  - `mandala` (Prism Drift): crystalline diamonds & triangles with independent random rotation (`prismDrift`).
+- Rolled back all other audited presets (`breathSanctuary`, `ethereal`, `cosmic`, `supernova`, `vortex`, `strings`, `hypno`) to baseline `0d324d2` parameters and simulation code.
 - Autopilot paused automatically when selecting a preset during audit.
 - Global speed slider range updated to [0.00, 4.00] with step 0.01 for micro-slow adjustments.
+- All core test suites in `scratch/` passing 100%.
 - `node_modules/` and `chrome-profile/` are local — don’t treat as source of truth for handoffs.
 
 ## Next
