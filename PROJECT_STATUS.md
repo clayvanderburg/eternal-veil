@@ -10,6 +10,9 @@ Browser-based immersive visual / meditation / music-reactive experience (2D + 3D
 
 ## Working now
 
+- 2026-09-22 share-link release: compact, self-contained scene links (`#scene=`)
+  replace long new `#seed=` links; old shared links still load. Round-trip and
+  malformed-link tests added. Clay approved publication to the live site.
 - 2026-09-22 Flow UI release: pattern/color intervals mirrored into the hover HUD,
   defaults shortened to 15s/18s, and timer dragging no longer triggers immediate shifts.
   Signature Effects now show only for Chaotic Spiral or Solar Flare in 2D; other
