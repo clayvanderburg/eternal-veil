@@ -30,7 +30,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     
     <!-- Custom Style Sheet -->
-    <link rel="stylesheet" href="styles.css?v=flow-status-banner-1">
+    <link rel="stylesheet" href="styles.css?v=flow-timers-1">
 </head>
 <body>
     <!-- Entry Splash Screen Overlay -->
@@ -200,6 +200,17 @@
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather"><rect x="3" y="3" width="18" height="18" rx="4"></rect><circle cx="8" cy="8" r="1"></circle><circle cx="16" cy="8" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="8" cy="16" r="1"></circle><circle cx="16" cy="16" r="1"></circle></svg>
                     </button>
                 </div>
+            </div>
+            <div class="hud-flow-timers" aria-label="Flow timing controls">
+                <div class="hud-flow-timers-title">FLOW TIMING <span>Applies to unlocked Flow</span></div>
+                <label class="hud-timer-row" for="hud-pattern-slider">
+                    <span>Pattern shift <output id="hud-pattern-val" for="hud-pattern-slider">15s</output></span>
+                    <input type="range" id="hud-pattern-slider" min="5" max="90" value="15" aria-label="Pattern shift interval in seconds">
+                </label>
+                <label class="hud-timer-row" for="hud-color-slider">
+                    <span>Color shift <output id="hud-color-val" for="hud-color-slider">18s</output></span>
+                    <input type="range" id="hud-color-slider" min="5" max="90" value="18" aria-label="Color shift interval in seconds">
+                </label>
             </div>
             <div class="hud-scene-row">
                 <button class="hud-scene-save" id="hud-save-scene" title="Save this exact scene to Custom Scenes">SAVE THIS SCENE</button>
@@ -411,17 +422,17 @@
                     <div class="control-item">
                         <div class="slider-header">
                             <span class="setting-label">Pattern Shifts Interval</span>
-                            <span class="slider-value" id="auto-pattern-val">20s</span>
+                            <span class="slider-value" id="auto-pattern-val">15s</span>
                         </div>
-                        <input type="range" id="auto-pattern-slider" class="range-slider" min="5" max="90" value="20">
+                        <input type="range" id="auto-pattern-slider" class="range-slider" min="5" max="90" value="15">
                         <p class="micro-tip">Chooses a visibly different pattern every interval when Particle Geometry is set to Flow. Presets and Manual geometry stay locked.</p>
                     </div>
                     <div class="control-item">
                         <div class="slider-header">
                             <span class="setting-label">Color Shifts Interval</span>
-                            <span class="slider-value" id="auto-color-val">25s</span>
+                            <span class="slider-value" id="auto-color-val">18s</span>
                         </div>
-                        <input type="range" id="auto-color-slider" class="range-slider" min="5" max="90" value="25">
+                        <input type="range" id="auto-color-slider" class="range-slider" min="5" max="90" value="18">
                     </div>
                     <div class="control-row" style="margin-top: 10px; justify-content: flex-end;">
                         <button class="btn-text" id="reset-all-flow-btn" style="font-size: 10px;">Reset All to Flow</button>
@@ -659,9 +670,9 @@
                     </div>
                 </div>
 
-                <div class="setting-group">
+                <div class="setting-group" id="signature-effects-group" hidden>
                     <span class="setting-label-header">SIGNATURE EFFECTS</span>
-                    <div class="control-item">
+                    <div class="control-item" data-signature-shape="pendulumSpiral">
                         <div class="slider-header">
                             <span class="setting-label">Mini Spirals</span>
                             <span class="slider-value" id="mini-spiral-count-val">6</span>
@@ -669,7 +680,7 @@
                         <input type="range" id="mini-spiral-count-slider" class="range-slider" min="4" max="8" step="1" value="6">
                         <p class="micro-tip">How many small bouncing spirals fly through Chaotic Spiral. Flow rolls 4–8.</p>
                     </div>
-                    <div class="control-item">
+                    <div class="control-item" data-signature-shape="pendulumSpiral">
                         <div class="slider-header">
                             <span class="setting-label">Spiral Extent</span>
                             <span class="slider-value" id="spiral-extent-val">0.88</span>
@@ -677,7 +688,7 @@
                         <input type="range" id="spiral-extent-slider" class="range-slider" min="0.45" max="0.98" step="0.01" value="0.88">
                         <p class="micro-tip">How far the main coil reaches toward the screen edges.</p>
                     </div>
-                    <div class="control-item">
+                    <div class="control-item" data-signature-shape="pendulumSpiral">
                         <div class="slider-header">
                             <span class="setting-label">Wander Mix</span>
                             <span class="slider-value" id="wander-mix-val">0.18</span>
@@ -685,7 +696,7 @@
                         <input type="range" id="wander-mix-slider" class="range-slider" min="0.05" max="0.40" step="0.01" value="0.18">
                         <p class="micro-tip">Share of thin zigzag particles around the coil.</p>
                     </div>
-                    <div class="control-item">
+                    <div class="control-item" data-signature-shape="solarFlare">
                         <div class="slider-header">
                             <span class="setting-label">Eclipse Count</span>
                             <span class="slider-value" id="eclipse-count-val">66</span>
@@ -693,7 +704,7 @@
                         <input type="range" id="eclipse-count-slider" class="range-slider" min="12" max="90" step="1" value="66">
                         <p class="micro-tip">How many eclipsed suns Solar Flare draws. Flow rolls this.</p>
                     </div>
-                    <div class="control-item">
+                    <div class="control-item" data-signature-shape="solarFlare">
                         <div class="slider-header">
                             <span class="setting-label">Eclipse Size</span>
                             <span class="slider-value" id="eclipse-size-val">1.00</span>
@@ -886,6 +897,7 @@
                             <option value="nebulaSpark">Nebula Spark (Expanding Star Clouds)</option>
                             <option value="solarFlare">Solar Flare (Eclipsed Suns & Coronas)</option>
                             <option value="jadeCurrents">Jade Currents (Transverse Waves & Daubs)</option>
+                            <option value="celticCurrent">Celtic Current (Layered Living Weaves)</option>
                             <option value="quantumDrift">Quantum Drift (Entangled Wave Packets)</option>
                             <option value="violetUndertow">Violet Undertow (Dual Harmonic Vortex)</option>
                             <option value="prismDrift">Prism Drift (Faceted Crystalline Prisms)</option>
@@ -1149,9 +1161,10 @@
     <script src="js/url-sync.js?v=faithful-scene-share-1"></script>
     <script src="js/preset-compositions.js?v=mandala-layers-1"></script>
     <script src="js/chrome-ribbons.js?v=chrome-11"></script>
-    <script src="js/simulation.js?v=audit-2d-41"></script>
+    <script src="js/celtic-currents.js?v=celtic-2"></script>
+    <script src="js/simulation.js?v=celtic-1"></script>
     <script src="js/simulation3d.js?v=breath-sanctuary-1"></script>
     <script src="js/simulation3d-native.js?v=mandala-layers-1"></script>
-    <script src="js/app.js?v=flow-status-banner-1"></script>
+    <script src="js/app.js?v=flow-timers-1"></script>
 </body>
 </html>

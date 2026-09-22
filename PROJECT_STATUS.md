@@ -1,6 +1,6 @@
 # Eternal Veil / Void — project status
 
-**Updated:** 2026-09-18  
+**Updated:** 2026-09-22
 **Path:** `C:\Users\MadKing\.gemini\antigravity\scratch\eternal-veil`  
 **Live:** https://eternalvoid.io  
 
@@ -10,6 +10,14 @@ Browser-based immersive visual / meditation / music-reactive experience (2D + 3D
 
 ## Working now
 
+- 2026-09-22 Flow UI release: pattern/color intervals mirrored into the hover HUD,
+  defaults shortened to 15s/18s, and timer dragging no longer triggers immediate shifts.
+  Signature Effects now show only for Chaotic Spiral or Solar Flare in 2D; other
+  geometry-specific controls still need a later applicability audit.
+- 2026-09-22 Celtic Current release: two independent full-bleed woven
+  Jade-style depth planes, authored Flow/Random Config ranges, save/share schema support,
+  music-response documentation, desktop/phone visual checks, and focused regression tests.
+  See `PRESET_IMPLEMENTATION_REVIEW.md` for integration and mode limitations.
 - 2026-09-22 agent efficiency harness: `AGENT_ROUTING.md`, machine-readable context
   lanes, reusable evidence packets, and deterministic lane/release gates. No Jev API
   dependency; agents load only the relevant 2D/music/mobile/deploy/3D context.

@@ -101,3 +101,66 @@ and asserts the new geometries occur. Statistical frequency checks are not FPS t
 
 Preview: http://127.0.0.1:8767/ (refresh the existing local server).
 Follow PRESET_INTEGRATION_CHECKLIST.md for all subsequent family changes.
+
+## Celtic Current integration record — 2026-09-22
+
+**Identity and intent.** Stable preset/geometry ID: `celticCurrent`; display name:
+**Celtic Current**. Two luminous Celtic weave fields use the same soft, tapered,
+paint-daub visual language as Jade Currents. A smaller rear lattice and a larger
+foreground lattice counter-rotate, breathe by roughly 30 percent, and wander
+independently. Horizontal and perpendicular families create the overlaid knot grammar.
+The render field is 1.9 viewport diagonals wide so rotation and breathing remain
+full-bleed without exposing a rectangular edge.
+
+**Meaningful controls.** Speed controls mark travel; Density controls band and mark
+density; Particle Size controls the shared Jade-style mark scale; Rotation controls
+counter-spin strength; Wobble controls each plane's independent orbital drift;
+Velocity Stretch controls a slow flex of the weave diamonds (zero rests them); Trails
+controls canvas persistence; Zoom remains the app-wide scene zoom; and the standard
+palette controls all marks. Two planes, their contrasting base scales/opacity, matched
+native Jade-mark opacity, particle geometry, perpendicular families, and asynchronous breath timing are deliberate
+composition constants rather than extra UI knobs.
+
+**Flow behavior.** The geometry is present in Serene, Alive, and Wild Flow and in the
+one-shot Random Config pool. Its authored Flow envelope preserves recognizability:
+speed .42-.62, density 1250-1800, size 4.2-5.4, trail dissipation .028-.042,
+rotation .065-.105, wobble .08-.18, stretch .75-1.35, and restrained related values. Generic kaleidoscope,
+psychedelic, morphing-background, and spinning-kaleidoscope extremes are disabled for
+this protected composition. Standard manual locks, favorites, exclusions, custom
+scenes, history, and shared-scene schema plumbing apply; `celticCurrent` was added to
+the allowed saved-state geometry list without changing older identifiers.
+
+**Music response card.** The existing shared audio layer provides bass size swells and
+longer/brighter trail persistence; treble can pulse travel, wobble, rotation, and color;
+palette mood follows the existing color-Flow rules. The renderer clamps these inputs so
+the knot remains legible. It has no dedicated midrange behavior and no beat-controlled
+change to its two-plane topology. Generic burst particles are not drawn by this dedicated
+renderer, intentionally avoiding chaotic explosions. Stopping audio restores the normal
+shared settings; no Celtic-specific audio state persists.
+
+**Mode and device coverage.** The dedicated composition is implemented and visually
+checked in desktop 2D and at a 390x844 phone viewport. The local in-app browser measured
+about 28-30 FPS on the 1920x1080 high-resolution desktop canvas and about 35 FPS at the
+phone viewport. Low/phone rendering increases mark spacing by 16 percent while preserving
+both planes and the knot identity. No JavaScript errors appeared. The parallax dome can
+use the normal 2D texture path, but native 3D has no dedicated interpretation and neither
+mode was headset-tested; do not claim VR parity.
+
+**Validation and release state.** Syntax, preset integration, Flow inventory, Flow visual
+variety, save/share URL, renderer-transform, finite-geometry, dual-depth-plane, and mobile
+workload assertions pass locally. The actual app preview was checked after old trails
+settled. This integration remains local and uncommitted/unpublished pending Clay's approval.
+
+**Visual parity correction.** The approved scratch preview assigned native opacity inside
+each Jade mark, overriding its earlier layer alpha. The first integrated build multiplied
+those values instead, making the marks unintentionally translucent. The app also applied
+global Veil Drift zoom on top of the composition's two independent 30 percent zoom cycles,
+which made the weave appear much less dense. Celtic Current now keeps native Jade opacity
+and partially compensates for outer zoom inside its oversized field. Veil Drift rotation,
+zoom and wander remain adjustable: net visible zoom follows roughly the square root of the
+outer zoom rather than being cancelled, while substantially more weave detail stays onscreen.
+
+**Tension refinement.** Each depth plane now slowly widens while narrowing vertically,
+then eases back, on its own offset cycle. This changes the open diamond proportions
+without adding marks or brightness. The existing Velocity Stretch control sets the
+strength, including zero to turn the flex off; authored Flow varies it mildly.

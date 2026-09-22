@@ -290,7 +290,7 @@ document.addEventListener("DOMContentLoaded", () => {
             Math.random() < chance ? Math.random() < enabledChance : current;
         const zenShapes = [
             "ellipse", "ellipse", "drop", "ring", "nebula", "aquatic",
-            "ocean", "aurora", "orbitals", "lotus", "pendulumSpiral", "painterlyVortex"
+            "ocean", "aurora", "orbitals", "lotus", "pendulumSpiral", "painterlyVortex", "celticCurrent"
         ];
         const nextShape = Math.random() < 0.24
             ? zenShapes[Math.floor(Math.random() * zenShapes.length)]
@@ -401,6 +401,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 spinningKaleido: false,
                 particleLighting: "glow"
             });
+        } else if (nextShape === "celticCurrent") {
+            Object.assign(randomSettings, {
+                speed: rnd(0.42, 0.62), turbulence: rnd(0.04, 0.12), density: rndInt(1250, 1800),
+                flowOrganic: rnd(0.9, 1.08), dissipation: rnd(0.028, 0.042), zoom: rnd(0.92, 1.08),
+                baseSize: rnd(4.2, 5.4), sizeVariation: rnd(0.7, 1.2), stretch: rnd(0.75, 1.35), interaction: 0,
+                rotationSpeed: rnd(0.065, 0.105), wobble: rnd(0.08, 0.18), kaleidoscopeEnabled: false,
+                psychedelicMode: false, morphingBg: false, spinningKaleido: false, particleLighting: "glow"
+            });
         }
 
         const randomPalette = generateHarmoniousPalette(flowPersonality);
@@ -488,6 +496,10 @@ document.addEventListener("DOMContentLoaded", () => {
         hudColorRandom: document.getElementById("hud-color-random"),
         hudSaveScene: document.getElementById("hud-save-scene"),
         hudShareNative: document.getElementById("hud-share-native"),
+        hudPatternSlider: document.getElementById("hud-pattern-slider"),
+        hudPatternVal: document.getElementById("hud-pattern-val"),
+        hudColorSlider: document.getElementById("hud-color-slider"),
+        hudColorVal: document.getElementById("hud-color-val"),
         hudVisualizer: document.getElementById("hud-audio-visualizer-container"),
         
         // Presets & Colors
@@ -511,6 +523,7 @@ document.addEventListener("DOMContentLoaded", () => {
         autoPatternVal: document.getElementById("auto-pattern-val"),
         autoColorSlider: document.getElementById("auto-color-slider"),
         autoColorVal: document.getElementById("auto-color-val"),
+        signatureEffectsGroup: document.getElementById("signature-effects-group"),
         comfortModeToggle: document.getElementById("comfort-mode-toggle"),
         personalityButtons: document.querySelectorAll(".personality-btn"),
         flowPersonalityDescription: document.getElementById("flow-personality-description"),
@@ -1376,6 +1389,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const shape = p.particleShape || "ellipse";
         sim.settings.particleShape = shape;
         elements.particleShapeSelect.value = shape;
+        updateSignatureControlsVisibility();
 
         const lighting = p.particleLighting || "glow";
         sim.settings.particleLighting = lighting;
@@ -1591,16 +1605,16 @@ document.addEventListener("DOMContentLoaded", () => {
         const palette = window.ColorCycles?.getNextPalette("chakra", sim.palette);
         if (!palette) return;
 
-        const interval = (parseInt(elements.autoColorSlider.value, 10) || 20) * 1000;
+        const interval = (parseInt(elements.autoColorSlider.value, 10) || 18) * 1000;
         const duration = Math.max(4500, Math.min(9000, interval * 0.45));
         startPaletteMorph(palette, duration);
         if (elements.hudColorName) elements.hudColorName.textContent = "CHAKRA";
     }
 
-    function startMeditationColorCycle() {
+    function startMeditationColorCycle(shiftImmediately = true) {
         stopMeditationColorCycle();
-        shiftMeditationChakraPalette();
-        const interval = (parseInt(elements.autoColorSlider.value, 10) || 20) * 1000;
+        if (shiftImmediately) shiftMeditationChakraPalette();
+        const interval = (parseInt(elements.autoColorSlider.value, 10) || 18) * 1000;
         meditationColorTimer = setInterval(() => {
             if (experienceMode !== "meditation") {
                 stopMeditationColorCycle();
@@ -2027,42 +2041,46 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    function startAutopilotIntervals() {
-        stopAutopilotIntervals();
+    function startAutopilotIntervals(shiftImmediately = true, timer = "both") {
+        if (timer === "both") stopAutopilotIntervals();
         
         const patternInterval = parseInt(elements.autoPatternSlider.value) * 1000;
         const colorInterval = parseInt(elements.autoColorSlider.value) * 1000;
         
         // 1. Drift through random parameters organically (infinite configs)
-        randomizeAllParameters();
-        autopilotTimer = setInterval(() => {
-            randomizeAllParameters();
-        }, patternInterval);
+        if (timer !== "color") {
+            clearInterval(autopilotTimer);
+            if (shiftImmediately) randomizeAllParameters();
+            autopilotTimer = setInterval(randomizeAllParameters, patternInterval);
+        }
 
         // 2. Morph colors (if checked and set to FLOW)
-        if (elements.autopilotColorToggle.checked) {
-            const shiftColor = () => {
-                try {
-                    if (isFlowEnabled("colors")) {
-                        let palette = null;
-                        if (activeColorCycle !== "random" && window.ColorCycles) {
-                            palette = window.ColorCycles.getNextPalette(activeColorCycle, sim.palette);
+        if (timer !== "pattern") {
+            clearInterval(autopilotColorTimer);
+            if (elements.autopilotColorToggle.checked) {
+                const shiftColor = () => {
+                    try {
+                        if (isFlowEnabled("colors")) {
+                            let palette = null;
+                            if (activeColorCycle !== "random" && window.ColorCycles) {
+                                palette = window.ColorCycles.getNextPalette(activeColorCycle, sim.palette);
+                            }
+                            if (!palette) {
+                                palette = generateHarmoniousPalette(flowPersonality);
+                            }
+                            const paletteDuration = Math.max(4500, Math.min(12000, colorInterval * 0.45));
+                            startPaletteMorph(palette, paletteDuration);
+                            modulateSynth();
                         }
-                        if (!palette) {
-                            palette = generateHarmoniousPalette(flowPersonality);
-                        }
-                        const paletteDuration = Math.max(4500, Math.min(12000, colorInterval * 0.45));
-                        startPaletteMorph(palette, paletteDuration);
-                        modulateSynth();
+                    } catch (err) {
+                        CosmicLogger.error(`Autopilot color shift error: ${err.message}`);
                     }
-                } catch (err) {
-                    CosmicLogger.error(`Autopilot color shift error: ${err.message}`);
-                }
-            };
-            
-            // Execute immediately on start, then repeat on interval
-            shiftColor();
-            autopilotColorTimer = setInterval(shiftColor, colorInterval);
+                };
+
+                // Execute immediately on start, then repeat on interval.
+                if (shiftImmediately) shiftColor();
+                autopilotColorTimer = setInterval(shiftColor, colorInterval);
+            }
         }
     }
 
@@ -2077,7 +2095,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const serenePatterns = [
             "ellipse", "drop", "ring", "nebula", "aquatic",
             "aurora", "lotus", "pendulumSpiral", "painterlyVortex", "chromeRibbon",
-            "tightTailVortex", "zenMandala", "gravityWell", "jadeCurrents", "prismDrift", "violetUndertow"
+            "tightTailVortex", "zenMandala", "gravityWell", "jadeCurrents", "celticCurrent", "prismDrift", "violetUndertow"
         ];
         const alivePatterns = [
             ...serenePatterns, "ocean", "orbitals", "brush", "cluster", "spiral", "pipes",
@@ -2121,10 +2139,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const effectivePersonality = isComfortMode ? "serene" : flowPersonality;
         const thresholds = { serene: [0.84, 1.0], alive: [0.74, 0.97], wild: [0.58, 0.88] }[effectivePersonality];
         const mode = roll < thresholds[0] ? "drift" : (roll < thresholds[1] ? "scenic" : "surge");
-        const patternSeconds = parseInt(elements.autoPatternSlider.value, 10) || 20;
+        const patternSeconds = parseInt(elements.autoPatternSlider.value, 10) || 15;
         // Keep transitions smooth without reducing how often the scene discovers
         // something new. At the 5-second minimum, a morph completes before the
-        // next one; at the 20-second default, it glides for about 11 seconds.
+        // next one; at the 15-second default, it glides for about 8 seconds.
         const baseDuration = Math.max(3200, Math.min(12000, patternSeconds * 550));
         const nextPatternShape = chooseNextFlowPattern(effectivePersonality);
         const defaultFields = {
@@ -2202,7 +2220,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // This authored composition needs a stable visual anchor even when
         // Autopilot discovers it. Let other Flow shapes roam freely, but keep
         // Hypnotic Spiral from inheriting extreme speed, stretch, or density.
-        if (["pendulumSpiral", "painterlyVortex", "chromeRibbon", "tightTailVortex", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"].includes(nextPatternShape)) {
+        if (["pendulumSpiral", "painterlyVortex", "chromeRibbon", "celticCurrent", "tightTailVortex", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"].includes(nextPatternShape)) {
             const authoredTargets = nextPatternShape === "chromeRibbon" ? {
                 // Liquid Chrome has its own meaningful Flow range: 8–24 ribbons.
                 // Density maps to layers in ChromeRibbons (1920 = signature 18).
@@ -2219,6 +2237,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 rotationSpeed: 0,
                 wobble: 0.02,
                 drag: 0.93
+            } : nextPatternShape === "celticCurrent" ? {
+                speed: rnd(0.42, 0.62), turbulence: rnd(0.04, 0.12), density: Math.round(rnd(1250, 1800)),
+                flowOrganic: rnd(0.9, 1.08), dissipation: rnd(0.028, 0.042), zoom: rnd(0.92, 1.08),
+                baseSize: rnd(4.2, 5.4), sizeVariation: rnd(0.7, 1.2), stretch: rnd(0.75, 1.35), interaction: 0,
+                rotationSpeed: rnd(0.065, 0.105), wobble: rnd(0.08, 0.18), drag: 0.93
             } : nextPatternShape === "painterlyVortex" ? {
                 speed: 0.48,
                 turbulence: 0.035,
@@ -2311,7 +2334,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
         const activeFlowShape = nextPatternShape || sim.settings.particleShape;
-        const isProtectedAuthoredFlow = ["pendulumSpiral", "painterlyVortex", "chromeRibbon", "tightTailVortex", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"].includes(activeFlowShape);
+        const isProtectedAuthoredFlow = ["pendulumSpiral", "painterlyVortex", "chromeRibbon", "celticCurrent", "tightTailVortex", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"].includes(activeFlowShape);
         const kaleidoEligibleShapes = new Set(["ellipse", "drop", "ring", "nebula", "brush", "cluster", "spiral", "lotus", "orbitals", "quantumLattice", "pipesTight", "pipesCathedral", "pipesShrine"]);
         const kaleidoGeometricShapes = new Set(["quantumLattice", "pipesTight", "pipesCathedral", "pipesShrine"]);
         const nextKaleidoEnabledFlow = isFlowEnabled("kaleidoscopeEnabled");
@@ -2386,6 +2409,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // Update the HUD preset name to match the newly generated shape
         updateHudPresetName(null);
+        updateSignatureControlsVisibility();
     }
 
     // Modulate audio params based on physics
@@ -2529,6 +2553,7 @@ document.addEventListener("DOMContentLoaded", () => {
             
             requestAnimationFrame(tickLoop);
         }
+        updateSignatureControlsVisibility();
     }
 
     // Handles live hot-swapping between Native 3D Volumetric and Parallax Dome styles
@@ -2592,6 +2617,7 @@ document.addEventListener("DOMContentLoaded", () => {
             
             // 6. Refresh indicators and HUD values
             elements.hudMode.textContent = sim3D.usesFlowTexture === false ? "NATIVE 3D" : "3D FLOW";
+            updateSignatureControlsVisibility();
             showToast(selected3DStyle === "native" ? "Switched to Volumetric GPU particles" : "Switched to Parallax Flow Dome");
         }
     }
@@ -3091,16 +3117,31 @@ document.addEventListener("DOMContentLoaded", () => {
         if (elements.hudShareNative) elements.hudShareNative.onclick = shareCurrentScene;
 
         elements.autoPatternSlider.oninput = () => {
-            elements.autoPatternVal.textContent = `${elements.autoPatternSlider.value}s`;
-            if (isAutopilot) startAutopilotIntervals();
+            const seconds = elements.autoPatternSlider.value;
+            elements.autoPatternVal.textContent = `${seconds}s`;
+            elements.hudPatternSlider.value = seconds;
+            elements.hudPatternVal.textContent = `${seconds}s`;
+            // Adjusting a timer must not roll a new scene on every drag event.
+            if (isAutopilot) startAutopilotIntervals(false, "pattern");
+        };
+        elements.hudPatternSlider.oninput = () => {
+            elements.autoPatternSlider.value = elements.hudPatternSlider.value;
+            elements.autoPatternSlider.oninput();
         };
         elements.autoColorSlider.oninput = () => {
-            elements.autoColorVal.textContent = `${elements.autoColorSlider.value}s`;
+            const seconds = elements.autoColorSlider.value;
+            elements.autoColorVal.textContent = `${seconds}s`;
+            elements.hudColorSlider.value = seconds;
+            elements.hudColorVal.textContent = `${seconds}s`;
             if (experienceMode === "meditation") {
-                startMeditationColorCycle();
+                startMeditationColorCycle(false);
             } else if (isAutopilot) {
-                startAutopilotIntervals();
+                startAutopilotIntervals(false, "color");
             }
+        };
+        elements.hudColorSlider.oninput = () => {
+            elements.autoColorSlider.value = elements.hudColorSlider.value;
+            elements.autoColorSlider.oninput();
         };
         if (elements.resetAllFlowBtn) {
             elements.resetAllFlowBtn.onclick = () => {
@@ -3245,6 +3286,7 @@ document.addEventListener("DOMContentLoaded", () => {
         };
         elements.particleShapeSelect.onchange = () => {
             sim.settings.particleShape = elements.particleShapeSelect.value;
+            updateSignatureControlsVisibility();
         };
         elements.particleLightingSelect.onchange = () => {
             sim.settings.particleLighting = elements.particleLightingSelect.value;
@@ -3965,6 +4007,7 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.shockwavesToggle.checked = sim.settings.shockwavesEnabled;
         elements.particleShapeSelect.value = sim.settings.particleShape || "ellipse";
         elements.particleLightingSelect.value = sim.settings.particleLighting || "glow";
+        updateSignatureControlsVisibility();
         
         // Sync Audio settings UIs
         const loadedBinauralMode = sim.settings.binauralMode || "theta";
@@ -4356,6 +4399,21 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    // Signature controls are useful only while their geometry is actually drawn.
+    // In native 3D the dedicated 2D Solar/Spiral renderers are not active.
+    let lastSignatureShape = undefined;
+    function updateSignatureControlsVisibility() {
+        const shape = !sim.isSolidMode && !(is3DMode && sim3D?.usesFlowTexture === false)
+            ? sim.settings.particleShape : null;
+        if (shape === lastSignatureShape) return;
+        lastSignatureShape = shape;
+        const hasControls = shape === "pendulumSpiral" || shape === "solarFlare";
+        elements.signatureEffectsGroup.hidden = !hasControls;
+        elements.signatureEffectsGroup.querySelectorAll("[data-signature-shape]").forEach(item => {
+            item.hidden = item.dataset.signatureShape !== shape;
+        });
+    }
+
     // --- MAIN RENDER LOOP TRIGGER ---
     let lastFpsTime = Date.now();
     let frameCount = 0;
@@ -4377,6 +4435,7 @@ document.addEventListener("DOMContentLoaded", () => {
         frameCount++;
         const now = Date.now();
         if (now - lastFpsTime >= 500) {
+            updateSignatureControlsVisibility();
             const fps = Math.round((frameCount * 1000) / (now - lastFpsTime));
             elements.hudFps.textContent = fps;
             elements.hudParticles.textContent = sim.particles.length;
