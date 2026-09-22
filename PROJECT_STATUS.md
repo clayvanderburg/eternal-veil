@@ -10,6 +10,9 @@ Browser-based immersive visual / meditation / music-reactive experience (2D + 3D
 
 ## Working now
 
+- 2026-09-22 agent efficiency harness: `AGENT_ROUTING.md`, machine-readable context
+  lanes, reusable evidence packets, and deterministic lane/release gates. No Jev API
+  dependency; agents load only the relevant 2D/music/mobile/deploy/3D context.
 - 2026-09-18 Codex integration release: restored six new Flow families, bounded targets,
   live eclipse controls, manual spiral count, zero-speed and music-state fixes.
   Review/checklist: `PRESET_IMPLEMENTATION_REVIEW.md`, `PRESET_INTEGRATION_CHECKLIST.md`.

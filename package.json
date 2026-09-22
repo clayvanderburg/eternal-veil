@@ -1,4 +1,11 @@
 {
+  "scripts": {
+    "context:preset": "node tools/context-pack.js preset-2d --out scratch/context-packet.md",
+    "context:auto": "node tools/context-pack.js auto",
+    "gate:preset": "node tools/work-gate.js preset-2d",
+    "gate:music": "node tools/work-gate.js music",
+    "gate:release": "node tools/work-gate.js release"
+  },
   "dependencies": {
     "jsdom": "^29.1.1"
   }

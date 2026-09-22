@@ -1,0 +1,38 @@
+{
+  "default": {
+    "description": "Small project orientation for work that does not match a narrower lane.",
+    "files": ["AGENTS.md", "PROJECT_STATUS.md", "DEVELOPER_GUIDE.md"],
+    "searches": [],
+    "checks": ["node --check js/app.js", "node --check js/simulation.js"]
+  },
+  "preset-2d": {
+    "description": "Design, audit, or integrate a 2D preset. This is Eternal Void's current priority lane.",
+    "files": ["PRESET_INTEGRATION_CHECKLIST.md", "js/presets.js", "js/simulation.js", "js/app.js", "js/state-schema.js"],
+    "searches": ["preset name or stable key", "particleShape", "chooseNextFlowPattern", "familyPresetKeys", "drawAuthoredEffect"],
+    "checks": ["node scratch/preset_integration_tests.js", "node scratch/flow_inventory_tests.js", "node scratch/flow_visual_variety_tests.js", "node scratch/url_tests.js"]
+  },
+  "music": {
+    "description": "Music response behavior and audio capture integration.",
+    "files": ["PRESET_INTEGRATION_CHECKLIST.md", "PRESET_IMPLEMENTATION_REVIEW.md", "js/app.js", "js/audio.js", "js/simulation.js"],
+    "searches": ["processMusicReactivity", "audioReactivityValues", "trebleIntensity", "sizePulse", "pulseBassToggle", "pulseTrebleToggle"],
+    "checks": ["node scratch/preset_integration_tests.js", "node --check js/app.js", "node --check js/simulation.js"]
+  },
+  "mobile": {
+    "description": "Phone layout, touch behavior, frame budget, and quality adaptation.",
+    "files": ["index.html", "styles.css", "js/render-quality.js", "js/simulation.js", "js/app.js"],
+    "searches": ["touch", "mobile", "devicePixelRatio", "RenderQuality", "density", "resize"],
+    "checks": ["node scratch/url_tests.js", "node scratch/preset_integration_tests.js"]
+  },
+  "deploy": {
+    "description": "Release preparation and production verification.",
+    "files": ["PROJECT_STATUS.md", "netlify.toml", "PRESET_INTEGRATION_CHECKLIST.md"],
+    "searches": ["release", "deployment", "live"],
+    "checks": ["node tools/work-gate.js release"]
+  },
+  "3d-vr": {
+    "description": "Native 3D, dome, or headset work. Load only when the task explicitly needs it.",
+    "files": ["js/simulation3d-native.js", "js/simulation3d.js", "js/app.js", "PRESET_IMPLEMENTATION_REVIEW.md"],
+    "searches": ["effectModes", "is3DMode", "immersive", "webgl-canvas"],
+    "checks": ["node scratch/vr_panel_tests.js", "node --check js/simulation3d-native.js"]
+  }
+}

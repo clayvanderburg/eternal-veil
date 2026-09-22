@@ -7,8 +7,9 @@
 ## Before editing
 
 1. Read `CLAUDE.md`, `PROJECT_STATUS.md`, and `DEVELOPER_GUIDE.md`.  
-2. Hub: `STATUS.md` + newest `log\*eternal-veil*` / `*void*` notes.  
-3. `git status` if using git remote.
+2. Select the narrow task lane in `AGENT_ROUTING.md`; generate and reuse one context packet.
+3. Hub: `STATUS.md` + newest relevant Eternal Void note named in the packet.
+4. Check the packet's recorded working tree before editing.
 
 ## Stack
 
@@ -20,6 +21,7 @@
 ## Rules
 
 - For every new or substantially changed preset, follow `PRESET_INTEGRATION_CHECKLIST.md` and record evidence, music behavior, and known mode gaps. See `PRESET_IMPLEMENTATION_REVIEW.md` for the 2026-09-18 baseline review.
+- Use `node tools/work-gate.js <lane>` for deterministic completion checks. A passing gate does not replace visual, audio, phone, or deployment verification.
 
 - Prefer small, testable visual/sim changes.  
 - Don’t commit secrets or chrome profile junk (`chrome-profile/` is local).  
