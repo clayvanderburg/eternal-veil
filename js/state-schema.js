@@ -12,7 +12,7 @@ const StateSchema = {
     VALID_PARTICLE_SHAPES: new Set([
         "ellipse", "drop", "ring", "aquatic", "acid", "nebula", "brush", "cluster",
         "ocean", "aurora", "orbitals", "lotus", "spiral", "pendulumSpiral", "tightTailVortex", "painterlyVortex", "pipes", "pipesTight", "pipesCathedral", "pipesShrine", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom", "chromeRibbon",
-        "jadeCurrents", "celticCurrent", "celticKnotwork", "quantumDrift", "prismDrift", "nebulaSpark", "solarFlare", "violetUndertow"
+        "jadeCurrents", "celticCurrent", "celticKnotwork", "cymaticResonance", "quantumDrift", "prismDrift", "nebulaSpark", "solarFlare", "violetUndertow"
     ]),
 
     VALID_PARTICLE_LIGHTING: new Set(["glow", "reactive", "pearl", "metal"]),

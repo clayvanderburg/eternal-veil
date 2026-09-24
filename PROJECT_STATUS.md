@@ -10,6 +10,12 @@ Browser-based immersive visual / meditation / music-reactive experience (2D + 3D
 
 ## Working now
 
+- 2026-09-24 **Cymatic Resonance (local candidate, Claude):** new 2D preset where
+  glowing sand gathers on the still lines of an unseen vibrating plate and
+  re-forms as the plate changes mode; bespoke bass "plate strike" and treble
+  glints. Integrated into menus, Flow, Random Config, schema and share links;
+  preset-2D/music/release gates pass. Not committed or deployed; awaiting Clay's
+  visual approval. See `PRESET_IMPLEMENTATION_REVIEW.md`.
 - 2026-09-24 Celtic Knotwork release: separate 2D knot preset with denser
   four-loop composition, bounded Flow/Random Config, save/share compatibility,
   and inherited music reactivity. Clay approved the local preview. Desktop

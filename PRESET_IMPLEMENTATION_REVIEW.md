@@ -271,3 +271,87 @@ has no custom knotwork renderer and actual headset behavior is untested.
 The 2D, music, and release gates pass; save/share compatibility and Flow
 inventory have regression coverage. Sustained mobile/high-zoom frame time,
 real music capture, fullscreen, and headset QA remain follow-up checks.
+
+## Cymatic Resonance — local candidate preset (2026-09-24, Claude)
+
+Built by Claude (Cowork) at Clay's request as an original preset. Local only:
+not committed, not deployed. Awaiting Clay's visual approval.
+
+**Name / stable ID / geometry:** Cymatic Resonance / preset key and particle shape
+`cymaticResonance` / authored 2D renderer `js/cymatic-resonance.js`.
+
+**Creative intent.** Glowing sand on an unseen vibrating plate (Chladni figures).
+Grains shaken off the moving parts of a circular standing wave
+`f = cos(nθ)cos(aR) − cos(mθ)cos(bR)` collect on its still (nodal) lines, so the
+figure *emerges* from the sand rather than being drawn. Every ~22 s of clock time
+the plate cross-fades to another resonant mode (3-, 4-, 5-, 6-, 7-, 8-fold) and the
+whole field streams across the screen to re-form. Distinguishing feature versus
+existing presets: emergent geometry from particle gathering, and a visible
+re-formation between figures. Nothing existing was changed or renamed.
+
+**Controls and ranges (existing keys only; no new schema keys).**
+
+| Aspect | Setting | Renderer clamp | Preset / authored Flow | Notes |
+|---|---|---|---|---|
+| Grain count | `density` | 900–2400 → 9 grains each, × screen-area factor (0.45–1), 3,000–18,000 cap | 1600 / 1300–2200 | Phones get fewer grains; count updates live |
+| Grain size | `baseSize` | 0.5–12 | 2.2 / 1.8–2.8 | Bass swell capped at 1.6× the resting size |
+| Size spread | `sizeVariation` | 0–2 | 0.6 / 0.3–0.8 | Streak length variety |
+| Settle pace + mode tempo | `speed` | 0–2 | 0.5 / 0.38–0.62 | 0 truly freezes grains and mode clock (tested) |
+| Plate scale (bold ↔ fine lace) | `stretch` | 0–3 → scale 1.0–2.05 | 1.0 / 0.6–1.6 | |
+| Loose-sand agitation | `turbulence` | 0–0.5 | 0.05 / 0.02–0.10 | |
+| Line breathing | `wobble` | 0–0.8 | 0.14 / 0.08–0.20 | Wavenumbers breathe ±~10% |
+| Scene rotation | `rotationSpeed` (shared) | shared | 0.03 / 0.015–0.05 | Whole-scene only; grains have no own spin |
+| Trail length | `dissipation` (shared) | shared | 0.20 / 0.16–0.26 | Kept short so lines stay crisp under Veil Drift |
+
+**Fixed / autonomous choices.** The mode sequence (7 curated modes, hold 16 s +
+6 s smoothstep morph, in clock time) is autonomous and not exposed; it is the
+preset's identity. Colour is assigned in slow outward-travelling radial bands of
+the active palette. ~1.2%/s of grains respawn (30% near the centre, where lines
+crowd) so the field stays alive and the centre stays solid. Grains slide along
+their line (tangential jitter) so lines fill evenly rather than dotting.
+
+**Flow.** Registered in Random Config (calm list), Serene/Alive/Wild Flow pool,
+the protected authored-target list, and the authored target envelope above
+(`flow_inventory_tests`, `flow_visual_variety_tests` exercise selection).
+Kaleidoscope, psychedelic, morphing BG, spinning kaleido are off.
+
+**Music response card.**
+
+| Input | Visible response | Limits |
+|---|---|---|
+| Bass attacks | **Bespoke:** the shared baseSize swell is read as a plate strike; sand leaps (strength ∝ attack², bounded), shows as dim specks, resettles in ~1 s. Also inherited grain swell. | Swell capped 1.6×; strike velocity bounded; a >0.6 s swell is treated as a slider change, not a beat |
+| Midrange / sustained | None bespoke (shared pipeline has no midrange channel) | — |
+| Treble attacks | **Bespoke:** `trebleIntensity` raises glint rate (lighter palette tint) and loose-sand shimmer; inherited speed/stretch/wobble pulses | Glint rate ≤ 6%, alpha ≤ 0.9, never white |
+| Palette / mood | Inherited Flow mood palette shift | — |
+| Silence / stop | Shared pipeline restores baseline; no strikes, sand settles | Real capture/disconnect not tested |
+
+Comfort Mode halves the shared pulses before they reach the renderer, so strikes
+are weaker too; no second audio loop exists. Audio modulation never touches
+saved/morph targets (only live settings via the shared pipeline).
+
+**Mode coverage.** 2D: implemented and visually checked. Parallax dome / native
+3D / headset: not built, not tested (3D overhaul pending, per Clay).
+
+**Compatibility / lifecycle.** New shape appended to the compact share-link table
+(index 33; old links unaffected; round trip verified). Schema accepts the shape.
+Switching Chaotic Spiral → Cymatic → Jade Currents → Cymatic ran without errors;
+re-entry after >1.5 s rescatters the sand so the figure re-forms (tested).
+Resize rescales grains. Bad inputs (NaN time, empty palette, zero size) tested.
+
+**Evidence.** `scratch/cymatic_resonance_tests.js` (8 groups: settling onto nodal
+lines, density/phone bounds + cap, speed-0 freeze, mode cycle + cross-fade, bass
+strike launch/resettle + swell cap, bounded treble, re-entry/resize/bad input,
+manual size change honoured). preset-2d gate PASS (11), music PASS, release PASS.
+Visual checks in headless Chromium (software rendering): 1280×720 through 3
+mode changes, 390×844 phone, simulated bass strike, Veil Drift on and off.
+Frame time: renderer JS ≈3.5 ms/frame at 9,600 grains (headless); whole-page
+FPS in that software-rendered environment 30–45 vs Celtic Knotwork 26 in the same
+environment. **Not** a real GPU, phone, or sustained measurement.
+
+**Known gaps.** Veil Drift zoom/rotation smears grains into short streaks while
+settling (intentional trails are short; lower dissipation gives a striking
+"echo" look, higher gives crisp lines). Some grain clumping remains near the
+centre. Real phone FPS, real audio capture, fullscreen, and 3D/VR untested.
+The modes are artistic Chladni-style pairs, not physical plate eigenmodes.
+
+**Release status:** local candidate; needs Clay's approval before commit/deploy.

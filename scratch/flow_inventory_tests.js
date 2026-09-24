@@ -11,7 +11,7 @@ const pool = source.slice(poolStart, poolEnd);
 for (const shape of [
     'tightTailVortex', 'zenMandala', 'quantumLattice', 'gravityWell',
     'fractalBloom', 'chromeRibbon', 'pendulumSpiral', 'painterlyVortex',
-    'jadeCurrents', 'celticCurrent', 'celticKnotwork', 'quantumDrift', 'prismDrift', 'nebulaSpark', 'solarFlare', 'violetUndertow'
+    'jadeCurrents', 'celticCurrent', 'celticKnotwork', 'cymaticResonance', 'quantumDrift', 'prismDrift', 'nebulaSpark', 'solarFlare', 'violetUndertow'
 ]) {
     assert(pool.includes(`"${shape}"`), `${shape} is missing from the Flow pool`);
 }
@@ -20,7 +20,7 @@ const authoredStart = source.indexOf('const authoredTargets =');
 const authoredEnd = source.indexOf('const activeFlowShape =', authoredStart);
 assert(authoredStart >= 0 && authoredEnd > authoredStart, 'Authored Flow targets must be present');
 const authored = source.slice(authoredStart, authoredEnd);
-for (const shape of ['tightTailVortex', 'zenMandala', 'quantumLattice', 'gravityWell', 'fractalBloom', 'chromeRibbon', 'celticCurrent', 'celticKnotwork']) {
+for (const shape of ['tightTailVortex', 'zenMandala', 'quantumLattice', 'gravityWell', 'fractalBloom', 'chromeRibbon', 'celticCurrent', 'celticKnotwork', 'cymaticResonance']) {
     assert(authored.includes(`"${shape}"`), `${shape} needs a bounded authored Flow profile`);
 }
 
