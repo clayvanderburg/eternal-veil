@@ -10,7 +10,7 @@ const suites = {
     "node --check js/app.js", "node --check js/simulation.js",
     "node scratch/preset_integration_tests.js", "node scratch/preset_audit_tests.js",
     "node scratch/flow_inventory_tests.js", "node scratch/flow_visual_variety_tests.js",
-    "node scratch/preset_compositions_tests.js", "node scratch/url_tests.js",
+    "node scratch/preset_compositions_tests.js", "node scratch/celtic_knotwork_tests.js", "node scratch/url_tests.js",
     "node scratch/share_link_tests.js"
   ],
   music: [

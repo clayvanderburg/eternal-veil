@@ -290,7 +290,7 @@ document.addEventListener("DOMContentLoaded", () => {
             Math.random() < chance ? Math.random() < enabledChance : current;
         const zenShapes = [
             "ellipse", "ellipse", "drop", "ring", "nebula", "aquatic",
-            "ocean", "aurora", "orbitals", "lotus", "pendulumSpiral", "painterlyVortex", "celticCurrent"
+            "ocean", "aurora", "orbitals", "lotus", "pendulumSpiral", "painterlyVortex", "celticCurrent", "celticKnotwork"
         ];
         const nextShape = Math.random() < 0.24
             ? zenShapes[Math.floor(Math.random() * zenShapes.length)]
@@ -407,6 +407,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 flowOrganic: rnd(0.9, 1.08), dissipation: rnd(0.028, 0.042), zoom: rnd(0.92, 1.08),
                 baseSize: rnd(4.2, 5.4), sizeVariation: rnd(0.7, 1.2), stretch: rnd(0.75, 1.35), interaction: 0,
                 rotationSpeed: rnd(0.065, 0.105), wobble: rnd(0.08, 0.18), kaleidoscopeEnabled: false,
+                psychedelicMode: false, morphingBg: false, spinningKaleido: false, particleLighting: "glow"
+            });
+        } else if (nextShape === "celticKnotwork") {
+            Object.assign(randomSettings, {
+                speed: rnd(0.42, 0.64), turbulence: rnd(0.02, 0.08), density: rndInt(1250, 2050),
+                flowOrganic: rnd(0.88, 1.06), dissipation: rnd(0.045, 0.065), zoom: rnd(0.94, 1.08),
+                baseSize: rnd(3.6, 5.0), sizeVariation: rnd(0.4, 0.9), stretch: rnd(0.65, 1.35), interaction: 0,
+                rotationSpeed: rnd(0.055, 0.10), wobble: rnd(0.08, 0.19), kaleidoscopeEnabled: false,
                 psychedelicMode: false, morphingBg: false, spinningKaleido: false, particleLighting: "glow"
             });
         }
@@ -2095,7 +2103,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const serenePatterns = [
             "ellipse", "drop", "ring", "nebula", "aquatic",
             "aurora", "lotus", "pendulumSpiral", "painterlyVortex", "chromeRibbon",
-            "tightTailVortex", "zenMandala", "gravityWell", "jadeCurrents", "celticCurrent", "prismDrift", "violetUndertow"
+            "tightTailVortex", "zenMandala", "gravityWell", "jadeCurrents", "celticCurrent", "celticKnotwork", "prismDrift", "violetUndertow"
         ];
         const alivePatterns = [
             ...serenePatterns, "ocean", "orbitals", "brush", "cluster", "spiral", "pipes",
@@ -2220,7 +2228,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // This authored composition needs a stable visual anchor even when
         // Autopilot discovers it. Let other Flow shapes roam freely, but keep
         // Hypnotic Spiral from inheriting extreme speed, stretch, or density.
-        if (["pendulumSpiral", "painterlyVortex", "chromeRibbon", "celticCurrent", "tightTailVortex", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"].includes(nextPatternShape)) {
+        if (["pendulumSpiral", "painterlyVortex", "chromeRibbon", "celticCurrent", "celticKnotwork", "tightTailVortex", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"].includes(nextPatternShape)) {
             const authoredTargets = nextPatternShape === "chromeRibbon" ? {
                 // Liquid Chrome has its own meaningful Flow range: 8–24 ribbons.
                 // Density maps to layers in ChromeRibbons (1920 = signature 18).
@@ -2242,6 +2250,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 flowOrganic: rnd(0.9, 1.08), dissipation: rnd(0.028, 0.042), zoom: rnd(0.92, 1.08),
                 baseSize: rnd(4.2, 5.4), sizeVariation: rnd(0.7, 1.2), stretch: rnd(0.75, 1.35), interaction: 0,
                 rotationSpeed: rnd(0.065, 0.105), wobble: rnd(0.08, 0.18), drag: 0.93
+            } : nextPatternShape === "celticKnotwork" ? {
+                speed: rnd(0.42, 0.64), turbulence: rnd(0.02, 0.08), density: Math.round(rnd(1250, 2050)),
+                flowOrganic: rnd(0.88, 1.06), dissipation: rnd(0.045, 0.065), zoom: rnd(0.94, 1.08),
+                baseSize: rnd(3.6, 5.0), sizeVariation: rnd(0.4, 0.9), stretch: rnd(0.65, 1.35), interaction: 0,
+                rotationSpeed: rnd(0.055, 0.10), wobble: rnd(0.08, 0.19), drag: 0.93
             } : nextPatternShape === "painterlyVortex" ? {
                 speed: 0.48,
                 turbulence: 0.035,
@@ -2334,7 +2347,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
         const activeFlowShape = nextPatternShape || sim.settings.particleShape;
-        const isProtectedAuthoredFlow = ["pendulumSpiral", "painterlyVortex", "chromeRibbon", "celticCurrent", "tightTailVortex", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"].includes(activeFlowShape);
+        const isProtectedAuthoredFlow = ["pendulumSpiral", "painterlyVortex", "chromeRibbon", "celticCurrent", "celticKnotwork", "tightTailVortex", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"].includes(activeFlowShape);
         const kaleidoEligibleShapes = new Set(["ellipse", "drop", "ring", "nebula", "brush", "cluster", "spiral", "lotus", "orbitals", "quantumLattice", "pipesTight", "pipesCathedral", "pipesShrine"]);
         const kaleidoGeometricShapes = new Set(["quantumLattice", "pipesTight", "pipesCathedral", "pipesShrine"]);
         const nextKaleidoEnabledFlow = isFlowEnabled("kaleidoscopeEnabled");

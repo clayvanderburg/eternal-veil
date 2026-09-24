@@ -2528,6 +2528,8 @@ class FlowSimulation {
                 window.ChromeRibbons.draw(this.ctx, this.width, this.height, this.compositionTime, this.settings, this.palette);
             } else if (this.settings.particleShape === "celticCurrent" && window.CelticCurrents) {
                 window.CelticCurrents.draw(this.ctx, this.width, this.height, this.globalTime / 60, this.settings, this.palette, sceneScale);
+            } else if (this.settings.particleShape === "celticKnotwork" && window.CelticKnotwork) {
+                window.CelticKnotwork.draw(this.ctx, this.width, this.height, this.globalTime / 60, this.settings, this.palette, sceneScale);
             } else if (this.settings.particleShape === "painterlyVortex") {
                 for (let i = 0; i < this.particles.length; i++) {
                     this.particles[i].update(this.settings, this.globalTime, this.mouse, this.customForces, this.shockwaves, this.vortices, dt);

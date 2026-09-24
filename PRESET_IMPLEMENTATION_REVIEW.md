@@ -164,3 +164,110 @@ outer zoom rather than being cancelled, while substantially more weave detail st
 then eases back, on its own offset cycle. This changes the open diamond proportions
 without adding marks or brightness. The existing Velocity Stretch control sets the
 strength, including zero to turn the flex off; authored Flow varies it mildly.
+
+## Celtic Knotwork — local experimental preset (2026-09-23)
+
+**Intent and identity.** Preserve Celtic Current and add a separate, more ornamental
+composition. This first pass uses multiple rounded-square two-strand braids and a
+three-lobed center. Tapered paint marks travel in opposite directions on the two
+strands. The earlier dark crossing capsules were removed completely. Rings flex,
+counter-rotate, and respond to normal Veil Drift; density varies the ring count.
+
+**Integration.** Stable new geometry ID `celticKnotwork` is in the preset menu,
+particle-shape menu, saved-state schema, Random Config, and Serene/Alive/Wild Flow
+profiles. The share-link shape index was appended after existing indices so older
+compact links keep decoding. `scratch/celtic_knotwork_tests.js` covers finite geometry,
+opposed moving currents, density tiers, and schema acceptance. The preset-2D work gate
+passes. No live deploy or commit has been made for this experiment.
+
+**Candid visual/performance review.** Local desktop preview is visibly more like a
+layered luminous braid than the initial orbit-hoop draft, but it still reads as a
+flowery radial pattern more than a traditional Celtic over-under knot. It lacks a
+fully explicit alternating-over/under topology; this remains a creative follow-up.
+After the tighter-braid revision, the local desktop HUD read 60 FPS in one check,
+but this is only a momentary desktop observation, not a sustained benchmark or
+phone result. The large-screen paint layer may look softer than native resolution.
+Native 3D/VR was intentionally not built or tested for this 2D-first experiment.
+
+**2026-09-23 refinement.** Each rounded-square path now carries three tightly
+interlacing paint currents, with smaller-amplitude, higher-frequency crossings
+inspired by Clay's sketch. Their moving marks travel at 3× the previous rate.
+The three-lobed center and its small inner braid use similarly tight crossings
+and the same palette choices as the surrounding rings. The local browser preview
+shows the intended close braids; it still does not guarantee a textbook Celtic
+over-under topology. The 2D gate passes, and this remains local/unpublished.
+
+**Later visual correction.** Clay observed that the colored strands had merged
+and the overall design had become concentric. The strands now separate more,
+the path has a larger four-sided bend, and four offset loops cross the outer
+field so the broad composition reads as a weave again. Desktop preview and
+the 2D gate were checked; mobile, music, and actual headset behavior were not.
+
+**Centered-shape pass and immediate rollback.** Clay liked the tapered particle
+marks but found the offset field lopsided and its shapes vague. Four outer loops
+were centered symmetrically, scattered ring offsets removed, and stroke
+visibility raised. An additional attempt to shrink the loops and remove more
+rings made the composition worse, so Clay asked for the preceding version and
+those two final layout edits were reverted. The current preview is the larger
+four-loop layout with its earlier ring count and unchanged tapered marks.
+
+**Zoom-detail fix.** Clay spotted jagged particle edges at high Veil Drift zoom.
+The approved layout and colors are unchanged. Curve guides and tapered traveling
+marks now use denser path sampling, and the large-screen paint layer steps up
+to higher resolution as zoom increases (with hysteresis to avoid frame-by-frame
+resizing). Compositing requests high-quality image smoothing. A regression test
+checks the zoomed layer gains more than 2× source pixels at desktop size; the
+2D gate passes. Local desktop HUD read 60 FPS during one preview check, but
+sustained high-zoom performance on weaker devices has not been measured.
+
+**2026-09-24 movement pass.** After Clay approved the current composition, the
+four large crossing loops gained offset, slow opening-and-closing motion, and
+the inner rings gained a smaller independent pulse. Short, same-palette brush
+glints now travel in opposite directions along the outer weave and fade smoothly.
+The layout, tapered particles, and default preset settings were preserved.
+Local desktop preview shows motion without obscuring the knot; the preset-2D
+gate passes (10 checks). This is still local-only. Mobile frame rate, music
+response, sustained performance, and native 3D/VR remain unverified.
+
+**2026-09-24 coverage pass.** Clay found the four main loops hard to see and the
+screen too empty. Their radius was reduced from 0.36 to 0.24 of the short screen
+dimension and their center offset changed from 0.225 to 0.18; this keeps the
+four-loop arrangement more fully on screen while opening their individual shapes.
+The concentric rings now fill more of the previously wide gaps across all three
+density tiers, and are drawn behind the large loops. No palette, speed, or
+saved-state format changed. In the local desktop preview, the center is denser
+and the pattern reaches beyond the edges; black negative space still separates
+the braids intentionally. The preset-2D gate passes (10 checks), and one desktop
+HUD spot check read 60 FPS. Phone, sustained FPS, and music remain untested.
+
+**2026-09-24 release checklist.** Clay approved the denser four-loop version.
+`celticKnotwork` is a new stable ID; Celtic Current and existing IDs remain intact.
+The name and description match the observed 2D weave, though its crossings are
+an artistic braid rather than a mathematically strict over-under knot. Density
+controls the discrete ring tiers (renderer accepts 900–2400; authored Flow uses
+1250–2050), base size changes paint-mark width, speed moves the travelers,
+stretch flexes the strands, rotation speed turns the composition, and wobble
+varies its shape. The larger-loop layout, three currents per path, and opposing
+travel directions are intentional fixed identity choices. Serene, Alive, and
+Wild Flow can select it; Random Config can too. Authored targets bound the
+parameters so it does not inherit incompatible settings. Existing favorites,
+exclusions, custom scenes, and compact/legacy share decoding remain on their
+usual paths; the new share shape index is appended, not inserted.
+
+Music response is inherited from the shared 2D pipeline, not a new audio
+effect: bass attacks temporarily widen marks via base size; treble attacks
+temporarily raise travel, flex, and rotation; Flow palette changes alter its
+colors. There is no dedicated midrange behavior or separate knotwork burst.
+Stopping audio restores baseline settings through the shared pipeline; actual
+tab/device capture and disconnect/reconnect were not tested in this pass.
+The new renderer regression exercises quiet/bass/treble parameter bounds and
+finite draw work. Comfort Mode uses the existing reduced shared music gain.
+
+Coverage: local desktop 2D visually checked after trails settled; local
+390×844 phone-sized browser viewport visually checked (weave remains legible
+and reaches the edges), then the viewport was restored. This is not a physical
+phone FPS test. Parallax dome retains the generic 2D-texture route; native 3D
+has no custom knotwork renderer and actual headset behavior is untested.
+The 2D, music, and release gates pass; save/share compatibility and Flow
+inventory have regression coverage. Sustained mobile/high-zoom frame time,
+real music capture, fullscreen, and headset QA remain follow-up checks.

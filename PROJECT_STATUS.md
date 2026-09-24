@@ -1,6 +1,6 @@
 # Eternal Veil / Void — project status
 
-**Updated:** 2026-09-22
+**Updated:** 2026-09-24
 **Path:** `C:\Users\MadKing\.gemini\antigravity\scratch\eternal-veil`  
 **Live:** https://eternalvoid.io  
 
@@ -10,6 +10,11 @@ Browser-based immersive visual / meditation / music-reactive experience (2D + 3D
 
 ## Working now
 
+- 2026-09-24 Celtic Knotwork release: separate 2D knot preset with denser
+  four-loop composition, bounded Flow/Random Config, save/share compatibility,
+  and inherited music reactivity. Clay approved the local preview. Desktop
+  and phone-sized browser views were checked; physical phone, real audio capture,
+  and headset performance are still follow-up validation.
 - 2026-09-22 share-link release: compact, self-contained scene links (`#scene=`)
   replace long new `#seed=` links; old shared links still load. Round-trip and
   malformed-link tests added. Clay approved publication to the live site.
@@ -59,3 +64,15 @@ Browser-based immersive visual / meditation / music-reactive experience (2D + 3D
 ## Next
 
 Follow hub `STATUS.md` for what’s hot; coordinate via agents-hub.
+
+- 2026-09-23 development history: Celtic Knotwork was integrated as a new 2D preset
+  and Flow geometry without changing Celtic Current. Clay's tight-braid sketch
+  prompted three close currents per path, 3× moving-mark speed, and a center
+  that shares the outer palette. A further visual correction reopened the braid
+  and added four offset crossing loops to restore the broad Celtic pattern.
+  Tests pass and one desktop HUD check read 60 FPS;
+  sustained/mobile performance and traditional over-under topology remain
+  follow-up review items.
+  A later zoom-detail pass increased curve sampling and adaptively
+  raised paint resolution during close-ups; its regression check and 2D gate pass.
+  See `PRESET_IMPLEMENTATION_REVIEW.md` for the exact state and limits.
