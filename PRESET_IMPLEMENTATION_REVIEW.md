@@ -354,4 +354,13 @@ settling (intentional trails are short; lower dissipation gives a striking
 centre. Real phone FPS, real audio capture, fullscreen, and 3D/VR untested.
 The modes are artistic Chladni-style pairs, not physical plate eigenmodes.
 
-**Release status:** local candidate; needs Clay's approval before commit/deploy.
+**Release status:** Clay approved and pushed `76cef03` to live (2026-09-24).
+
+**2026-09-24 revision (Clay feedback: shift constantly, fuller screen, Veil Drift zoom too far).**
+- Mode schedule now hold 4 s (≈1 s settle + ≈3 s finished figure) then a 5 s morph: continuous re-forming.
+- Plate scale `1.7 + 0.45·stretch` (was `1.0 + 0.35·stretch`): ~1.6× more lines. Grains `density × 12` (was 9), cap 22,000; colour bands 4.5 (was 3.2).
+- Settled sand now streams along its line (`0.045·minDim·tempo` px/s); neighbouring lines flow in opposite directions.
+- **Veil Drift zoom compensation:** the renderer receives `sceneScale` and draws the plate shrunk by `sceneScale^0.75` (residual on-screen zoom ≈ `sceneScale^0.25`, ~1.16× at 1.8×). Spawn/respawn region widens by the same factor and grain count rises (≤1.6×) so corners never empty; grain size scaled back.
+- **Frame-time guard:** rolling frame interval > 26 ms sheds sand down to 45 % (in 250-grain steps); < 19 ms restores it. Preserves the figure, only thins lines.
+- Tests: 10 groups (added zoom-compensation transform and frame-guard shed/restore). Headless software rendering: guard settled at 45 % and doubled FPS (9→18); real GPU/phone behaviour not measured.
+

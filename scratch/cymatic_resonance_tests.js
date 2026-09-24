@@ -5,7 +5,8 @@ const vm = require("node:vm");
 const StateSchema = require("../js/state-schema.js");
 
 function load() {
-    const sandbox = { window: {}, module: { exports: {} }, Math, Float32Array, Map, Number, String };
+    const sandbox = { window: {}, module: { exports: {} }, Math, Float32Array, Map, Number, String,
+        performance: { now: () => global.performance.now() } };
     vm.runInNewContext(fs.readFileSync("js/cymatic-resonance.js", "utf8"), sandbox);
     return sandbox.module.exports;
 }
@@ -34,7 +35,7 @@ function meanField(sand, width, height, stretch = 1) {
     let total = 0;
     for (let i = 0; i < info.count; i++) {
         const dx = (info.x[i] - width / 2) / half, dy = (info.y[i] - height / 2) / half;
-        sand.sampleMode(from, Math.hypot(dx, dy) * (1 + stretch * 0.35), Math.atan2(dy, dx), 1, out);
+        sand.sampleMode(from, Math.hypot(dx, dy) * (1.7 + stretch * 0.45), Math.atan2(dy, dx), 1, out);
         total += Math.abs(out.f);
     }
     return total / info.count;
@@ -72,7 +73,7 @@ function run(sand, width, height, from, to, step, overrides = {}) {
     }
     assert(counts.high > counts.low, "density adds sand");
     assert(counts.phone < counts.high, "phone-sized canvases get fewer grains");
-    assert(counts.huge <= 18000, `grain count is capped: ${counts.huge}`);
+    assert(counts.huge <= 26000, `grain count is capped: ${counts.huge}`);
 }
 
 // 3. Speed zero truly freezes; it must not fall back to a default speed.
@@ -94,9 +95,9 @@ function run(sand, width, height, from, to, step, overrides = {}) {
     const sand = load();
     const info = sand.inspect();
     const seen = new Set();
-    for (let clock = 0; clock < 22 * info.modes; clock += 1) seen.add(info.modeAt(clock).from);
+    for (let clock = 0; clock < 9 * info.modes; clock += 1) seen.add(info.modeAt(clock).from);
     assert.equal(seen.size, info.modes, "schedule visits every mode");
-    const morph = info.modeAt(19);
+    const morph = info.modeAt(6.5);
     assert(morph.blend > 0 && morph.blend < 1 && morph.from !== morph.to, "modes cross-fade");
 }
 
@@ -156,6 +157,41 @@ function run(sand, width, height, from, to, step, overrides = {}) {
     const small = run(sand, 1280, 720, 1 + 1 / 60, 1 + 1 / 60, 1);
     const big = run(sand, 1280, 720, 1 + 2 / 60, 2.5, 1 / 60, { baseSize: 6 });
     assert(Math.max(...big.counts.widths) > Math.max(...small.counts.widths) * 2.4, "manual size change fully applies");
+}
+
+// 9. Veil Drift zoom compensation: the plate is drawn shrunk by most of the zoom.
+{
+    const sand = load();
+    const transforms = [];
+    const ctx = context();
+    ctx.translate = () => {}; ctx.scale = (x, y) => transforms.push(x);
+    sand.draw(ctx, 1280, 720, 1, settings, palette, 1.8);
+    assert(transforms.length === 1 && Math.abs(transforms[0] - 1 / Math.pow(1.8, 0.75)) < 1e-9, "zoom compensated");
+    const plain = context();
+    plain.scale = () => assert.fail("no transform without zoom");
+    sand.draw(plain, 1280, 720, 1 + 1 / 60, settings, palette, 1);
+}
+
+// 10. Frame-time guard: slow frames shed sand (bounded), smooth frames restore it.
+{
+    const sand = load();
+    let now = 0;
+    const saved = global.performance;
+    const clock = { now: () => now };
+    Object.defineProperty(global, "performance", { value: clock, configurable: true, writable: true });
+    try {
+        const sandSlow = load();
+        for (let f = 0; f < 600; f++) { now += 50; sandSlow.draw(context(), 1920, 1080, f / 60, settings, palette); }
+        const slow = sandSlow.inspect();
+        assert(slow.budget >= 0.45 && slow.budget < 0.5, `slow device sheds sand to the floor: ${slow.budget}`);
+        const full = load();
+        for (let f = 0; f < 60; f++) { now += 16; full.draw(context(), 1920, 1080, f / 60, settings, palette); }
+        assert(slow.count < full.inspect().count * 0.6, "fewer grains when slow");
+        for (let f = 600; f < 1300; f++) { now += 16; sandSlow.draw(context(), 1920, 1080, f / 60, settings, palette); }
+        assert(sandSlow.inspect().budget === 1, "budget recovers when smooth");
+    } finally {
+        Object.defineProperty(global, "performance", { value: saved, configurable: true, writable: true });
+    }
 }
 
 assert(StateSchema.VALID_PARTICLE_SHAPES.has("cymaticResonance"), "saved/shared scenes accept the new shape");

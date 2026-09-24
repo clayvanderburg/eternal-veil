@@ -24,7 +24,7 @@ const CymaticResonance = (() => {
         { n: 3, m: 6, a: 10, b: 15 },
         { n: 6, m: 12, a: 15, b: 21 }
     ];
-    const MAX_GRAINS = 18000;
+    const MAX_GRAINS = 22000;
     const CENTER_CLEAR = 0.035;
 
     const state = {
@@ -40,6 +40,12 @@ const CymaticResonance = (() => {
         width: 0,
         height: 0,
         lastSeconds: null,
+        // Plate-space extent (>= 1) needed to cover the screen after zoom compensation.
+        reach: 1,
+        // Frame-time guard: sheds sand on slow devices, restores it when smooth.
+        budget: 1,
+        frameAverage: 16.7,
+        lastFrameAt: null,
         clock: 0,
         restSize: null,
         swellTime: 0,
@@ -62,9 +68,11 @@ const CymaticResonance = (() => {
             state.x[index] = width * 0.5 + Math.cos(direction) * radius;
             state.y[index] = height * 0.5 + Math.sin(direction) * radius;
         } else {
-            // Slight overscan so grains exist beneath rotation/zoom crop edges.
-            state.x[index] = (random() * 1.1 - 0.05) * width;
-            state.y[index] = (random() * 1.1 - 0.05) * height;
+            // Slight overscan so grains exist beneath rotation/zoom crop edges;
+            // widened by zoom compensation so corners never empty out.
+            const reach = state.reach * 1.1;
+            state.x[index] = width * 0.5 + (random() - 0.5) * reach * width;
+            state.y[index] = height * 0.5 + (random() - 0.5) * reach * height;
         }
         state.vx[index] = 0;
         state.vy[index] = 0;
@@ -93,7 +101,7 @@ const CymaticResonance = (() => {
         // Phones get fewer grains; the figure stays legible because lines are
         // formed by where grains gather, not by how many there are.
         const areaScale = clamp(Math.sqrt((width * height) / 2073600), 0.45, 1);
-        return Math.round(clamp(density * 9 * areaScale, 3000, MAX_GRAINS));
+        return Math.round(clamp(density * 12 * areaScale, 4000, MAX_GRAINS));
     }
 
     // Returns the field value and gradient (in normalized units) for a mode.
@@ -112,8 +120,10 @@ const CymaticResonance = (() => {
     // Mode schedule is driven by an internal clock advanced by speed, so a
     // speed of zero truly freezes both morphing and grain travel.
     function modeAt(clock) {
-        const hold = 16;
-        const morph = 6;
+        // Constant motion: ~1 s to settle after a morph, ~3 s to admire the
+        // finished figure, then the plate shifts again.
+        const hold = 4;
+        const morph = 5;
         const cycle = hold + morph;
         const step = Math.floor(clock / cycle);
         const within = clock - step * cycle;
@@ -127,8 +137,13 @@ const CymaticResonance = (() => {
     const sampleA = { f: 0, dr: 0, dt: 0 };
     const sampleB = { f: 0, dr: 0, dt: 0 };
 
-    function update(settings, width, height, seconds) {
-        const count = grainCount(settings, width, height);
+    function update(settings, width, height, seconds, reach) {
+        state.reach = reach;
+        // More plate area is on screen while zoom is compensated; add sand
+        // (bounded) so lines stay as full as at rest.
+        const wanted = grainCount(settings, width, height) * Math.min(reach * reach, 1.6) * state.budget;
+        // Step in blocks of 250 so the guard does not reallocate every frame.
+        const count = Math.min(MAX_GRAINS, Math.max(1500, Math.round(wanted / 250) * 250));
         if (count !== state.count || width !== state.width || height !== state.height) {
             resize(count, width, height);
         }
@@ -174,7 +189,7 @@ const CymaticResonance = (() => {
         const cy = height * 0.5;
         const stretch = clamp(finite(settings.stretch, 1), 0, 3);
         // Stretch sets plate scale: low = bold, broad figures; high = finer lace.
-        const scale = 1.0 + stretch * 0.35;
+        const scale = 1.7 + stretch * 0.45;
         const wobble = clamp(finite(settings.wobble, 0.12), 0, 0.8);
         const breathe = 1 + wobble * 0.12 * Math.sin(state.clock * 0.55);
         const turbulence = clamp(finite(settings.turbulence, 0.05), 0, 0.5);
@@ -187,6 +202,9 @@ const CymaticResonance = (() => {
         // Leap scales with attack strength but is bounded: a typical beat makes
         // the sand hop and shimmer, only a very hard hit scatters the figure.
         const kick = impulse * impulse * minDim * 0.55;
+        // Settled sand streams along its line; the tangent's orientation flips
+        // between neighbouring lines, so adjacent lines flow in opposite ways.
+        const flow = minDim * 0.045 * tempo * dtSeconds;
 
         for (let i = 0; i < state.count; i++) {
             let x = state.x[i];
@@ -241,11 +259,13 @@ const CymaticResonance = (() => {
                 state.vx[i] += Math.cos(direction) * leap;
                 state.vy[i] += Math.sin(direction) * leap;
             }
-            x += sx + tangentX * along - tangentY * across + state.vx[i] * dtSeconds;
-            y += sy + tangentY * along + tangentX * across + state.vy[i] * dtSeconds;
+            const stream = flow * (1 - agitation);
+            x += sx + tangentX * (along + stream) - tangentY * across + state.vx[i] * dtSeconds;
+            y += sy + tangentY * (along + stream) + tangentX * across + state.vy[i] * dtSeconds;
             state.vx[i] *= damping;
             state.vy[i] *= damping;
-            if (x < -0.08 * width || x > 1.08 * width || y < -0.08 * height || y > 1.08 * height) {
+            const edge = 0.58 * state.reach;
+            if (Math.abs(x - cx) > edge * width || Math.abs(y - cy) > edge * height) {
                 spawn(i, width, height);
                 continue;
             }
@@ -279,12 +299,13 @@ const CymaticResonance = (() => {
         const minDim = Math.min(width, height);
         // Bass swells the sand (shared music pipeline) but is capped at 1.6×
         // so hard hits never turn grains into blocks.
-        const grain = clamp(Math.min(size, rest * 1.6) * minDim / 820, 0.8, 7);
-        const speck = clamp(rest * minDim / 820 * 0.7, 0.6, 3);
+        const zoomBack = frame.compensation || 1;
+        const grain = clamp(Math.min(size, rest * 1.6) * minDim / 820, 0.8, 7) * zoomBack;
+        const speck = clamp(rest * minDim / 820 * 0.7, 0.6, 3) * zoomBack;
         const variation = clamp(finite(settings.sizeVariation, 0.5), 0, 2);
         const colors = palette.length;
         // Colour travels outward in slow rings, like sound leaving the plate.
-        const bands = 3.2;
+        const bands = 4.5;
         const drift = state.clock * 0.09;
         const { cx, cy, half, treble } = frame;
         const buckets = colors * 2;
@@ -333,7 +354,7 @@ const CymaticResonance = (() => {
                 ctx.lineTo(state.x[i] + hx, state.y[i] + hy);
             }
             ctx.globalAlpha = 0.05;
-            ctx.lineWidth = grain * 2.6;
+            ctx.lineWidth = grain * 2.1;
             ctx.stroke();
             ctx.globalAlpha = 0.72;
             ctx.lineWidth = grain * 0.85;
@@ -359,10 +380,37 @@ const CymaticResonance = (() => {
         ctx.restore();
     }
 
-    function draw(ctx, width, height, seconds, settings, palette) {
+    function measureFrame() {
+        if (typeof performance === "undefined" || typeof performance.now !== "function") return;
+        const now = performance.now();
+        const interval = state.lastFrameAt === null ? 16.7 : now - state.lastFrameAt;
+        state.lastFrameAt = now;
+        if (interval <= 0 || interval > 250) return; // paused tab or re-entry
+        state.frameAverage += (interval - state.frameAverage) * 0.05;
+        if (state.frameAverage > 26) state.budget = Math.max(0.45, state.budget - 0.004);
+        else if (state.frameAverage < 19) state.budget = Math.min(1, state.budget + 0.002);
+    }
+
+    function draw(ctx, width, height, seconds, settings, palette, outerSceneScale = 1) {
         if (!palette?.length || !Number.isFinite(width) || !Number.isFinite(height) || width < 2 || height < 2) return;
-        const frame = update(settings, width, height, finite(seconds, 0));
-        render(ctx, width, height, settings, palette, frame);
+        measureFrame();
+        const compensation = Math.pow(clamp(finite(outerSceneScale, 1), 1, 3), 0.75);
+        const frame = update(settings, width, height, finite(seconds, 0), compensation);
+        // Veil Drift can zoom the scene ~1.8x, leaving only a few enlarged
+        // lines on screen. The plate lives in its own space and is drawn
+        // shrunk by most of that zoom (residual ~zoom^0.25), so the screen
+        // stays full of lines. Grain size is scaled back up to match.
+        frame.compensation = compensation;
+        if (compensation > 1.0001) {
+            ctx.save();
+            ctx.translate(width * 0.5, height * 0.5);
+            ctx.scale(1 / compensation, 1 / compensation);
+            ctx.translate(-width * 0.5, -height * 0.5);
+            render(ctx, width, height, settings, palette, frame);
+            ctx.restore();
+        } else {
+            render(ctx, width, height, settings, palette, frame);
+        }
     }
 
     function reset() {
@@ -370,6 +418,10 @@ const CymaticResonance = (() => {
         state.width = 0;
         state.height = 0;
         state.lastSeconds = null;
+        state.reach = 1;
+        state.budget = 1;
+        state.frameAverage = 16.7;
+        state.lastFrameAt = null;
         state.clock = 0;
         state.restSize = null;
         state.swellTime = 0;
@@ -379,7 +431,7 @@ const CymaticResonance = (() => {
 
     function inspect() {
         return {
-            count: state.count, clock: state.clock, strike: state.strike,
+            count: state.count, clock: state.clock, budget: state.budget, strike: state.strike,
             x: state.x, y: state.y, vx: state.vx, vy: state.vy, modes: MODES.length,
             modeAt
         };
