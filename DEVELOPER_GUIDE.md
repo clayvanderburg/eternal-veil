@@ -16,13 +16,13 @@ limitations without prescribing the artistic style. See
 
 | What | Where |
 |------|--------|
-| **Dated handoffs** | `Y:\grok-shared\agents-hub\log\` (or `\\BB8\grok-shared\agents-hub\log\`) |
+| **Dated handoffs** | `F:\MadKing\grok-shared\agents-hub\log\` |
 | **Name pattern** | `YYYY-MM-DD-<agent>-eternal-veil-*.md` |
-| **Project desk** | `Y:\grok-shared\agents-hub\projects\eternal-void\README.md` |
-| **Rolling status** | `Y:\grok-shared\agents-hub\STATUS.md` |
+| **Project desk** | `F:\MadKing\grok-shared\agents-hub\projects\eternal-void\README.md` |
+| **Rolling status** | `F:\MadKing\grok-shared\agents-hub\STATUS.md` |
 | **Code root** | this folder (`…\scratch\eternal-veil`) |
 
-**Hermes:** MCP filesystem is **read+write** on this code root and the full agents-hub at `//BB8/grok-shared/agents-hub` (not personal `me.md` / global MEMORY). Prefer UNC for hub writes — `Y:\` often Access Denied. After MCP reload (`/reload-mcp` or new chat), read newest `log/*eternal*` notes first, then write handoffs + STATUS updates the same as other agents.
+**Hub location:** the only live hub is on Jarvis F: (above). BB8 / `Y:` / `Z:` / `//BB8/...` copies are stale backups — never write handoffs there. **Hermes:** point MCP at `F:/MadKing/grok-shared/agents-hub`; read newest `log/*eternal*` / `*void*` notes first, then write handoffs + STATUS updates the same as other agents.
 
 After non-trivial work, leave a short log file so the next agent is not blind.
 
