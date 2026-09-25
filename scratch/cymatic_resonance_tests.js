@@ -95,9 +95,9 @@ function run(sand, width, height, from, to, step, overrides = {}) {
     const sand = load();
     const info = sand.inspect();
     const seen = new Set();
-    for (let clock = 0; clock < 9 * info.modes; clock += 1) seen.add(info.modeAt(clock).from);
+    for (let clock = 0; clock < 4.9 * info.modes; clock += 0.5) seen.add(info.modeAt(clock).from);
     assert.equal(seen.size, info.modes, "schedule visits every mode");
-    const morph = info.modeAt(6.5);
+    const morph = info.modeAt(4.2);
     assert(morph.blend > 0 && morph.blend < 1 && morph.from !== morph.to, "modes cross-fade");
 }
 

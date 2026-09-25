@@ -122,8 +122,8 @@ const CymaticResonance = (() => {
     function modeAt(clock) {
         // Constant motion: ~1 s to settle after a morph, ~3 s to admire the
         // finished figure, then the plate shifts again.
-        const hold = 4;
-        const morph = 5;
+        const hold = 3.4;
+        const morph = 1.5;
         const cycle = hold + morph;
         const step = Math.floor(clock / cycle);
         const within = clock - step * cycle;
@@ -194,8 +194,9 @@ const CymaticResonance = (() => {
         const breathe = 1 + wobble * 0.12 * Math.sin(state.clock * 0.55);
         const turbulence = clamp(finite(settings.turbulence, 0.05), 0, 0.5);
         const { from, to, blend } = modeAt(state.clock);
-        const settle = clamp(2.4 * tempo, 0, 4.8) * dtSeconds;
-        const maxStep = minDim * 0.012 * tempo;
+        // Fast enough for the sand to keep pace with a quick 1.5 s morph.
+        const settle = clamp(7 * tempo, 0, 14) * dtSeconds;
+        const maxStep = minDim * 0.035 * tempo;
         const shake = (0.35 + turbulence * 6 + treble * 1.4) * minDim * 0.0022 * Math.min(tempo, 2);
         const damping = Math.pow(0.02, dtSeconds);
         const recycle = 0.012 * tempo * dtSeconds;

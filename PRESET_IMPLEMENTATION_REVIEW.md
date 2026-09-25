@@ -362,5 +362,6 @@ The modes are artistic Chladni-style pairs, not physical plate eigenmodes.
 - Settled sand now streams along its line (`0.045·minDim·tempo` px/s); neighbouring lines flow in opposite directions.
 - **Veil Drift zoom compensation:** the renderer receives `sceneScale` and draws the plate shrunk by `sceneScale^0.75` (residual on-screen zoom ≈ `sceneScale^0.25`, ~1.16× at 1.8×). Spawn/respawn region widens by the same factor and grain count rises (≤1.6×) so corners never empty; grain size scaled back.
 - **Frame-time guard:** rolling frame interval > 26 ms sheds sand down to 45 % (in 250-grain steps); < 19 ms restores it. Preserves the figure, only thins lines.
+- 2026-09-25 (Clay: faster transitions): morph 5 s → 1.5 s, hold 3.4 s (~4.9 s cycle); sand settle rate 2.4 → 7 per s and per-frame step cap 0.012 → 0.035 × minDim so grains keep pace. Headless check: figures re-form in ~1 s with crisp lines between.
 - Tests: 10 groups (added zoom-compensation transform and frame-guard shed/restore). Headless software rendering: guard settled at 45 % and doubled FPS (9→18); real GPU/phone behaviour not measured.
 
