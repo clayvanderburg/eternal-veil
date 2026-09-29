@@ -279,14 +279,33 @@ const CymaticResonance = (() => {
     const lightCache = new Map();
     // Glints use a lighter tint of the grain's own palette colour, never white,
     // so bright moments stay in palette and cannot bleach the screen.
+    // Palettes arrive as "#rgb", "#rrggbb", "rgb(...)" or "hsl(...)" (Flow's
+    // generated palettes use hsl). Returns [r, g, b] in 0–255, or null.
+    function parseColor(value) {
+        const text = String(value || "").trim().toLowerCase();
+        let m = /^#?([0-9a-f]{6})$/.exec(text);
+        if (m) { const v = parseInt(m[1], 16); return [(v >> 16) & 255, (v >> 8) & 255, v & 255]; }
+        m = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/.exec(text);
+        if (m) return [parseInt(m[1] + m[1], 16), parseInt(m[2] + m[2], 16), parseInt(m[3] + m[3], 16)];
+        m = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/.exec(text);
+        if (m) return [Math.min(255, +m[1]), Math.min(255, +m[2]), Math.min(255, +m[3])];
+        m = /^hsla?\(\s*([-\d.]+)(?:deg)?[\s,]+([\d.]+)%[\s,]+([\d.]+)%/.exec(text);
+        if (m) {
+            const h = ((+m[1] % 360) + 360) % 360, s = Math.min(100, +m[2]) / 100, l = Math.min(100, +m[3]) / 100;
+            const a = s * Math.min(l, 1 - l);
+            const f = n => { const k = (n + h / 30) % 12; return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); };
+            return [f(0), f(8), f(4)];
+        }
+        return null;
+    }
+
     function lighten(hex) {
         if (lightCache.has(hex)) return lightCache.get(hex);
         let result = hex;
-        const match = /^#([0-9a-f]{6})$/i.exec(String(hex));
-        if (match) {
-            const value = parseInt(match[1], 16);
+        const rgb = parseColor(hex);
+        if (rgb) {
             const mix = channel => Math.round(channel + (255 - channel) * 0.45);
-            const r = mix(value >> 16), g = mix((value >> 8) & 255), b = mix(value & 255);
+            const [r, g, b] = rgb.map(mix);
             result = "#" + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1);
         }
         if (lightCache.size > 64) lightCache.clear();
@@ -438,7 +457,7 @@ const CymaticResonance = (() => {
         };
     }
 
-    return { draw, reset, inspect, sampleMode, MODES };
+    return { draw, reset, inspect, sampleMode, MODES, lighten };
 })();
 
 if (typeof window !== "undefined") window.CymaticResonance = CymaticResonance;

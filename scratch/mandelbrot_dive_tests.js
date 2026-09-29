@@ -152,5 +152,18 @@ assert(!("kaleidoscope" in M.DEFAULT_TUNING), "no separate preset kaleidoscope")
     assert(/kaleidoscopeEnabled && this\.settings\.particleShape !== "mandelbrotDive"/.test(sim), "app particle mirror skipped for the shader kaleidoscope");
 }
 
+// 11. Flow palettes are hsl() strings: every colour must reach the shader, not a fallback.
+{
+    const flow = ["hsl(315, 95%, 55%)", "hsl(335, 90%, 60%)", "hsl(88, 90%, 55%)", "rgb(10, 20, 30)", "#abc", "#22d3ee"];
+    const uniform = M.paletteUniform(flow);
+    assert.equal(uniform.size, 6);
+    const colours = new Set();
+    for (let i = 0; i < 6; i++) colours.add([0, 1, 2].map(k => Math.round(uniform.values[i * 3 + k] * 255)).join(","));
+    assert.equal(colours.size, 6, "six distinct colours reach the shader");
+    assert.equal(JSON.stringify(M.parseColor("hsl(315, 95%, 55%)")), "[249,31,195]");
+    assert.equal(JSON.stringify(M.parseColor("#abc")), "[170,187,204]");
+    assert.equal(M.parseColor("junk"), null);
+}
+
 assert(StateSchema.VALID_PARTICLE_SHAPES.has("mandelbrotDive"), "saved/shared scenes accept the new shape");
 console.log("Mandelbrot Dive: periodic reference orbits, overview start, centred upright mini end, seamless loop, mini ≈ full set, bounded iterations, speed-0 freeze, tuning clamps, bass pulse, schema pass.");

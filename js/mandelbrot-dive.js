@@ -283,6 +283,26 @@ void main() {
         return state.gl;
     }
 
+    // Palettes arrive as "#rgb", "#rrggbb", "rgb(...)" or "hsl(...)" (Flow's
+    // generated palettes use hsl). Returns [r, g, b] in 0–255, or null.
+    function parseColor(value) {
+        const text = String(value || "").trim().toLowerCase();
+        let m = /^#?([0-9a-f]{6})$/.exec(text);
+        if (m) { const v = parseInt(m[1], 16); return [(v >> 16) & 255, (v >> 8) & 255, v & 255]; }
+        m = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/.exec(text);
+        if (m) return [parseInt(m[1] + m[1], 16), parseInt(m[2] + m[2], 16), parseInt(m[3] + m[3], 16)];
+        m = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/.exec(text);
+        if (m) return [Math.min(255, +m[1]), Math.min(255, +m[2]), Math.min(255, +m[3])];
+        m = /^hsla?\(\s*([-\d.]+)(?:deg)?[\s,]+([\d.]+)%[\s,]+([\d.]+)%/.exec(text);
+        if (m) {
+            const h = ((+m[1] % 360) + 360) % 360, s = Math.min(100, +m[2]) / 100, l = Math.min(100, +m[3]) / 100;
+            const a = s * Math.min(l, 1 - l);
+            const f = n => { const k = (n + h / 30) % 12; return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); };
+            return [f(0), f(8), f(4)];
+        }
+        return null;
+    }
+
     const paletteCache = { key: "", values: new Float32Array(18), size: 1 };
     function paletteUniform(palette) {
         const key = palette.join(",");
@@ -291,11 +311,10 @@ void main() {
         const colors = palette.slice(0, 6);
         paletteCache.size = Math.max(1, colors.length);
         colors.forEach((hex, i) => {
-            const match = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
-            const value = match ? parseInt(match[1], 16) : 0x8888ff;
-            paletteCache.values[i * 3] = ((value >> 16) & 255) / 255;
-            paletteCache.values[i * 3 + 1] = ((value >> 8) & 255) / 255;
-            paletteCache.values[i * 3 + 2] = (value & 255) / 255;
+            const rgb = parseColor(hex) || [136, 136, 255];
+            paletteCache.values[i * 3] = rgb[0] / 255;
+            paletteCache.values[i * 3 + 1] = rgb[1] / 255;
+            paletteCache.values[i * 3 + 2] = rgb[2] / 255;
         });
         return paletteCache;
     }
@@ -537,7 +556,7 @@ void main() {
 
     function replayEntry() { state.lastSeconds = null; }
 
-    return { draw, reset, setTuning, seek, inspect, replayEntry, kaleidoSegments, viewAt, samplePixel, iterationBudget, diveLength,
+    return { draw, reset, setTuning, seek, inspect, replayEntry, kaleidoSegments, parseColor, paletteUniform, viewAt, samplePixel, iterationBudget, diveLength,
         DEFAULT_TUNING, TARGETS, tuning };
 })();
 

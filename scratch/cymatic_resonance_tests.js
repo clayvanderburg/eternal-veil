@@ -194,5 +194,12 @@ function run(sand, width, height, from, to, step, overrides = {}) {
     }
 }
 
+// 11. Glints lighten Flow's hsl() palettes too (not only hex).
+{
+    const sand = load();
+    assert.equal(sand.lighten("hsl(315, 95%, 55%)"), "#fc84de");
+    assert.equal(sand.lighten("#22d3ee"), "#85e7f6");
+}
+
 assert(StateSchema.VALID_PARTICLE_SHAPES.has("cymaticResonance"), "saved/shared scenes accept the new shape");
 console.log("Cymatic Resonance: sand settles on nodal lines, density/phone bounds, speed-zero freeze, mode cycle, bass strike + resettle, bounded treble, re-entry and schema pass.");
