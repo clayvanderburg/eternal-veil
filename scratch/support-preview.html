@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Support Eternal Void — Launch Preview</title>
+  <link rel="stylesheet" href="support-preview.css">
+  <script defer src="support-preview.js"></script>
+</head>
+<body>
+  <div class="preview-note">LOCAL LAUNCH PREVIEW <span>Payments are not connected</span></div>
+  <header><a class="brand" href="../">ETERNAL <span>VOID</span></a><a class="quiet-link" href="../">Enter the experience ↗</a></header>
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">INDEPENDENT GENERATIVE ART · BETA</p>
+        <h1>A little wonder.<br>A whole new world.</h1>
+        <p class="intro">Woven light, painted currents, unfolding fractals. Eternal Void turns your screen into a living work of art—and lets you shape where it goes.</p>
+        <div class="actions"><a class="button primary" href="../">Explore for free <span>↗</span></a><a class="button secondary" href="#support">Help it grow <span>↓</span></a></div>
+        <p class="small-note">Open in your browser. No download required.</p>
+      </div>
+      <div class="art" aria-hidden="true">
+        <div class="halo"></div>
+        <svg viewBox="0 0 600 600"><defs><linearGradient id="thread"><stop stop-color="#6cecd9"/><stop offset=".45" stop-color="#a29aff"/><stop offset="1" stop-color="#ef95d6"/></linearGradient></defs>
+          <g class="outer"><path d="M300 60C460 60 470 480 300 480S110 60 300 60S580 300 300 540S20 300 300 60"/><path d="M60 300C60 140 480 130 480 300S60 490 60 300S300 20 540 300S300 580 60 300"/></g>
+          <g class="inner"><path d="M300 150C420 150 420 410 300 410S175 150 300 150S490 300 300 460S110 300 300 150"/><path d="M150 300C150 180 410 180 410 300S150 425 150 300S300 110 460 300S300 490 150 300"/></g>
+        </svg>
+        <div class="art-caption">LIGHT, ALWAYS IN MOTION</div>
+      </div>
+    </section>
+    <section class="features" aria-label="Explore Eternal Void">
+      <article><span class="feature-number">01 / FLOW</span><h2>Let it surprise you.</h2><p>Patterns and palettes evolve into new combinations. Find a scene you love, then save it or share it.</p></article>
+      <article><span class="feature-number">02 / CREATE</span><h2>Make it yours.</h2><p>Start with a preset. Shape its color, motion, symmetry, and trails into something personal.</p></article>
+      <article><span class="feature-number">03 / UNWIND</span><h2>Find a gentler rhythm.</h2><p>Explore breathing-guided visuals or try Comfort Mode for reduced motion and brightness.</p></article>
+    </section>
+    <section class="support-card" id="support">
+      <div><p class="eyebrow">KEEP THE WONDER GROWING</p><h2>Love what you found?</h2><p>Eternal Void is an independent art project. Optional support helps fund development, new visual experiments, and improvements to the experience.</p><p class="support-promise">Support is optional. The current browser experience stays free.</p></div>
+      <div class="support-action">
+        <a class="button primary" id="support-link" hidden target="_blank" rel="noopener noreferrer">Support Eternal Void ↗</a>
+        <form name="supporter-interest-v1" id="support-interest-form" method="POST" action="/" data-netlify="true" netlify-honeypot="bot-field">
+          <input type="hidden" name="form-name" value="supporter-interest-v1">
+          <input type="hidden" name="interest" value="yes">
+          <input type="hidden" name="offer" value="optional-support-v1">
+          <input type="hidden" name="stage" value="unclassified">
+          <input type="hidden" name="source" value="direct">
+          <p hidden><label>Leave this empty: <input name="bot-field" tabindex="-1" autocomplete="off"></label></p>
+          <button class="button primary" id="interest-button" type="submit" aria-describedby="interest-disclosure checkout-status">I’d support Eternal Void <span aria-hidden="true">♡</span></button>
+        </form>
+        <p class="interest-disclosure" id="interest-disclosure">Interested in supporting this? This records interest only—not a payment, pledge, or mailing-list signup. No name, email, or payment details requested. Submissions are handled by Netlify, which processes standard web-request information.</p>
+        <p id="checkout-status" role="status" aria-live="polite">One click helps us decide what to build next.</p>
+        <noscript><p>Enable JavaScript to record interest. No payment is taken.</p><style>#support-interest-form{display:none}</style></noscript>
+        <a class="quiet-link" href="../">Keep exploring ↗</a>
+      </div>
+    </section>
+  </main>
+  <footer><span>ETERNAL VOID · Made to be explored.</span><p>Visual comfort: this experience can include bright colors and repetitive motion. Comfort Mode is available in the app.</p></footer>
+</body>
+</html>
