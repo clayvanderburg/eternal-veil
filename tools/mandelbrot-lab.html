@@ -97,6 +97,12 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px;
     <div id="lookRows"></div>
   </section>
 
+  <section aria-labelledby="h-trippy">
+    <h2 id="h-trippy">Trippy layers</h2>
+    <div id="trippyRows"></div>
+    <div class="buttons"><button class="act" id="entry" type="button">Replay entry fade</button></div>
+  </section>
+
   <section aria-labelledby="h-colors">
     <h2 id="h-colors">Palette</h2>
     <div class="swatches" id="swatches"></div>
@@ -140,7 +146,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px;
   const $ = id => document.getElementById(id);
 
   // App settings that the preset reads (same names/ranges as the Eternal Void app).
-  const APP_DEFAULTS = { speed: 0.5, baseSize: 2.4, density: 1600, stretch: 1.0, wobble: 0.14, rotationSpeed: 0.02 };
+  const APP_DEFAULTS = { speed: 0.4, baseSize: 2.4, density: 1600, stretch: 1.0, wobble: 0.14, rotationSpeed: 0.02 };
   const CAMERA_DEFAULTS = { veilRotation: 0.55, veilZoom: 0.75 };
   const PALETTES = {
     "Preset": ["#22d3ee", "#6366f1", "#a855f7", "#ec4899", "#f59e0b", "#34d399"],
@@ -150,6 +156,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px;
   };
   const settings = { ...APP_DEFAULTS, trebleIntensity: 0 };
   const camera = { ...CAMERA_DEFAULTS };
+  const kaleido = { segments: 0, spin: 0 };
   let palette = [...PALETTES.Preset];
   let treble = 0;
 
@@ -176,13 +183,24 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px;
       ["tune", "colorFlow", "Colour flow", 0, 1, 0.005, "Palette cycles per second through the bands."],
       ["tune", "interiorGlow", "Inside tint", 0, 0.6, 0.01, "Faint colour inside the set. 0 = black."]
     ],
+    trippyRows: [
+      ["tune", "warp", "Liquid warp", 0, 3, 0.01, "Melting, breathing distortion."],
+      ["tune", "ripple", "Ripple rings", 0, 2, 0.01, "Colour rings pulsing out from the centre."],
+      ["tune", "stalks", "Stalks", 0, 2, 0.01, "Glowing crosshair stalks through the colour bands."],
+      ["tune", "enterFade", "Entry fade", 0.05, 6, 0.05, "Seconds to fade in when switching from another effect."]
+    ],
     cameraRows: [
+      ["kal", "segments", "Kaleidoscope (app / Flow)", 0, 12, 1, "Preview the app's kaleidoscope. 0 = off. Flow turns this on at random; it isn't saved with the preset."],
+      ["kal", "spin", "Kaleidoscope spin (app)", 0, 1, 1, "0 = still, 1 = spinning, as in the app."],
       ["cam", "veilRotation", "Veil Drift rotation", 0, 1, 0.01, "Preview of the app's camera turn."],
       ["cam", "veilZoom", "Veil Drift zoom", 0, 0.75, 0.01, "Preview of the app's breathing zoom (0.75 = app max)."]
     ],
     musicRows: [
       ["tune", "bassGlow", "Bass → glow", 0, 3, 0.05, "How much a bass hit swells the filaments."],
       ["tune", "trebleFlow", "Treble → colour flow", 0, 3, 0.05, "How much treble speeds the colours."],
+      ["tune", "beatSurge", "Bass → dive surge", 0, 3, 0.05, "Bass hits lurch the dive forward."],
+      ["tune", "bassWarp", "Bass → warp wobble", 0, 4, 0.05, "Bass hits make the liquid warp wobble."],
+      ["tune", "trebleShimmer", "Treble → sparkle", 0, 2, 0.05, "Treble makes filaments sparkle."],
       ["treble", "treble", "Treble level (test)", 0, 1.5, 0.01, "Hold a treble level to preview."]
     ],
     perfRows: [
@@ -191,7 +209,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px;
     ]
   };
 
-  const read = (kind, key) => kind === "app" ? settings[key] : kind === "cam" ? camera[key] : kind === "treble" ? treble : M.tuning[key];
+  const read = (kind, key) => kind === "app" ? settings[key] : kind === "cam" ? camera[key] : kind === "kal" ? kaleido[key] : kind === "treble" ? treble : M.tuning[key];
   function format(value, step) {
     const digits = step >= 1 ? 0 : step >= 0.1 ? 1 : step >= 0.01 ? 2 : 3;
     return Number(value).toFixed(digits);
@@ -212,6 +230,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px;
         const v = Number(input.value);
         if (kind === "app") settings[key] = v;
         else if (kind === "cam") camera[key] = v;
+        else if (kind === "kal") kaleido[key] = v;
         else if (kind === "treble") treble = v;
         else M.setTuning({ [key]: v });
         out.textContent = format(v, step);
@@ -281,6 +300,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px;
   let paused = false;
   function setPaused(value) { paused = value; $("play").textContent = paused ? "Play" : "Pause"; }
   $("play").addEventListener("click", () => setPaused(!paused));
+  $("entry").addEventListener("click", () => M.replayEntry());
 
   // Music test
   let beatTimer = null;
@@ -323,6 +343,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px;
   $("reset").addEventListener("click", () => {
     M.setTuning(M.DEFAULT_TUNING);
     Object.assign(settings, APP_DEFAULTS); Object.assign(camera, CAMERA_DEFAULTS); treble = 0;
+    kaleido.segments = 0; kaleido.spin = 0;
     palette = [...PALETTES.Preset]; drawSwatches(); syncAll(); refreshText();
     $("status").textContent = "Reset to the preset defaults.";
   });
@@ -372,7 +393,8 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px;
     settings.baseSize = settings.baseSize; // live value from slider
     const base = settings.baseSize;
     const hit = performance.now() < bassUntil;
-    const frameSettings = { ...settings, baseSize: hit ? base * 1.9 : base, trebleIntensity: treble };
+    const frameSettings = { ...settings, baseSize: hit ? base * 1.9 : base, trebleIntensity: treble,
+      kaleidoscopeEnabled: kaleido.segments >= 3, kaleidoscopeSegments: kaleido.segments, spinningKaleido: kaleido.spin >= 1 };
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = "#05060a";
     ctx.fillRect(0, 0, w, h);

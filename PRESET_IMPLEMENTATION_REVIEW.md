@@ -442,6 +442,23 @@ preset-2d gate PASS (12), music PASS, release PASS. Visual: Mandelbrot Lab scree
 at 35/45/70/75/97/99% of every dive (GPU path, software GL); preset switching
 (Chaotic Spiral → Mandelbrot → Jade → Mandelbrot) with no errors.
 
+**2026-09-29 revision (Clay's lab settings + "trippier, more reactive").**
+- Defaults from Clay's Mandelbrot Lab session: speed 0.4 (Flow 0.32–0.52), zoom rate 0.92,
+  hold 0.3 s, detail 2.35, resolution 1.0 (guard still lowers resolution on slow frames).
+- New layers, each a lab slider (0 = off): liquid warp 0.6, ripple rings 0.99, orbit-trap
+  stalks 0.38 (Clay's lab values). **Kaleidoscope** is not a preset setting: the shader
+  mirrors whenever the app's kaleidoscope is on (toggle or Flow, `kaleidoscopeSegments`,
+  `spinningKaleido`), and Mandelbrot Dive is now in Flow's kaleidoscope-eligible list. The
+  simulation's particle mirror pass is skipped for this shape (it would redraw the preset's
+  idle particle pool on top of the fractal). New music response:
+  **beat surge** (bass pulses advance the dive clock, ≈0.6 default), **bass → warp wobble**,
+  **treble → filament sparkle** (bounded, palette-coloured).
+- **Entry transition:** switching in from another effect now starts the *next* dive from the
+  full set and fades in over 1.8 s on top of the previous effect's trails (previously a hard
+  cut mid-dive). Arrival is detected by app time passing while another effect showed, so a
+  paused app or a slow frame never restarts the dive (tested). Leaving is unchanged: the next
+  effect paints over the last frame, which fades by that effect's own trail setting.
+
 **Known gaps.** Interior pixels at the final hold run the full budget (the costliest
 moment); phones rely on the resolution guard. Fern Gate is visually noisy (dense lace)
 at mid-depth. Real phone FPS, real audio capture, fullscreen and 3D/VR untested.

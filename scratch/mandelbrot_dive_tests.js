@@ -77,7 +77,7 @@ assert(deep > shallow * 3 && deep <= 6000 && shallow >= 64, `iterations ${shallo
     const D = load();
     for (let f = 0; f < 60; f++) D.draw({}, 800, 600, f / 60, settings, palette);
     const clock = D.inspect().clock;
-    assert(clock > 0.9 && clock < 1.1, `clock advances at speed 0.5: ${clock}`);
+    assert(clock > 1.1 && clock < 1.3, `entry starts the dive at its overview, then clock advances at speed 0.5: ${clock}`);
     for (let f = 60; f < 120; f++) D.draw({}, 800, 600, f / 60, { ...settings, speed: 0 }, palette);
     assert.equal(D.inspect().clock, clock, "speed 0 freezes");
     const tuned = D.setTuning({ zoomRate: 99, resolution: -1, detail: "x", glowWidth: 2 });
@@ -97,6 +97,59 @@ assert(deep > shallow * 3 && deep <= 6000 && shallow >= 64, `iterations ${shallo
     assert(D.inspect().pulse < 0.01, "pulse decays");
     for (let f = 150; f < 300; f++) D.draw({}, 800, 600, f / 60, { ...settings, baseSize: 5 }, palette);
     assert(D.inspect().pulse < 0.01, "held slider change is not a beat");
+}
+
+// 8. Entering from another effect (or after a pause) starts the next dive fresh and fades in.
+{
+    const D = load();
+    let now = 1000;
+    const saved = global.performance;
+    Object.defineProperty(global, "performance", { value: { now: () => now }, configurable: true, writable: true });
+    try {
+        const alphas = [];
+        const ctx = { save() {}, restore() {}, drawImage() {}, set globalAlpha(v) { alphas.push(v); }, set imageSmoothingEnabled(v) {}, set imageSmoothingQuality(v) {} };
+        for (let f = 0; f < 600; f++) { now += 16; D.draw(ctx, 800, 600, f / 60, settings, palette); }
+        const before = D.inspect().view;
+        now += 5000;   // another preset ran for five seconds (app time advanced)
+        D.draw(ctx, 800, 600, 900 / 60, settings, palette);
+        const after = D.inspect().view;
+        assert.equal(after.index, (before.index + 1) % D.TARGETS.length, "re-entry moves to the next dive");
+        assert(after.nats < 0.5, "re-entry starts from the full set");
+        assert(D.inspect().clock > 0, "clock kept");
+        // A paused app or a very slow frame (little app time) must not restart the dive.
+        const clockBefore = D.inspect().clock;
+        now += 3000; D.draw(ctx, 800, 600, 900 / 60, settings, palette);            // paused: same app time
+        now += 900;  D.draw(ctx, 800, 600, 900 / 60 + 0.25, settings, palette);     // 1 fps stutter
+        assert.equal(D.inspect().view.index, after.index, "no dive jump on pause or stutter");
+        assert(D.inspect().clock >= clockBefore, "no restart on pause or stutter");
+    } finally {
+        Object.defineProperty(global, "performance", { value: saved, configurable: true, writable: true });
+    }
+    const tuned = D.setTuning({ warp: -2, enterFade: 0 });
+    assert.equal(tuned.warp, 0); assert.equal(tuned.enterFade, 0.05);
+}
+
+// 9. Beat surge: bass pulses push the dive deeper than steady playback would.
+{
+    const calm = load(), beat = load();
+    for (let f = 0; f < 240; f++) {
+        calm.draw({}, 800, 600, f / 60, settings, palette);
+        beat.draw({}, 800, 600, f / 60, { ...settings, baseSize: f % 30 === 0 ? 4.8 : 2.4 }, palette);
+    }
+    assert(beat.inspect().clock > calm.inspect().clock + 0.3, `beats drive the zoom: ${calm.inspect().clock.toFixed(2)} vs ${beat.inspect().clock.toFixed(2)}`);
+}
+
+// 10. Kaleidoscope follows the app setting (toggle / Flow), and Flow may choose it for this preset.
+assert.equal(M.kaleidoSegments({ kaleidoscopeEnabled: false, kaleidoscopeSegments: 8 }), 0);
+assert.equal(M.kaleidoSegments({ kaleidoscopeEnabled: true, kaleidoscopeSegments: 7.6 }), 7);
+assert.equal(M.kaleidoSegments({ kaleidoscopeEnabled: true, kaleidoscopeSegments: 99 }), 16);
+assert(!("kaleidoscope" in M.DEFAULT_TUNING), "no separate preset kaleidoscope");
+{
+    const app = fs.readFileSync("js/app.js", "utf8");
+    const eligible = app.slice(app.indexOf("const kaleidoEligibleShapes"), app.indexOf("const kaleidoGeometricShapes"));
+    assert(eligible.includes('"mandelbrotDive"'), "Flow can pick the kaleidoscope for Mandelbrot Dive");
+    const sim = fs.readFileSync("js/simulation.js", "utf8");
+    assert(/kaleidoscopeEnabled && this\.settings\.particleShape !== "mandelbrotDive"/.test(sim), "app particle mirror skipped for the shader kaleidoscope");
 }
 
 assert(StateSchema.VALID_PARTICLE_SHAPES.has("mandelbrotDive"), "saved/shared scenes accept the new shape");

@@ -411,7 +411,7 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         } else if (nextShape === "mandelbrotDive") {
             Object.assign(randomSettings, {
-                speed: rnd(0.4, 0.65), turbulence: 0.05, density: rndInt(1200, 2200),
+                speed: rnd(0.32, 0.52), turbulence: 0.05, density: rndInt(1200, 2200),
                 flowOrganic: 1, dissipation: 0.3, zoom: 1,
                 baseSize: rnd(1.8, 3.2), sizeVariation: 0.5, stretch: rnd(0.7, 1.4), interaction: 0,
                 rotationSpeed: rnd(0.01, 0.04), wobble: rnd(0.08, 0.2), kaleidoscopeEnabled: false,
@@ -2269,7 +2269,7 @@ document.addEventListener("DOMContentLoaded", () => {
             } : nextPatternShape === "mandelbrotDive" ? {
                 // Dive pace, filament width, colour-band density and field
                 // brightness vary; the dive targets and loop are autonomous.
-                speed: rnd(0.4, 0.65), turbulence: 0.05, density: Math.round(rnd(1200, 2200)),
+                speed: rnd(0.32, 0.52), turbulence: 0.05, density: Math.round(rnd(1200, 2200)),
                 flowOrganic: 1, dissipation: 0.3, zoom: 1,
                 baseSize: rnd(1.8, 3.2), sizeVariation: 0.5, stretch: rnd(0.7, 1.4), interaction: 0,
                 rotationSpeed: rnd(0.01, 0.04), wobble: rnd(0.08, 0.2), drag: 0.93
@@ -2378,7 +2378,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         const activeFlowShape = nextPatternShape || sim.settings.particleShape;
         const isProtectedAuthoredFlow = ["pendulumSpiral", "painterlyVortex", "chromeRibbon", "celticCurrent", "celticKnotwork", "cymaticResonance", "mandelbrotDive", "tightTailVortex", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"].includes(activeFlowShape);
-        const kaleidoEligibleShapes = new Set(["ellipse", "drop", "ring", "nebula", "brush", "cluster", "spiral", "lotus", "orbitals", "quantumLattice", "pipesTight", "pipesCathedral", "pipesShrine"]);
+        const kaleidoEligibleShapes = new Set(["ellipse", "drop", "ring", "nebula", "brush", "cluster", "spiral", "lotus", "orbitals", "quantumLattice", "pipesTight", "pipesCathedral", "pipesShrine", "mandelbrotDive"]);
         const kaleidoGeometricShapes = new Set(["quantumLattice", "pipesTight", "pipesCathedral", "pipesShrine"]);
         const nextKaleidoEnabledFlow = isFlowEnabled("kaleidoscopeEnabled");
         const nextKaleidoSegmentsFlow = isFlowEnabled("kaleidoscopeSegments");

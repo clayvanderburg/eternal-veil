@@ -17,8 +17,8 @@ const MandelbrotDive = (() => {
     // these defaults. Each is multiplied with the matching app setting where
     // one exists (speed, baseSize, density, stretch, wobble).
     const DEFAULT_TUNING = {
-        zoomRate: 1.1,        // nats of zoom per second at speed 0.5 (1.1 ≈ 3× deeper each second)
-        holdSeconds: 1.6,     // pause on each mini-Mandelbrot
+        zoomRate: 0.92,       // nats of zoom per second at speed 0.5 (0.92 ≈ 2.5× deeper each second)
+        holdSeconds: 0.3,     // pause on each mini-Mandelbrot
         fadeSeconds: 1.1,     // cross-fade into the next dive
         centerSettle: 0.22,   // fraction of a dive spent sliding the target to screen centre
         spinTurns: 0,         // extra full turns per dive (on top of aligning the mini upright)
@@ -29,10 +29,18 @@ const MandelbrotDive = (() => {
         bandDensity: 1.0,     // colour bands (× density / 1600)
         colorFlow: 0.12,      // palette cycles per second through the bands
         interiorGlow: 0.0,    // faint palette tint inside the set (0 = black)
-        detail: 1.0,          // iteration budget multiplier
-        resolution: 0.75,     // render scale vs screen (the frame guard can lower it)
+        detail: 2.35,         // iteration budget multiplier
+        resolution: 1.0,      // render scale vs screen (the frame guard can lower it)
         bassGlow: 1.0,        // bass swell → filament width/brightness response
-        trebleFlow: 1.0       // treble → colour-flow speed response
+        trebleFlow: 1.0,      // treble → colour-flow speed response
+        // Trippy layers (0 = off)
+        warp: 0.6,            // liquid screen-space distortion
+        bassWarp: 1.0,        // bass → extra warp wobble
+        beatSurge: 0.6,       // bass → lurch the dive forward
+        ripple: 0.99,         // colour rings pulsing outward from the centre
+        stalks: 0.38,         // orbit-trap "stalks" glowing through the colour bands
+        trebleShimmer: 0.6,   // treble → filament sparkle
+        enterFade: 1.8        // seconds to fade in over the previous effect
     };
     const tuning = { ...DEFAULT_TUNING };
 
@@ -70,7 +78,8 @@ const MandelbrotDive = (() => {
     const state = {
         clock: 0, lastSeconds: null, dive: 0, restSize: null, swellTime: 0, pulse: 0, colorPhase: 0,
         budget: 1, frameAverage: 16.7, lastFrameAt: null, gl: null, glFailed: false, snapshot: null,
-        snapshotReady: false, cpu: null
+        snapshotReady: false, cpu: null,
+        enterAt: null, warpTime: 0, treble: 0
     };
 
     // ---------- schedule (pure; unit-tested) ----------
@@ -143,6 +152,13 @@ uniform float glowWidth;
 uniform float glowGain;
 uniform float fieldLevel;
 uniform float interiorGlow;
+uniform float kaleido;
+uniform float kaleidoSpin;
+uniform float warp;
+uniform float warpTime;
+uniform float ripple;
+uniform float stalks;
+uniform float shimmer;
 out vec4 color;
 vec2 cmul(vec2 a, vec2 b) { return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x); }
 vec3 paletteAt(float u) {
@@ -159,7 +175,21 @@ vec2 Z(int m) { return texelFetch(orbit, ivec2(m, 0), 0).xy; }
 void main() {
     float halfMin = 0.5 * min(resolution.x, resolution.y);
     vec2 p = (gl_FragCoord.xy - 0.5 * resolution) / halfMin;
+    float radius0 = length(p);
+    if (kaleido >= 2.5) {
+        // Fold the screen into mirrored wedges: the dive becomes a mandala.
+        float wedge = 6.2831853 / kaleido;
+        float a = mod(atan(p.y, p.x) + kaleidoSpin + 0.5 * wedge, wedge) - 0.5 * wedge;
+        a = abs(a);
+        p = radius0 * vec2(cos(a), sin(a));
+    }
+    if (warp > 0.0) {
+        // Liquid breathing distortion in screen space.
+        p += warp * 0.06 * vec2(sin(p.y * 3.1 + warpTime) + 0.5 * sin(p.y * 7.3 - warpTime * 1.7),
+                                sin(p.x * 2.7 - warpTime * 1.3) + 0.5 * sin(p.x * 6.1 + warpTime * 2.1));
+    }
     vec2 dc = offset + cmul(p, axis);
+    float trap = 1e9;
     vec2 d = vec2(0.0);
     vec2 dzs = vec2(0.0);   // derivative in pixel units (avoids float overflow when deep)
     int m = 0;
@@ -174,6 +204,7 @@ void main() {
         m++;
         if (m >= period) m = 0;
         z = Z(m) + d;
+        trap = min(trap, min(abs(z.x), abs(z.y)));   // Pickover stalks
         float r2 = dot(z, z);
         if (r2 > 65536.0) { escaped = float(n); break; }
         if (r2 < dot(d, d)) { d = z; m = 0; }   // rebase (Zhuoran): keeps deep pixels glitch-free
@@ -186,14 +217,22 @@ void main() {
     float smoothIter = escaped + 1.0 - log2(max(1.0001, log(r)));
     float de = 0.5 * r * log(r) / max(1e-30, length(dzs));   // distance in render pixels
     float glow = exp(-de / max(0.2, glowWidth));
-    float u = log(smoothIter + 1.0) * 2.2 * bandDensity + colorPhase;
+    float u = log(smoothIter + 1.0) * 2.2 * bandDensity + colorPhase
+        + ripple * 0.9 * sin(radius0 * 9.0 - warpTime * 2.2);
     vec3 base = paletteAt(u);
     float near = exp(-de / (glowWidth * 14.0 + 1.0));
     float field = fieldLevel * (0.45 + 0.55 * near);
     // Stay in palette: dense filament regions saturate to the band colour,
     // with only a whisper of white at the very core, so deep zooms never wash out.
-    float light = field + glow * glowGain * (1.0 - 0.55 * field);
+    float sparkle = shimmer > 0.0 ? shimmer * step(0.93, fract(sin(dot(floor(gl_FragCoord.xy * 0.5), vec2(12.9898, 78.233)) + warpTime * 3.0) * 43758.5453)) : 0.0;
+    float light = field + glow * glowGain * (1.0 - 0.55 * field) * (1.0 + sparkle);
     vec3 rgb = base * light + vec3(0.05) * glow * glow * glowGain;
+    if (stalks > 0.0) {
+        // Thin, sharp stalks; dimmed where the field is already bright so
+        // strong settings add structure instead of washing the frame out.
+        float stalk = exp(-trap * 160.0) * stalks;
+        rgb += paletteAt(u + 2.5) * stalk * 0.55 * (1.0 - 0.5 * min(1.0, fieldLevel));
+    }
     color = vec4(min(rgb, vec3(1.0)), 1.0);
 }`;
 
@@ -229,7 +268,8 @@ void main() {
                 return texture;
             });
             const names = ["orbit", "period", "maxIter", "resolution", "offset", "axis", "pixel", "palette", "paletteSize",
-                "bandDensity", "colorPhase", "glowWidth", "glowGain", "fieldLevel", "interiorGlow"];
+                "bandDensity", "colorPhase", "glowWidth", "glowGain", "fieldLevel", "interiorGlow",
+                "kaleido", "kaleidoSpin", "warp", "warpTime", "ripple", "stalks", "shimmer"];
             const uniforms = {};
             for (const name of names) uniforms[name] = gl.getUniformLocation(program, name);
             const position = gl.getAttribLocation(program, "position");
@@ -260,6 +300,14 @@ void main() {
         return paletteCache;
     }
 
+    // Kaleidoscope follows the app's own kaleidoscope setting (toggle or Flow),
+    // mirrored inside the shader instead of the app's particle mirror pass.
+    function kaleidoSegments(settings) {
+        if (!settings || !settings.kaleidoscopeEnabled) return 0;
+        const segments = Math.floor(clamp(finite(settings.kaleidoscopeSegments, 6), 3, 16));
+        return segments >= 3 ? segments : 0;
+    }
+
     function looks(settings) {
         const size = clamp(finite(settings.baseSize, 2.4), 0.5, 12);
         const rest = state.restSize ?? size;
@@ -269,7 +317,9 @@ void main() {
             glowGain: tuning.glowGain * (1 + swell * 0.5),
             fieldLevel: tuning.fieldLevel * clamp(finite(settings.stretch, 1), 0, 3),
             bandDensity: tuning.bandDensity * clamp(finite(settings.density, 1600), 300, 3000) / 1600,
-            interiorGlow: tuning.interiorGlow
+            interiorGlow: tuning.interiorGlow,
+            warp: clamp(tuning.warp * (1 + swell * 2.5 * tuning.bassWarp), 0, 4),
+            shimmer: clamp(tuning.trebleShimmer * state.treble, 0, 1.5)
         };
     }
 
@@ -306,6 +356,13 @@ void main() {
         gl.uniform1f(uniforms.glowGain, look.glowGain);
         gl.uniform1f(uniforms.fieldLevel, look.fieldLevel);
         gl.uniform1f(uniforms.interiorGlow, look.interiorGlow);
+        gl.uniform1f(uniforms.kaleido, kaleidoSegments(settings));
+        gl.uniform1f(uniforms.kaleidoSpin, settings.spinningKaleido ? state.warpTime * 0.12 : 0);
+        gl.uniform1f(uniforms.warp, look.warp);
+        gl.uniform1f(uniforms.warpTime, state.warpTime);
+        gl.uniform1f(uniforms.ripple, tuning.ripple);
+        gl.uniform1f(uniforms.stalks, tuning.stalks);
+        gl.uniform1f(uniforms.shimmer, look.shimmer);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
         return canvas;
     }
@@ -394,24 +451,40 @@ void main() {
         else if (swell > 0 && swell < 0.18) state.restSize += (size - state.restSize) * Math.min(1, dt * 0.8);
         state.pulse = Math.max(swell > 0.12 ? swell : 0, state.pulse * Math.pow(0.02, dt));
         const treble = clamp(finite(settings.trebleIntensity, 0), 0, 1.5);
+        state.treble = treble;
         state.colorPhase += dt * tempo * tuning.colorFlow * (1 + treble * 1.5 * tuning.trebleFlow) * 6;
+        state.warpTime += dt * (0.6 + 0.4 * tempo);
+        // Beat surge: bass pulses push the dive forward, so the zoom rides the music.
+        state.clock += dt * clamp(state.pulse, 0, 0.6) * tuning.beatSurge * 4 * (tempo > 0 ? 1 : 0);
         return viewAt(state.clock, clamp(finite(settings.wobble, 0.14), 0, 1));
     }
 
     function draw(ctx, width, height, seconds, settings, palette) {
         if (!palette?.length || !Number.isFinite(width) || !Number.isFinite(height) || width < 2 || height < 2) return;
         measureFrame();
-        const view = advance(settings, finite(seconds, 0));
+        const nowMs = typeof performance !== "undefined" && performance.now ? performance.now() : Date.now();
+        // Arrival = app time passed while another effect was showing (or first
+        // draw). A paused app or a slow frame does not advance app time this
+        // much, so neither restarts the dive.
+        const appTime = finite(seconds, 0);
+        if (state.lastSeconds === null || appTime - state.lastSeconds > 0.5 || appTime < state.lastSeconds - 0.5) enter(nowMs);
+        const view = advance(settings, appTime);
+        const entry = state.enterAt === null ? 1 : clamp((nowMs - state.enterAt) / 1000 / Math.max(0.05, tuning.enterFade), 0, 1);
+        if (entry >= 1) state.enterAt = null;
         const image = renderGL(view, width, height, settings, palette) || renderCPU(view, width, height, settings, palette);
         if (!image) return;
         ctx.save();
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
         // Cross-fade from the held mini-Mandelbrot into the next dive's full set.
+        const eased = entry * entry * (3 - 2 * entry);
         if (view.fade < 1 && state.snapshotReady && state.snapshot) {
-            ctx.globalAlpha = 1;
+            ctx.globalAlpha = eased;
             ctx.drawImage(state.snapshot, 0, 0, width, height);
-            ctx.globalAlpha = view.fade;
+            ctx.globalAlpha = view.fade * eased;
+        } else {
+            // Entering from another effect: fade in over its lingering trails.
+            ctx.globalAlpha = eased;
         }
         ctx.drawImage(image, 0, 0, width, height);
         ctx.restore();
@@ -426,9 +499,22 @@ void main() {
         }
     }
 
+    // Arriving from another effect (or after a pause): start the next dive from
+    // the full set and fade in, rather than cutting in mid-dive.
+    function enter(nowMs) {
+        let start = 0, index = 0;
+        const current = viewAt(state.clock);
+        for (; index <= current.index; index++) start += diveLength(TARGETS[index]);
+        if (state.lastSeconds === null && state.clock === 0) start = 0;
+        state.clock = start + Math.min(0.2, tuning.fadeSeconds);
+        state.snapshotReady = false;
+        state.enterAt = nowMs;
+    }
+
     function reset() {
         Object.assign(state, { clock: 0, lastSeconds: null, restSize: null, swellTime: 0, pulse: 0, colorPhase: 0,
-            budget: 1, frameAverage: 16.7, lastFrameAt: null, snapshotReady: false });
+            budget: 1, frameAverage: 16.7, lastFrameAt: null, snapshotReady: false, enterAt: null,
+            warpTime: 0, treble: 0 });
     }
     function setTuning(values) {
         for (const key of Object.keys(DEFAULT_TUNING)) {
@@ -439,6 +525,8 @@ void main() {
         tuning.fadeSeconds = clamp(tuning.fadeSeconds, 0.05, 10);
         tuning.detail = clamp(tuning.detail, 0.2, 3);
         tuning.resolution = clamp(tuning.resolution, 0.15, 1);
+        tuning.warp = clamp(tuning.warp, 0, 3);
+        tuning.enterFade = clamp(tuning.enterFade, 0.05, 8);
         return { ...tuning };
     }
     function seek(clock) { state.clock = Math.max(0, finite(clock, 0)); state.snapshotReady = false; }
@@ -447,7 +535,9 @@ void main() {
             view: viewAt(state.clock), targets: TARGETS.map(t => ({ name: t.name, period: t.period, depth: t.depth })) };
     }
 
-    return { draw, reset, setTuning, seek, inspect, viewAt, samplePixel, iterationBudget, diveLength,
+    function replayEntry() { state.lastSeconds = null; }
+
+    return { draw, reset, setTuning, seek, inspect, replayEntry, kaleidoSegments, viewAt, samplePixel, iterationBudget, diveLength,
         DEFAULT_TUNING, TARGETS, tuning };
 })();
 

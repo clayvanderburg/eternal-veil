@@ -178,7 +178,7 @@ const StylePresets = {
     mandelbrotDive: {
         name: "Mandelbrot Dive",
         desc: "An endless dive through glowing fractal spirals toward a hidden mini-Mandelbrot, which becomes the whole set again for the next dive.",
-        speed: 0.5,
+        speed: 0.4,
         turbulence: 0.05,
         curl: 0.96,
         density: 1600,

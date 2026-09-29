@@ -2590,7 +2590,9 @@ class FlowSimulation {
             // Expanding shockwaves are physical forces only (no white lines drawn)
 
             // Apply Kaleidoscope mirror reflection quadrant symmetry
-            if (this.settings.kaleidoscopeEnabled) {
+            // Mandelbrot Dive mirrors inside its own shader; the particle mirror
+            // pass would only redraw that preset's idle particle pool.
+            if (this.settings.kaleidoscopeEnabled && this.settings.particleShape !== "mandelbrotDive") {
                 const cx = this.width / 2;
                 const cy = this.height / 2;
                 const segments = Math.max(3, Math.floor(this.settings.kaleidoscopeSegments));
