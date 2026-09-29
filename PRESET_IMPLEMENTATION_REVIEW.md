@@ -365,3 +365,83 @@ The modes are artistic Chladni-style pairs, not physical plate eigenmodes.
 - 2026-09-25 (Clay: faster transitions): morph 5 s → 1.5 s, hold 3.4 s (~4.9 s cycle); sand settle rate 2.4 → 7 per s and per-frame step cap 0.012 → 0.035 × minDim so grains keep pace. Headless check: figures re-form in ~1 s with crisp lines between.
 - Tests: 10 groups (added zoom-compensation transform and frame-guard shed/restore). Headless software rendering: guard settled at 45 % and doubled FPS (9→18); real GPU/phone behaviour not measured.
 
+## Mandelbrot Dive — new 2D preset (2026-09-29, Claude)
+
+Built by Claude at Clay's request ("inspired by infinite zooming Mandelbrot fractals").
+Committed locally; needs Clay's push to go live.
+
+**Name / stable ID / geometry:** Mandelbrot Dive / preset key and particle shape
+`mandelbrotDive` / authored 2D renderer `js/mandelbrot-dive.js` (WebGL2 fragment shader
+drawn into an offscreen canvas, composited onto the 2D canvas).
+
+**Creative intent.** An endless dive into the Mandelbrot set, drawn as luminous palette
+filaments (distance estimate) over a softly flowing palette field, interior black.
+Each dive heads for a hidden mini-Mandelbrot (a periodic nucleus, 10^9–10^14 deep)
+through spiral/seahorse/filigree regions. The dive ends on that mini, centred and rotated
+upright; it matches the full set (93–100% agreement in tests), so the next dive starts
+from the full set with a 1.1 s cross-fade and the zoom never visibly resets.
+
+**How deep zoom works on phones.** Single-precision perturbation: each target embeds its
+exact periodic reference orbit (computed offline at 50–60 digits with mpmath, stored as
+base64 float32, 79–201 values). Pixels iterate only their tiny offset δ from that orbit,
+with Zhuoran rebasing to avoid glitches and a pixel-scaled derivative for the distance
+estimate (no float overflow when deep). Targets: Triple Spiral (p79, 1e-10), Double Hook
+(p116, 9e-14), Eastern Filigree (p201, 9e-14), Fern Gate (p201, 8e-10), Tendril Crown
+(p197, 3e-14). A sixth candidate (Crowned Valley) was dropped: its mini only matched the
+full set 67%. A seahorse target (p998, 6e-16) was rejected as too expensive for phones.
+
+**Controls (existing app keys; no new schema keys).**
+
+| Aspect | Setting | Mapping | Preset / Flow |
+|---|---|---|---|
+| Dive pace, colour flow | `speed` | tempo = speed/0.5; 0 freezes (tested) | 0.5 / 0.4–0.65 |
+| Filament width | `baseSize` | glow width × size/2.4 | 2.4 / 1.8–3.2 |
+| Colour-band density | `density` | bands × density/1600 | 1600 / 1200–2200 |
+| Colour-field brightness | `stretch` | field level × stretch | 1.0 / 0.7–1.4 |
+| Rotational sway | `wobble` | sway × wobble/0.14 | 0.14 / 0.08–0.2 |
+| Scene rotation | `rotationSpeed` (shared) | shared | 0.02 / 0.01–0.04 |
+
+Artistic tunables live in `DEFAULT_TUNING` inside the module (zoom rate 1.1 nats/s,
+hold 1.6 s, fade 1.1 s, centring 0.22, spin, sway, glow width/gain, field, bands,
+colour flow, interior tint, detail, resolution, bass/treble response). They are edited
+live in **`tools/mandelbrot-lab.html`** (uses the real module; open the file locally or
+at /tools/mandelbrot-lab.html once deployed); its "Copy settings" JSON is what an agent
+pastes into `DEFAULT_TUNING` and the preset entry. `dissipation` has no effect (the
+renderer draws an opaque frame each time) — intentional.
+
+**Flow.** Random Config (calm list), Serene/Alive/Wild Flow pool, protected authored
+targets with the bounded envelope above. Kaleidoscope/psychedelic/morphing BG off.
+
+**Music response card.**
+
+| Input | Response | Limits |
+|---|---|---|
+| Bass attacks | **Bespoke:** baseSize swell (shared pipeline) is detected as a pulse; filaments widen and brighten, decaying in ~0.3 s | Pulse ≤ 0.6 × bassGlow; a swell lasting >0.6 s is a slider change, not a beat |
+| Midrange | None (no shared midrange channel) | — |
+| Treble | **Bespoke:** `trebleIntensity` speeds palette flow through the bands | ≤ 2.5× flow |
+| Palette / mood | Inherited Flow mood palette (read live each frame) | — |
+| Silence / stop | Shared pipeline restores baseline | Real capture not tested |
+
+**Performance.** Iteration budget 220 + 42·depth + 26·period·progress⁶ (≤ 6000): the
+extra cost appears only in the last stretch, where the mini's halo escapes slowly.
+Render resolution 0.75 of the screen (capped at 1600 px wide); a frame-time guard lowers
+it to 0.4 when frames exceed ~24 ms and restores it when smooth. No WebGL2 → a 128-px
+CPU fallback (slow, blocky, but alive). Headless Chromium uses software GL (1–7 fps, not
+representative); real GPU/phone frame rate not measured.
+
+**Coverage.** 2D implemented. Parallax dome/native 3D/headset not built (3D overhaul
+pending). Veil Drift rotation/zoom apply normally (no compensation needed for an
+endless zoom).
+
+**Evidence.** `scratch/mandelbrot_dive_tests.js`: embedded orbits are true periodic
+nucleus orbits (step error < 2e-6), every dive starts on the overview and ends centred,
+upright, full-depth on its mini; loop order and cross-fade; each mini matches the full
+set ≥ 93% (double-precision CPU sampler at the real iteration budget); bounded
+iteration budget; speed-0 freeze; tuning clamps; bass pulse/decay/slider rule; schema.
+preset-2d gate PASS (12), music PASS, release PASS. Visual: Mandelbrot Lab screenshots
+at 35/45/70/75/97/99% of every dive (GPU path, software GL); preset switching
+(Chaotic Spiral → Mandelbrot → Jade → Mandelbrot) with no errors.
+
+**Known gaps.** Interior pixels at the final hold run the full budget (the costliest
+moment); phones rely on the resolution guard. Fern Gate is visually noisy (dense lace)
+at mid-depth. Real phone FPS, real audio capture, fullscreen and 3D/VR untested.

@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mandelbrot Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: full-bleed fractal canvas; a translucent instrument drawer docks right (bottom sheet on phones). Single deliberate dark look, like the Eternal Void app. */
+:root {
+  --void: #05060a;
+  --panel: rgba(12, 14, 24, 0.86);
+  --line: rgba(148, 163, 214, 0.18);
+  --ink: #e6e9f5;
+  --muted: #8d95b3;
+  --accent: #8b9cff;
+  --accent-ink: #0b0e1a;
+  --warn: #f6b35c;
+  --display: "Sora", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--void); color: var(--ink); font: 13px/1.4 var(--display); overflow: hidden; }
+#stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; background: var(--void); touch-action: none; }
+.hud { position: fixed; left: 16px; top: calc(12px + env(safe-area-inset-top, 0px)); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; pointer-events: none; max-width: calc(100% - 32px); }
+.chip { pointer-events: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; font: 12px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; backdrop-filter: blur(8px); }
+.chip b { color: var(--ink); font-weight: 600; }
+.chip.warn b { color: var(--warn); }
+#toggle { pointer-events: auto; cursor: pointer; color: var(--accent-ink); background: var(--accent); border: 0; font: 600 12px var(--display); letter-spacing: .04em; }
+#drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(360px, 100%); background: var(--panel); border-left: 1px solid var(--line); backdrop-filter: blur(14px); overflow-y: auto; padding: calc(56px + env(safe-area-inset-top, 0px)) 16px calc(24px + env(safe-area-inset-bottom, 0px)); box-sizing: border-box; display: flex; flex-direction: column; gap: 18px; }
+@media (max-width: 700px) {
+  #drawer { top: auto; left: 0; width: 100%; height: 58%; border-left: 0; border-top: 1px solid var(--line); border-radius: 16px 16px 0 0; padding-top: 16px; }
+}
+h1 { font: 600 17px var(--display); margin: 0; letter-spacing: .01em; text-wrap: balance; }
+.lede { color: var(--muted); margin: 4px 0 0; max-width: 60ch; }
+section { display: flex; flex-direction: column; gap: 10px; }
+h2 { font: 600 11px var(--display); text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin: 0; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; }
+.row label { color: var(--ink); }
+.row output { font: 12px var(--mono); color: var(--accent); font-variant-numeric: tabular-nums; min-width: 6ch; text-align: right; }
+.row .hint { grid-column: 1 / -1; color: var(--muted); font-size: 11.5px; }
+.row input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); margin: 2px 0 0; }
+.buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+button.act, select { font: 600 12px var(--display); background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 7px 11px; cursor: pointer; }
+button.act.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button.act:hover, select:hover { border-color: var(--accent); }
+button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+select { background: var(--void); }
+.swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.swatches input { width: 100%; height: 30px; border: 1px solid var(--line); border-radius: 6px; background: none; padding: 0; cursor: pointer; }
+textarea { width: 100%; box-sizing: border-box; min-height: 72px; background: var(--void); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; font: 11.5px/1.45 var(--mono); padding: 8px; resize: vertical; }
+.status { color: var(--muted); font-size: 12px; min-height: 1.4em; }
+.keys { color: var(--muted); font-size: 11.5px; }
+kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+
+<canvas id="stage" aria-label="Mandelbrot Dive preview"></canvas>
+<div class="hud">
+  <button class="chip" id="toggle" type="button" aria-expanded="true" aria-controls="drawer">Controls</button>
+  <span class="chip">Dive <b id="hudDive">–</b></span>
+  <span class="chip">Depth <b id="hudDepth">1×</b></span>
+  <span class="chip" id="hudFpsChip"><b id="hudFps">–</b> fps</span>
+  <span class="chip">Render <b id="hudRes">–</b></span>
+</div>
+
+<aside id="drawer" aria-label="Mandelbrot Dive controls">
+  <div>
+    <h1>Mandelbrot Lab</h1>
+    <p class="lede">Tune the Eternal Void "Mandelbrot Dive" preset live. When it looks right, copy the settings and paste them to Claude to make them the defaults.</p>
+  </div>
+
+  <section aria-labelledby="h-dive">
+    <h2 id="h-dive">Dive</h2>
+    <div class="buttons">
+      <button class="act primary" id="play" type="button">Pause</button>
+      <button class="act" id="next" type="button">Next dive</button>
+      <select id="diveSelect" aria-label="Jump to dive"></select>
+    </div>
+    <div class="row"><label for="scrub">Position in this dive</label><output id="scrubOut">0%</output>
+      <input id="scrub" type="range" min="0" max="1000" step="1" value="0"><span class="hint">Drag to inspect any depth. Playing continues from here.</span></div>
+  </section>
+
+  <section aria-labelledby="h-motion">
+    <h2 id="h-motion">Motion</h2>
+    <div id="motionRows"></div>
+  </section>
+
+  <section aria-labelledby="h-look">
+    <h2 id="h-look">Look</h2>
+    <div id="lookRows"></div>
+  </section>
+
+  <section aria-labelledby="h-colors">
+    <h2 id="h-colors">Palette</h2>
+    <div class="swatches" id="swatches"></div>
+    <div class="buttons" id="paletteButtons"></div>
+  </section>
+
+  <section aria-labelledby="h-camera">
+    <h2 id="h-camera">App camera (Veil Drift preview)</h2>
+    <div id="cameraRows"></div>
+  </section>
+
+  <section aria-labelledby="h-music">
+    <h2 id="h-music">Music test</h2>
+    <div class="buttons"><button class="act" id="bass" type="button">Bass hit</button><button class="act" id="bassLoop" type="button" aria-pressed="false">Beat loop: off</button></div>
+    <div id="musicRows"></div>
+  </section>
+
+  <section aria-labelledby="h-perf">
+    <h2 id="h-perf">Quality</h2>
+    <div id="perfRows"></div>
+  </section>
+
+  <section aria-labelledby="h-save">
+    <h2 id="h-save">Save</h2>
+    <div class="buttons">
+      <button class="act primary" id="copy" type="button">Copy settings</button>
+      <button class="act" id="reset" type="button">Reset to defaults</button>
+    </div>
+    <textarea id="settingsText" aria-label="Settings text" spellcheck="false"></textarea>
+    <p class="status" id="status" role="status">Paste settings text above to load it.</p>
+    <p class="keys"><kbd>Space</kbd> pause · <kbd>N</kbd> next dive · <kbd>H</kbd> hide panel</p>
+  </section>
+</aside>
+
+<script src="../js/mandelbrot-dive.js"></script>
+<script>
+(() => {
+  const M = window.MandelbrotDive;
+  const canvas = document.getElementById("stage");
+  const ctx = canvas.getContext("2d");
+  const $ = id => document.getElementById(id);
+
+  // App settings that the preset reads (same names/ranges as the Eternal Void app).
+  const APP_DEFAULTS = { speed: 0.5, baseSize: 2.4, density: 1600, stretch: 1.0, wobble: 0.14, rotationSpeed: 0.02 };
+  const CAMERA_DEFAULTS = { veilRotation: 0.55, veilZoom: 0.75 };
+  const PALETTES = {
+    "Preset": ["#22d3ee", "#6366f1", "#a855f7", "#ec4899", "#f59e0b", "#34d399"],
+    "Ember": ["#fde68a", "#f59e0b", "#ef4444", "#be185d", "#7c3aed", "#fb923c"],
+    "Abyss": ["#0ea5e9", "#1d4ed8", "#312e81", "#06b6d4", "#a5f3fc", "#4f46e5"],
+    "Aurora": ["#34d399", "#10b981", "#22d3ee", "#a78bfa", "#f0abfc", "#bef264"]
+  };
+  const settings = { ...APP_DEFAULTS, trebleIntensity: 0 };
+  const camera = { ...CAMERA_DEFAULTS };
+  let palette = [...PALETTES.Preset];
+  let treble = 0;
+
+  const ROWS = {
+    motionRows: [
+      ["app", "speed", "Speed", 0, 2, 0.01, "Overall tempo: dive pace, colour flow. 0 freezes."],
+      ["tune", "zoomRate", "Zoom rate", 0.1, 4, 0.01, "Zoom per second at speed 0.5 (1.1 ≈ 3× deeper each second)."],
+      ["tune", "holdSeconds", "Pause on mini-Mandelbrot", 0, 8, 0.1, "Seconds to linger at the bottom of each dive."],
+      ["tune", "fadeSeconds", "Cross-fade to next dive", 0.1, 5, 0.05, "Seconds to blend into the next full set."],
+      ["tune", "centerSettle", "Centring", 0.02, 0.9, 0.01, "How early the target slides to screen centre (share of the dive)."],
+      ["tune", "spinTurns", "Extra spin per dive", -3, 3, 0.05, "Full turns added over each dive."],
+      ["tune", "swayDegrees", "Sway", 0, 45, 0.5, "Gentle back-and-forth rotation during a dive."],
+      ["app", "wobble", "Sway amount (app)", 0, 0.8, 0.01, "App wobble setting; scales Sway."],
+      ["app", "rotationSpeed", "Scene rotation (app)", 0, 0.3, 0.001, "Whole-scene rotation, as in the app."]
+    ],
+    lookRows: [
+      ["app", "baseSize", "Filament size (app)", 0.5, 8, 0.05, "App size setting; scales glow width."],
+      ["tune", "glowWidth", "Glow width", 0.2, 6, 0.05, "Filament glow width in render pixels."],
+      ["tune", "glowGain", "Glow brightness", 0, 3, 0.01, ""],
+      ["tune", "fieldLevel", "Colour field", 0, 1.5, 0.01, "Brightness outside the set. 0 = filaments on black."],
+      ["app", "stretch", "Colour field (app)", 0, 3, 0.01, "App stretch setting; scales Colour field."],
+      ["tune", "bandDensity", "Colour bands", 0.1, 4, 0.01, "How many palette bands ripple outward."],
+      ["app", "density", "Colour bands (app)", 300, 3000, 10, "App density setting; scales Colour bands."],
+      ["tune", "colorFlow", "Colour flow", 0, 1, 0.005, "Palette cycles per second through the bands."],
+      ["tune", "interiorGlow", "Inside tint", 0, 0.6, 0.01, "Faint colour inside the set. 0 = black."]
+    ],
+    cameraRows: [
+      ["cam", "veilRotation", "Veil Drift rotation", 0, 1, 0.01, "Preview of the app's camera turn."],
+      ["cam", "veilZoom", "Veil Drift zoom", 0, 0.75, 0.01, "Preview of the app's breathing zoom (0.75 = app max)."]
+    ],
+    musicRows: [
+      ["tune", "bassGlow", "Bass → glow", 0, 3, 0.05, "How much a bass hit swells the filaments."],
+      ["tune", "trebleFlow", "Treble → colour flow", 0, 3, 0.05, "How much treble speeds the colours."],
+      ["treble", "treble", "Treble level (test)", 0, 1.5, 0.01, "Hold a treble level to preview."]
+    ],
+    perfRows: [
+      ["tune", "detail", "Detail (iterations)", 0.2, 3, 0.05, "Higher = sharper deep detail, slower."],
+      ["tune", "resolution", "Render resolution", 0.15, 1, 0.01, "Share of screen resolution. The guard can lower it on slow devices."]
+    ]
+  };
+
+  const read = (kind, key) => kind === "app" ? settings[key] : kind === "cam" ? camera[key] : kind === "treble" ? treble : M.tuning[key];
+  function format(value, step) {
+    const digits = step >= 1 ? 0 : step >= 0.1 ? 1 : step >= 0.01 ? 2 : 3;
+    return Number(value).toFixed(digits);
+  }
+  const controls = [];
+  for (const [container, rows] of Object.entries(ROWS)) {
+    const host = $(container);
+    for (const [kind, key, label, min, max, step, hint] of rows) {
+      const id = `${kind}-${key}`;
+      const row = document.createElement("div");
+      row.className = "row";
+      row.innerHTML = `<label for="${id}">${label}</label><output id="${id}-out" for="${id}"></output>
+        <input id="${id}" type="range" min="${min}" max="${max}" step="${step}">${hint ? `<span class="hint">${hint}</span>` : ""}`;
+      host.appendChild(row);
+      const input = row.querySelector("input"), out = row.querySelector("output");
+      const sync = () => { const v = read(kind, key); input.value = v; out.textContent = format(v, step); };
+      input.addEventListener("input", () => {
+        const v = Number(input.value);
+        if (kind === "app") settings[key] = v;
+        else if (kind === "cam") camera[key] = v;
+        else if (kind === "treble") treble = v;
+        else M.setTuning({ [key]: v });
+        out.textContent = format(v, step);
+        refreshText();
+      });
+      controls.push(sync);
+      sync();
+    }
+  }
+  const syncAll = () => controls.forEach(sync => sync());
+
+  // Palette
+  const swatches = $("swatches");
+  function drawSwatches() {
+    swatches.innerHTML = "";
+    palette.forEach((hex, i) => {
+      const input = document.createElement("input");
+      input.type = "color"; input.id = `color-${i}`; input.value = hex; input.setAttribute("aria-label", `Palette colour ${i + 1}`);
+      input.addEventListener("input", () => { palette[i] = input.value; refreshText(); });
+      swatches.appendChild(input);
+    });
+  }
+  for (const name of Object.keys(PALETTES)) {
+    const b = document.createElement("button");
+    b.className = "act"; b.type = "button"; b.textContent = name;
+    b.addEventListener("click", () => { palette = [...PALETTES[name]]; drawSwatches(); refreshText(); });
+    $("paletteButtons").appendChild(b);
+  }
+  drawSwatches();
+
+  // Dive navigation
+  const starts = [];
+  function computeStarts() {
+    starts.length = 0;
+    let t = 0;
+    for (const target of M.TARGETS) { starts.push(t); t += M.diveLength(target); }
+    return t;
+  }
+  M.TARGETS.forEach((t, i) => {
+    const o = document.createElement("option");
+    o.value = i; o.textContent = `${i + 1}. ${t.name} (10^${(t.depth / Math.LN10).toFixed(0)})`;
+    $("diveSelect").appendChild(o);
+  });
+  function currentDive() {
+    const total = computeStarts();
+    const clock = M.inspect().clock % total;
+    let i = starts.length - 1;
+    while (i > 0 && starts[i] > clock) i--;
+    return { index: i, start: starts[i], length: M.diveLength(M.TARGETS[i]), clock, total };
+  }
+  function jumpTo(index, fraction = 0) {
+    computeStarts();
+    const i = ((index % M.TARGETS.length) + M.TARGETS.length) % M.TARGETS.length;
+    M.seek(starts[i] + fraction * M.diveLength(M.TARGETS[i]) + (fraction === 0 ? M.tuning.fadeSeconds : 0));
+  }
+  $("diveSelect").addEventListener("change", e => jumpTo(Number(e.target.value)));
+  $("next").addEventListener("click", () => jumpTo(currentDive().index + 1));
+  let scrubbing = false;
+  $("scrub").addEventListener("input", e => {
+    scrubbing = true;
+    const d = currentDive();
+    M.seek(d.start + Number(e.target.value) / 1000 * d.length);
+    $("scrubOut").textContent = `${(Number(e.target.value) / 10).toFixed(0)}%`;
+  });
+  $("scrub").addEventListener("change", () => { scrubbing = false; });
+
+  let paused = false;
+  function setPaused(value) { paused = value; $("play").textContent = paused ? "Play" : "Pause"; }
+  $("play").addEventListener("click", () => setPaused(!paused));
+
+  // Music test
+  let beatTimer = null;
+  function bassHit() { bassUntil = performance.now() + 150; }
+  let bassUntil = 0;
+  $("bass").addEventListener("click", bassHit);
+  $("bassLoop").addEventListener("click", e => {
+    if (beatTimer) { clearInterval(beatTimer); beatTimer = null; }
+    else beatTimer = setInterval(bassHit, 500);
+    e.currentTarget.setAttribute("aria-pressed", String(!!beatTimer));
+    e.currentTarget.textContent = `Beat loop: ${beatTimer ? "120 bpm" : "off"}`;
+  });
+
+  // Settings text
+  function snapshot() {
+    const tuning = {};
+    for (const [k, v] of Object.entries(M.tuning)) tuning[k] = Number(Number(v).toFixed(4));
+    const app = {};
+    for (const k of Object.keys(APP_DEFAULTS)) app[k] = Number(Number(settings[k]).toFixed(4));
+    return { preset: "mandelbrotDive", app, tuning, palette: [...palette] };
+  }
+  function refreshText() { $("settingsText").value = JSON.stringify(snapshot()); }
+  function load(text) {
+    const data = JSON.parse(text);
+    if (data.app) for (const k of Object.keys(APP_DEFAULTS)) if (Number.isFinite(Number(data.app[k]))) settings[k] = Number(data.app[k]);
+    if (data.tuning) M.setTuning(data.tuning);
+    if (Array.isArray(data.palette) && data.palette.every(c => /^#[0-9a-f]{6}$/i.test(c))) palette = data.palette.slice(0, 6);
+    drawSwatches(); syncAll(); refreshText();
+  }
+  $("settingsText").addEventListener("paste", () => setTimeout(() => {
+    try { load($("settingsText").value); $("status").textContent = "Settings loaded."; }
+    catch { $("status").textContent = "That text isn't valid settings. Copy it again from this panel and paste the whole line."; }
+  }, 0));
+  $("copy").addEventListener("click", async () => {
+    refreshText();
+    const text = $("settingsText").value;
+    try { await navigator.clipboard.writeText(text); $("status").textContent = "Copied. Paste it to Claude to make these the preset defaults."; }
+    catch { $("settingsText").select(); $("status").textContent = "Copy was blocked here. The text is selected: press Ctrl+C (or ⌘C)."; }
+  });
+  $("reset").addEventListener("click", () => {
+    M.setTuning(M.DEFAULT_TUNING);
+    Object.assign(settings, APP_DEFAULTS); Object.assign(camera, CAMERA_DEFAULTS); treble = 0;
+    palette = [...PALETTES.Preset]; drawSwatches(); syncAll(); refreshText();
+    $("status").textContent = "Reset to the preset defaults.";
+  });
+  refreshText();
+
+  // Panel
+  function setPanel(open) {
+    $("drawer").hidden = !open;
+    $("toggle").setAttribute("aria-expanded", String(open));
+    $("toggle").textContent = open ? "Hide controls" : "Controls";
+    try { localStorage.setItem("mandelbrotLabPanel", open ? "1" : "0"); } catch {}
+  }
+  $("toggle").addEventListener("click", () => setPanel($("drawer").hidden));
+  let startOpen = true;
+  try { startOpen = localStorage.getItem("mandelbrotLabPanel") !== "0"; } catch {}
+  setPanel(startOpen);
+  window.addEventListener("keydown", e => {
+    if (e.target.matches("input, textarea, select")) return;
+    if (e.code === "Space") { e.preventDefault(); setPaused(!paused); }
+    else if (e.key === "n" || e.key === "N") jumpTo(currentDive().index + 1);
+    else if (e.key === "h" || e.key === "H") setPanel($("drawer").hidden);
+  });
+
+  // Render loop (mirrors the app: time in frame units / 60, Veil Drift turn + breathing zoom).
+  let time = 0, last = performance.now(), veilAngle = 0, breath = 0, sceneAngle = 0;
+  let frames = 0, fpsClock = last;
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = Math.round(canvas.clientWidth * dpr), h = Math.round(canvas.clientHeight * dpr);
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  }
+  function frame(now) {
+    const elapsed = Math.min(0.25, (now - last) / 1000);
+    last = now;
+    resize();
+    const w = canvas.width, h = canvas.height;
+    if (!paused) {
+      time += elapsed;
+      veilAngle += (Math.PI / 24) * (camera.veilRotation / 0.55) * elapsed;
+      breath += elapsed;
+      sceneAngle += settings.rotationSpeed * 0.004 * elapsed * 60;
+    }
+    const zoom = 1 + Math.min(0.75, camera.veilZoom) * (1 - Math.cos(breath * Math.PI / 7.5)) / 2;
+    const angle = veilAngle + sceneAngle;
+    const cover = Math.max(Math.abs(Math.cos(angle)) + Math.abs(Math.sin(angle)) * h / w,
+      Math.abs(Math.cos(angle)) + Math.abs(Math.sin(angle)) * w / h) * 1.08;
+    settings.baseSize = settings.baseSize; // live value from slider
+    const base = settings.baseSize;
+    const hit = performance.now() < bassUntil;
+    const frameSettings = { ...settings, baseSize: hit ? base * 1.9 : base, trebleIntensity: treble };
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = "#05060a";
+    ctx.fillRect(0, 0, w, h);
+    ctx.translate(w / 2, h / 2);
+    ctx.scale(cover * zoom, cover * zoom);
+    ctx.rotate(angle);
+    ctx.translate(-w / 2, -h / 2);
+    M.draw(ctx, w, h, paused ? time - 0 : time, frameSettings, palette, cover * zoom);
+    // HUD
+    frames++;
+    if (now - fpsClock > 500) {
+      const info = M.inspect();
+      $("hudFps").textContent = Math.round(frames * 1000 / (now - fpsClock));
+      frames = 0; fpsClock = now;
+      $("hudRes").textContent = `${Math.round(M.tuning.resolution * info.budget * 100)}%${info.gpu ? "" : " CPU"}`;
+      $("hudFpsChip").classList.toggle("warn", info.budget < 0.95);
+      const d = currentDive();
+      $("hudDive").textContent = `${d.index + 1}/${M.TARGETS.length} ${M.TARGETS[d.index].name}`;
+      const exponent = info.view.nats / Math.LN10;
+      $("hudDepth").textContent = exponent < 3 ? `${Math.round(Math.exp(info.view.nats))}×` : `10^${exponent.toFixed(1)}×`;
+      if (!scrubbing) {
+        const f = Math.min(1, (d.clock - d.start) / d.length);
+        $("scrub").value = Math.round(f * 1000);
+        $("scrubOut").textContent = `${Math.round(f * 100)}%`;
+      }
+      if ($("diveSelect").value !== String(d.index) && document.activeElement !== $("diveSelect")) $("diveSelect").value = d.index;
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>

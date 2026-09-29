@@ -10,6 +10,10 @@ Browser-based immersive visual / meditation / music-reactive experience (2D + 3D
 
 ## Working now
 
+- 2026-09-29 **Mandelbrot Dive (Claude):** endless GPU zoom into the Mandelbrot set,
+  5 dives to hidden mini-Mandelbrots 10^9–10^14 deep that loop seamlessly; palette
+  filaments, bass glow, treble colour flow. Tuning bench: `tools/mandelbrot-lab.html`.
+  Gates pass; committed locally, awaiting Clay's push. See `PRESET_IMPLEMENTATION_REVIEW.md`.
 - 2026-09-24 **Cymatic Resonance (local candidate, Claude):** new 2D preset where
   glowing sand gathers on the still lines of an unseen vibrating plate and
   re-forms as the plate changes mode; bespoke bass "plate strike" and treble
