@@ -28,6 +28,7 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
     assert.equal(requests.length, 1, "double clicks suppressed while pending");
     assert.equal(t.button.disabled, true);
     const body = new URLSearchParams(requests[0].options.body);
+    assert.equal(requests[0].options.referrerPolicy, "no-referrer", "do not send the page URL as a referrer");
     for (const key of body.keys()) assert.ok(fields.includes(key), `Registered form field: ${key}`);
     assert.equal(body.get("form-name"), "supporter-interest-v1");
     assert.equal(body.get("stage"), "production");

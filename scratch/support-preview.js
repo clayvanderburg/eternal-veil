@@ -65,6 +65,7 @@ if (validPaymentDestination(supportUrl)) {
             });
             const response = await fetch("/", {
                 method: "POST",
+                referrerPolicy: "no-referrer",
                 headers: { "Content-Type": "application/x-www-form-urlencoded" },
                 body: body.toString(),
                 signal: controller.signal
