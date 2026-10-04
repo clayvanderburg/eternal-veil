@@ -31,7 +31,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     
     <!-- Custom Style Sheet -->
-    <link rel="stylesheet" href="styles.css?v=flow-timers-1">
+    <link rel="stylesheet" href="styles.css?v=community-buttons-1">
 </head>
 <body>
     <!-- Entry Splash Screen Overlay -->
@@ -62,6 +62,7 @@
                 <button class="btn btn-secondary" id="enter-comfort-btn">ENTER IN COMFORT MODE</button>
             </div>
             <p class="splash-preference-note">Comfort settings can be changed later in the console.</p>
+            <p class="splash-preference-note"><a href="/support" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 14px; color: var(--text-accent); text-underline-offset: 3px;">Would you support Eternal Void?</a><br>Interest only · no payment or signup.</p>
         </div>
     </div>
 
@@ -123,12 +124,18 @@
     
     <!-- HUD Overlay (Top-Left) -->
     <header class="hud-container" id="hud">
-        <div class="logo-area">
-            <div class="logo-title-row">
-                <h1 class="logo-title">ETERNAL VOID</h1>
-                <span class="beta-badge">BETA</span>
+        <div class="hud-heading">
+            <div class="logo-area">
+                <div class="logo-title-row">
+                    <h1 class="logo-title">ETERNAL VOID</h1>
+                    <span class="beta-badge">BETA</span>
+                </div>
+                <span class="logo-subtitle">COSMIC FLOW GENERATOR</span>
             </div>
-            <span class="logo-subtitle">COSMIC FLOW GENERATOR</span>
+            <nav class="project-links" aria-label="Support and feedback">
+                <a href="/support" target="_blank" rel="noopener noreferrer" aria-label="Support us (opens a new tab)">Support us</a>
+                <a href="/feedback" target="_blank" rel="noopener noreferrer" aria-label="Feedback (opens a new tab)">Feedback</a>
+            </nav>
         </div>
         
         <!-- Live Diagnostic Details -->

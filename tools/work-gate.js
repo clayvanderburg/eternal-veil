@@ -11,7 +11,7 @@ const suites = {
     "node scratch/preset_integration_tests.js", "node scratch/preset_audit_tests.js",
     "node scratch/flow_inventory_tests.js", "node scratch/flow_visual_variety_tests.js",
     "node scratch/preset_compositions_tests.js", "node scratch/celtic_knotwork_tests.js", "node scratch/cymatic_resonance_tests.js", "node scratch/mandelbrot_dive_tests.js", "node scratch/url_tests.js",
-    "node scratch/share_link_tests.js"
+    "node scratch/share_link_tests.js", "node scratch/share_scene_hud_tests.js"
   ],
   music: [
     "node --check js/app.js", "node --check js/simulation.js",
@@ -23,7 +23,8 @@ const suites = {
   ],
   release: [
     "node tools/work-gate.js preset-2d", "node scratch/color_cycles_tests.js",
-    "node scratch/color_theory_tests.js", "node scratch/meditation_mode_tests.js"
+    "node scratch/color_theory_tests.js", "node scratch/meditation_mode_tests.js",
+    "node --check js/feedback.js", "node scratch/feedback_tests.js", "node scratch/support_interest_tests.js"
   ]
 };
 if (!suites[lane]) {

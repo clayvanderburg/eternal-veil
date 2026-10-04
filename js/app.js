@@ -1298,7 +1298,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!effectiveKey) {
             // Map the current particle shape back to its flagship preset during organic flow
             effectiveKey = getPresetByShape(sim.settings.particleShape);
-            suffix = " (FLOW)";
+            suffix = isAutopilot ? " (FLOW)" : "";
         }
 
         if (!effectiveKey || !StylePresets[effectiveKey]) {
@@ -4108,6 +4108,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         updateSliderTextDisplays();
         updateFlowStatusBanner();
+        // Refresh the closest-preset label after restoring geometry and Flow state.
+        updateHudPresetName(null);
     }
 
     // Sync Text values dynamically beside slider handles
