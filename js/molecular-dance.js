@@ -18,30 +18,30 @@ const MolecularDance = (() => {
     // defaults. Several are multiplied with the matching app setting
     // (speed, baseSize, density, stretch, wobble).
     const DEFAULT_TUNING = {
-        count: 1.3,           // molecules on screen (× density / 1600)
+        count: 3,           // molecules on screen (× density / 1600)
         moleculeSize: 0.78,   // overall molecule size (× baseSize / 2.4)
-        lifeSeconds: 8,       // average life of a molecule before it bursts apart
-        formSeconds: 0.9,     // time for a molecule to assemble
+        lifeSeconds: 12,       // average life of a molecule before it bursts apart
+        formSeconds: 1.05,     // time for a molecule to assemble
         dissolveSeconds: 0.8, // time to burst apart
-        tumble: 1.0,          // how fast molecules spin
-        drift: 1.0,           // how fast molecules travel across the screen
-        vibration: 0.6,       // bond stretching and breathing
-        bondWidth: 1.0,       // stick thickness
-        atomGlow: 0.85,       // halo brightness around atoms
-        cloudLevel: 0.7,      // soft electron-cloud lobes (× stretch)
-        orbitLevel: 1.0,      // share of atoms wearing electron shells (0 = none)
-        electronSpeed: 1.0,   // electron laps
-        trailLength: 1.0,     // electron streaks
+        tumble: 1.9,          // how fast molecules spin
+        drift: 1,           // how fast molecules travel across the screen
+        vibration: 1.01,       // bond stretching and breathing
+        bondWidth: 1.45,       // stick thickness
+        atomGlow: 3,       // halo brightness around atoms
+        cloudLevel: 1.28,      // soft electron-cloud lobes (× stretch)
+        orbitLevel: 1,      // share of atoms wearing electron shells (0 = none)
+        electronSpeed: 1,   // electron laps
+        trailLength: 1,     // electron streaks
         atomShare: 0.3,       // share of Bohr atoms (vs molecules)
-        depth: 0.7,           // perspective and depth fade
-        motes: 1.0,           // background quantum dust
+        depth: 1.17,           // perspective and depth fade
+        motes: 3,           // background quantum dust
         colorFlow: 0.1,       // palette cycles per second through the elements
-        burstLevel: 1.0,      // flash rings when molecules form and burst
-        bassPulse: 1.0,       // bass → atoms swell and bonds flash
-        bassJump: 1.0,        // bass → electrons leap to wider shells
-        beatSpin: 1.0,        // bass → molecules lurch into a spin
-        trebleSparkle: 1.0,   // treble → electron sparkle
-        quality: 1.0          // cap on detail; the frame guard can lower it further
+        burstLevel: 1,      // flash rings when molecules form and burst
+        bassPulse: 0.2,       // bass → atoms swell and bonds flash
+        bassJump: 0.15,        // bass → electrons leap to wider shells
+        beatSpin: 0.15,        // bass → molecules lurch into a spin
+        trebleSparkle: 0.15,   // treble → electron sparkle
+        quality: 1          // cap on detail; the frame guard can lower it further
     };
     const tuning = { ...DEFAULT_TUNING };
 

@@ -411,9 +411,9 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         } else if (nextShape === "molecularDance") {
             Object.assign(randomSettings, {
-                speed: rnd(0.32, 0.55), turbulence: 0.05, density: rndInt(1200, 2200),
-                flowOrganic: 1, dissipation: 0.3, zoom: 1,
-                baseSize: rnd(1.9, 3.0), sizeVariation: 0.5, stretch: rnd(0.7, 1.4), interaction: 0,
+                speed: rnd(0.5, 0.8), turbulence: 0.05, density: rndInt(2400, 3400),
+                flowOrganic: 1, dissipation: 0.11, zoom: 1,
+                baseSize: rnd(1.9, 3.0), sizeVariation: 0.5, stretch: rnd(1.5, 2.3), interaction: 0,
                 rotationSpeed: rnd(0.01, 0.04), wobble: rnd(0.08, 0.22), kaleidoscopeEnabled: false,
                 psychedelicMode: false, morphingBg: false, spinningKaleido: false, particleLighting: "glow"
             });
@@ -2279,9 +2279,9 @@ document.addEventListener("DOMContentLoaded", () => {
             } : nextPatternShape === "molecularDance" ? {
                 // Molecule count, size, tumble pace and cloud strength vary; which
                 // molecules form, and when they burst, stay autonomous.
-                speed: rnd(0.32, 0.55), turbulence: 0.05, density: Math.round(rnd(1200, 2200)),
-                flowOrganic: 1, dissipation: 0.3, zoom: 1,
-                baseSize: rnd(1.9, 3.0), sizeVariation: 0.5, stretch: rnd(0.7, 1.4), interaction: 0,
+                speed: rnd(0.5, 0.8), turbulence: 0.05, density: Math.round(rnd(2400, 3400)),
+                flowOrganic: 1, dissipation: 0.11, zoom: 1,
+                baseSize: rnd(1.9, 3.0), sizeVariation: 0.5, stretch: rnd(1.5, 2.3), interaction: 0,
                 rotationSpeed: rnd(0.01, 0.04), wobble: rnd(0.08, 0.22), drag: 0.93
             } : nextPatternShape === "mandelbrotDive" ? {
                 // Dive pace, filament width, colour-band density and field
