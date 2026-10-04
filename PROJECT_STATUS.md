@@ -10,6 +10,10 @@ Browser-based immersive visual / meditation / music-reactive experience (2D + 3D
 
 ## Working now
 
+- 2026-10-04 **Stellar Nursery (Claude):** new original 2D preset (Cosmic Nebula stays): layered
+  emission-nebula gas filaments, dark dust lanes, newborn stars with spikes, bass shockwave through
+  the clouds and treble star flare. Lab: `tools/nursery-lab.html` (tune, then paste the settings
+  JSON back). Committed locally, awaiting Clay's tuning and push; real GPU/phone FPS untested.
 - 2026-10-03 **Molecular Dance (Claude):** new 2D preset: glowing ball-and-stick molecules (water,
   benzene, buckyball, DNA, salt crystal...) and Bohr atoms tumble in depth, assemble, vibrate and
   burst apart while electrons race their shells; bespoke bass/treble response, app kaleidoscope and

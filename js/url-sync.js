@@ -9,7 +9,7 @@ const UrlStateSync = {
         "painterlyVortex", "pipes", "pipesTight", "pipesCathedral", "pipesShrine", "zenMandala",
         "quantumLattice", "gravityWell", "fractalBloom", "chromeRibbon", "jadeCurrents",
         "celticCurrent", "quantumDrift", "prismDrift", "nebulaSpark", "solarFlare", "violetUndertow",
-        "celticKnotwork", "cymaticResonance", "mandelbrotDive", "molecularDance"],
+        "celticKnotwork", "cymaticResonance", "mandelbrotDive", "molecularDance", "stellarNursery"],
     mouseModes: ["burst", "attract", "repel", "vortex", "paint"],
     lightingModes: ["glow", "reactive", "pearl", "metal"],
     binauralModes: ["delta", "theta", "alpha", "beta", "gamma"],

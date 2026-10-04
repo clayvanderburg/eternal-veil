@@ -208,7 +208,7 @@ assert(byKey.carbonDioxide.bonds.every(b => b[2] === 2) && byKey.acetylene.bonds
 {
     assert(StateSchema.VALID_PARTICLE_SHAPES.has("molecularDance"), "schema accepts the shape");
     const url = fs.readFileSync("js/url-sync.js", "utf8");
-    assert(/"mandelbrotDive", "molecularDance"\]/.test(url), "share-link table appends the shape at the end");
+    assert(/"mandelbrotDive", "molecularDance"[,\]]/.test(url), "share-link table appends the shape right after Mandelbrot Dive (later presets append after it)");
     const presets = vm.runInNewContext(fs.readFileSync("js/presets.js", "utf8") + "\nStylePresets;");
     const preset = presets.molecularDance;
     assert(preset && preset.particleShape === "molecularDance" && preset.colors.length === 6, "preset entry");

@@ -290,7 +290,7 @@ document.addEventListener("DOMContentLoaded", () => {
             Math.random() < chance ? Math.random() < enabledChance : current;
         const zenShapes = [
             "ellipse", "ellipse", "drop", "ring", "nebula", "aquatic",
-            "ocean", "aurora", "orbitals", "lotus", "pendulumSpiral", "painterlyVortex", "celticCurrent", "celticKnotwork", "cymaticResonance", "mandelbrotDive", "molecularDance"
+            "ocean", "aurora", "orbitals", "lotus", "pendulumSpiral", "painterlyVortex", "celticCurrent", "celticKnotwork", "cymaticResonance", "mandelbrotDive", "molecularDance", "stellarNursery"
         ];
         const nextShape = Math.random() < 0.24
             ? zenShapes[Math.floor(Math.random() * zenShapes.length)]
@@ -414,6 +414,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 speed: rnd(0.5, 0.8), turbulence: 0.05, density: rndInt(2400, 3400),
                 flowOrganic: 1, dissipation: 0.11, zoom: 1,
                 baseSize: rnd(1.9, 3.0), sizeVariation: 0.5, stretch: rnd(1.5, 2.3), interaction: 0,
+                rotationSpeed: rnd(0.01, 0.04), wobble: rnd(0.08, 0.22), kaleidoscopeEnabled: false,
+                psychedelicMode: false, morphingBg: false, spinningKaleido: false, particleLighting: "glow"
+            });
+        } else if (nextShape === "stellarNursery") {
+            Object.assign(randomSettings, {
+                speed: rnd(0.35, 0.7), turbulence: 0.05, density: rndInt(1100, 2400),
+                flowOrganic: 1, dissipation: rnd(0.22, 0.38), zoom: 1,
+                baseSize: rnd(1.9, 3.0), sizeVariation: 0.5, stretch: rnd(0.8, 1.7), interaction: 0,
                 rotationSpeed: rnd(0.01, 0.04), wobble: rnd(0.08, 0.22), kaleidoscopeEnabled: false,
                 psychedelicMode: false, morphingBg: false, spinningKaleido: false, particleLighting: "glow"
             });
@@ -2127,7 +2135,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const serenePatterns = [
             "ellipse", "drop", "ring", "nebula", "aquatic",
             "aurora", "lotus", "pendulumSpiral", "painterlyVortex", "chromeRibbon",
-            "tightTailVortex", "zenMandala", "gravityWell", "jadeCurrents", "celticCurrent", "celticKnotwork", "cymaticResonance", "mandelbrotDive", "molecularDance", "prismDrift", "violetUndertow"
+            "tightTailVortex", "zenMandala", "gravityWell", "jadeCurrents", "celticCurrent", "celticKnotwork", "cymaticResonance", "mandelbrotDive", "molecularDance", "stellarNursery", "prismDrift", "violetUndertow"
         ];
         const alivePatterns = [
             ...serenePatterns, "ocean", "orbitals", "brush", "cluster", "spiral", "pipes",
@@ -2254,7 +2262,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // This authored composition needs a stable visual anchor even when
         // Autopilot discovers it. Let other Flow shapes roam freely, but keep
         // Hypnotic Spiral from inheriting extreme speed, stretch, or density.
-        if (["pendulumSpiral", "painterlyVortex", "chromeRibbon", "celticCurrent", "celticKnotwork", "cymaticResonance", "mandelbrotDive", "molecularDance", "tightTailVortex", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"].includes(nextPatternShape)) {
+        if (["pendulumSpiral", "painterlyVortex", "chromeRibbon", "celticCurrent", "celticKnotwork", "cymaticResonance", "mandelbrotDive", "molecularDance", "stellarNursery", "tightTailVortex", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"].includes(nextPatternShape)) {
             const authoredTargets = nextPatternShape === "chromeRibbon" ? {
                 // Liquid Chrome has its own meaningful Flow range: 8–24 ribbons.
                 // Density maps to layers in ChromeRibbons (1920 = signature 18).
@@ -2282,6 +2290,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 speed: rnd(0.5, 0.8), turbulence: 0.05, density: Math.round(rnd(2400, 3400)),
                 flowOrganic: 1, dissipation: 0.11, zoom: 1,
                 baseSize: rnd(1.9, 3.0), sizeVariation: 0.5, stretch: rnd(1.5, 2.3), interaction: 0,
+                rotationSpeed: rnd(0.01, 0.04), wobble: rnd(0.08, 0.22), drag: 0.93
+            } : nextPatternShape === "stellarNursery" ? {
+                // Filament count, drift pace, cloud elongation and trail softness vary;
+                // where filaments form, which carry newborn stars and the colours stay autonomous.
+                speed: rnd(0.35, 0.7), turbulence: 0.05, density: Math.round(rnd(1100, 2400)),
+                flowOrganic: 1, dissipation: rnd(0.22, 0.38), zoom: 1,
+                baseSize: rnd(1.9, 3.0), sizeVariation: 0.5, stretch: rnd(0.8, 1.7), interaction: 0,
                 rotationSpeed: rnd(0.01, 0.04), wobble: rnd(0.08, 0.22), drag: 0.93
             } : nextPatternShape === "mandelbrotDive" ? {
                 // Dive pace, filament width, colour-band density and field
@@ -2394,8 +2409,8 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
         const activeFlowShape = nextPatternShape || sim.settings.particleShape;
-        const isProtectedAuthoredFlow = ["pendulumSpiral", "painterlyVortex", "chromeRibbon", "celticCurrent", "celticKnotwork", "cymaticResonance", "mandelbrotDive", "molecularDance", "tightTailVortex", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"].includes(activeFlowShape);
-        const kaleidoEligibleShapes = new Set(["ellipse", "drop", "ring", "nebula", "brush", "cluster", "spiral", "lotus", "orbitals", "quantumLattice", "pipesTight", "pipesCathedral", "pipesShrine", "mandelbrotDive", "molecularDance"]);
+        const isProtectedAuthoredFlow = ["pendulumSpiral", "painterlyVortex", "chromeRibbon", "celticCurrent", "celticKnotwork", "cymaticResonance", "mandelbrotDive", "molecularDance", "stellarNursery", "tightTailVortex", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"].includes(activeFlowShape);
+        const kaleidoEligibleShapes = new Set(["ellipse", "drop", "ring", "nebula", "brush", "cluster", "spiral", "lotus", "orbitals", "quantumLattice", "pipesTight", "pipesCathedral", "pipesShrine", "mandelbrotDive", "molecularDance", "stellarNursery"]);
         const kaleidoGeometricShapes = new Set(["quantumLattice", "pipesTight", "pipesCathedral", "pipesShrine"]);
         const nextKaleidoEnabledFlow = isFlowEnabled("kaleidoscopeEnabled");
         const nextKaleidoSegmentsFlow = isFlowEnabled("kaleidoscopeSegments");

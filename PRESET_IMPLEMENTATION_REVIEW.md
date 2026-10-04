@@ -549,3 +549,84 @@ the end (wire order preserved); old links unaffected.
 
 **Release status:** local candidate, committed locally; awaiting Clay's lab tuning, visual
 approval and push.
+
+## Stellar Nursery — new 2D preset (2026-10-04, Claude)
+
+Built by Claude at Clay's request ("your own awesome cosmic nebula inspired preset;
+Cosmic Nebula stays"). Lab first: `tools/nursery-lab.html`. Committed locally; needs Clay's push.
+
+**Name / stable ID / geometry:** Stellar Nursery / preset key and particle shape
+`stellarNursery` / authored 2D renderer `js/stellar-nursery.js` (Canvas 2D, procedural
+noise textures tinted and cached; no WebGL, no new schema keys). Cosmic Nebula
+(`nebula`) is untouched.
+
+**Creative intent.** An emission nebula you drift through, not a particle field. Ridged,
+glowing gas filaments (colours taken from the palette, mixed several per filament) sweep
+across the screen in three parallax layers (far/middle/near, with a slow camera sway);
+dark dust lanes lie over each layer's gas and carve silhouettes; newborn stars ignite
+inside some filaments with hot cores and diffraction spikes; a field of stars twinkles
+behind and in front. Filaments are born, drift, and fade over about a minute, so the
+nebula slowly rearranges itself. Atmosphere: deep space, saturated gas, pinpoint stars.
+
+**Controls (existing app keys).**
+
+| Aspect | Setting | Mapping | Preset / Flow |
+|---|---|---|---|
+| Tempo (drift, undulation, shockwave) | `speed` | tempo = speed/0.5; 0 freezes everything (tested) | 0.5 / 0.35–0.7 |
+| Star size | `baseSize` | star size × sqrt(baseSize/2.4) | 2.4 / 1.9–3.0 |
+| Filament and star count | `density` | filaments 8 + 10·(density−300)/2700, stars 110 + 200·(…), both × tuning | 1600 / 1100–2400 |
+| Ridge elongation | `stretch` | wisp length × stretch/1.2 | 1.2 / 0.8–1.7 |
+| Swirl variety | `wobble` | undulation × (0.5 + 0.5·wobble/0.14) | 0.14 / 0.08–0.22 |
+| Trail softness | `dissipation` | app trail fade; every alpha is scaled by (dissipation/0.3)^0.85 so slow fades don't whiten the scene | 0.3 / 0.22–0.38 |
+| Filament turn | `rotationSpeed` | each filament slowly turns | 0.02 / 0.01–0.04 |
+
+Artistic tunables are in `DEFAULT_TUNING` (22 values: gas/dust/core brightness, filament
+count, cloud size, fine-ridge share, swirl, drift, depth, newborn-star share, star
+count/size/spikes/twinkle, colour flow/spread, filament life and fade time, bass/treble
+responses, quality cap), edited in the lab; "Copy settings" JSON
+`{"preset","app","tuning","palette"}` is what an agent applies as defaults (checklist
+section 0). Filament positions, headings, which carry newborn stars, and colours are
+autonomous (seeded random; best-candidate placement keeps coverage even).
+
+**Flow.** Random Config branch, Serene/Alive/Wild pool, protected authored target with the
+envelope above, kaleidoscope-eligible. The app's kaleidoscope is mirrored inside the
+module (own layer) and the app's particle mirror skips this preset. Veil Drift: the scene
+is drawn shrunk by zoom^0.75 and spread over the visible area (extents and filament count
+scale with zoom), tested. Mandala's Flow weight was not changed this time; the Flow variety
+test passed six runs in a row with 39 presets.
+
+**Music response card.**
+
+| Input | Response | Limits |
+|---|---|---|
+| Bass attacks | **Bespoke:** baseSize swell (shared pipeline) detected as a pulse (same detector as Mandelbrot Dive): gas brightens up to +38% and cores flare, and a coloured ionisation shockwave rolls from a random point, brightening and bulging the gas it passes | Pulse ≤ 0.7 × bassPulse; at most 3 waves; waves and pulse decay in a few seconds; a swell lasting > 0.6 s is a slider change, not a beat |
+| Midrange | None (no shared midrange channel) | — |
+| Treble | **Bespoke:** `trebleIntensity` makes stars flare, spikes lengthen, newborn cores flicker | Bounded multipliers; zero treble = baseline |
+| Palette / mood | Inherited Flow mood palette (read live each frame; `hsl()` supported) | — |
+| Silence / stop | Shared pipeline restores baseline; modulation is temporary and never written to settings (tested) | Real audio capture not tested |
+
+**Performance.** About 120–180 gas sprite blits + 60 dust + 100 stars per frame. Textures
+are generated once (128 px, nine kinds) and tinted per quantised colour (≤ 900 cached).
+A frame-time guard sheds fine ridges, haze and stars (down to ~45%) when frames exceed
+~24 ms; the `quality` tuning caps detail. Headless Chromium uses software rendering
+(6–25 fps): real GPU/phone frame rate **not measured**; fill-rate on phones is the thing to check.
+
+**Coverage.** 2D implemented. Parallax dome/native 3D/headset not built (3D overhaul pending).
+
+**Evidence.** `scratch/stellar_nursery_tests.js` (11 groups, strict canvas stub that fails
+on alpha outside 0–1 and non-finite sprite geometry): defaults and clamps, 400 s of
+simulated frames (bounded, filaments born and retired), mid-life entry and time jumps,
+hex/short/rgb/hsl/junk/single-colour palettes, Veil Drift compensation, bass wave launch,
+bound and decay, treble, brightness steadiness across dissipation, every slider reaching
+existing content, speed-0 freeze, kaleidoscope segments, and app integration (menu, script
+tag order, schema, share-link table, preset entry, Random Config, authored Flow, gate).
+Gate: preset-2d PASS (15). Visual: Nursery Lab and the full app (preset card → Stellar
+Nursery) in headless Chromium, plus a 6-segment kaleidoscope, no errors. Bass shockwave
+is covered by tests but its ring was not isolated in a screenshot.
+
+**Known gaps / next.** Not visually checked on a real GPU, phone or with real audio;
+Clay's lab session should set the final defaults (palette, brightness, structure).
+Share-link table appends the shape at the end (wire order preserved); old links unaffected.
+
+**Release status:** local candidate, committed locally; awaiting Clay's lab tuning, visual
+approval and push.

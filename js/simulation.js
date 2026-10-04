@@ -2534,6 +2534,8 @@ class FlowSimulation {
                 window.MandelbrotDive.draw(this.ctx, this.width, this.height, this.globalTime / 60, this.settings, this.palette);
             } else if (this.settings.particleShape === "molecularDance" && window.MolecularDance) {
                 window.MolecularDance.draw(this.ctx, this.width, this.height, this.globalTime / 60, this.settings, this.palette, sceneScale);
+            } else if (this.settings.particleShape === "stellarNursery" && window.StellarNursery) {
+                window.StellarNursery.draw(this.ctx, this.width, this.height, this.globalTime / 60, this.settings, this.palette, sceneScale);
             } else if (this.settings.particleShape === "cymaticResonance" && window.CymaticResonance) {
                 window.CymaticResonance.draw(this.ctx, this.width, this.height, this.globalTime / 60, this.settings, this.palette, sceneScale);
             } else if (this.settings.particleShape === "painterlyVortex") {
@@ -2593,9 +2595,9 @@ class FlowSimulation {
 
             // Apply Kaleidoscope mirror reflection quadrant symmetry
             // Mandelbrot Dive mirrors inside its own shader and Molecular Dance
-            // mirrors its own layer; the particle mirror pass would only redraw
+            // and Stellar Nursery mirror their own layer; the particle mirror pass would only redraw
             // those presets' idle particle pool.
-            if (this.settings.kaleidoscopeEnabled && this.settings.particleShape !== "mandelbrotDive" && this.settings.particleShape !== "molecularDance") {
+            if (this.settings.kaleidoscopeEnabled && this.settings.particleShape !== "mandelbrotDive" && this.settings.particleShape !== "molecularDance" && this.settings.particleShape !== "stellarNursery") {
                 const cx = this.width / 2;
                 const cy = this.height / 2;
                 const segments = Math.max(3, Math.floor(this.settings.kaleidoscopeSegments));
