@@ -21,7 +21,32 @@ const MusicMoods = (() => {
     let lastNow = 0, lastBeatAt = 0, period = 500, intervals = [], energyLong = 0, midMax = 0.2, lastLoud = 0;
     // Adaptive onset tracking: real music never drops to silence between kicks and the analyser smooths it,
     // so beats are found by bass rising above its own recent average rather than by a big frame-to-frame jump.
-    let bassSlow = 0, bassDev = 0.05, bassPrev = 0, lastOver = 0;
+    let bassSlow = 0, bassFast = 0, bassDev = 0.05, bassPrev = 0, lastOver = 0;
+    // Periodicity (tempo) tracker: a steady repeating bass pulse makes beat detection more sensitive
+    // right where the next beat is due, while random bass notes and noise stay strict.
+    const AC_N = 300, AC_MIN = 20, AC_MAX = 60;
+    const acBuf = new Float32Array(AC_N);
+    let acHead = 0, acCount = 0, acAccum = 0, acTick = 0, acConf = 0;
+    function analysePeriodicity() {
+        const x = new Float32Array(AC_N);
+        for (let i = 0; i < AC_N; i++) x[i] = acBuf[(acHead + i) % AC_N];
+        const corr = L => {
+            let ab = 0, aa = 0, bb = 0;
+            for (let i = L; i < AC_N; i++) { ab += x[i] * x[i - L]; aa += x[i] * x[i]; bb += x[i - L] * x[i - L]; }
+            return aa > 1e-7 && bb > 1e-7 ? ab / Math.sqrt(aa * bb) : 0;
+        };
+        const r = [];
+        let best = 0, bestL = 0;
+        for (let L = AC_MIN; L <= AC_MAX; L++) { r[L] = corr(L); if (r[L] > best) { best = r[L]; bestL = L; } }
+        acConf = best;
+        if (best > 0.3 && bestL) {
+            // Prefer the faster pulse when half the lag is nearly as strong (avoid locking to half-time).
+            const h = Math.round(bestL / 2);
+            if (h >= AC_MIN && r[h] >= best * 0.85) bestL = h;
+            period = period * 0.5 + (bestL * 16.667) * 0.5;
+            state.bpm = 60000 / period;
+        }
+    }
 
     // Voices. All values are bounded, modest multipliers; gain (Comfort / 3D) scales them all.
     //  kick   radial impulse on a beat (+ outward, - inward "gasp")   swirl  tangential push from midrange
@@ -207,13 +232,29 @@ const MusicMoods = (() => {
 
         // Beats: a sharp bass attack (clean material) OR bass rising clearly above its own running average
         // (real, smoothed music). Short refractory period either way.
-        const rise = bass - bassPrev;
-        bassPrev = bass;
-        bassSlow += (bass - bassSlow) * Math.min(1, 0.05 * dt);
-        const over = bass - bassSlow;
+        // Work on a lightly smoothed bass so soft, slow-attack pulses (ambient, dub) still stand out from noise.
+        bassFast += (bass - bassFast) * Math.min(1, 0.3 * dt);
+        const rise = bassFast - bassPrev;
+        bassPrev = bassFast;
+        bassSlow += (bassFast - bassSlow) * Math.min(1, 0.05 * dt);
+        const over = bassFast - bassSlow;
         bassDev += (Math.abs(over) - bassDev) * Math.min(1, 0.05 * dt);
+        acAccum += dt * 16.667;
+        while (acAccum >= 16.667) {
+            acAccum -= 16.667;
+            acBuf[acHead] = over; acHead = (acHead + 1) % AC_N;
+            if (acCount < AC_N) acCount++;
+            acTick++;
+        }
+        if (acTick >= 30 && acCount >= AC_N) { acTick = 0; analysePeriodicity(); }
+        // When the bass is clearly periodic, accept softer onsets near where a beat is due.
+        let due = 1;
+        if (acConf > 0.3 && lastBeatAt) {
+            const q = (now - lastBeatAt) / period;
+            if (Math.abs(q - Math.max(1, Math.round(q))) < 0.22) due = 0.45;
+        }
         const sharp = clamp(f.bassAttack, 0, 1) > 0.05 && bass > 0.3;
-        const swell = over > Math.max(0.04, bassDev * 1.4) && rise > 0.003 && over >= lastOver && bass > 0.2;
+        const swell = over > Math.max(0.010, bassDev * 2.6 * due) && rise > 0.001 && over >= lastOver && bass > 0.2;
         lastOver = over;
         if (bassOn && (sharp || swell) && now - lastBeatAt > 220) {
             registerBeat(now, clamp(Math.max(f.bassAttack * 4, 0.6 + over * 3), 0.6, 1));
@@ -223,6 +264,8 @@ const MusicMoods = (() => {
         state.phase = (state.phase + dt * 16.667 / period) % 1;
         if (now - lastBeatAt > 2500) state.lock *= Math.pow(0.97, dt);
         if (state.lock < 0.02) state.lock = 0;
+        // A clearly periodic bass pulse keeps the tempo-locked ripple alive even when single beats are soft.
+        if (bassOn && acConf > 0.3 && state.lock < 0.6) state.lock = 0.6;
 
         const loud = clamp(0.5 * bass + 0.3 * midN + 0.2 * trebleLevel, 0, 1);
         lastLoud = loud;
@@ -246,7 +289,8 @@ const MusicMoods = (() => {
         state.beat = 0; state.lock = 0; state.phase = 0;
         intervals.length = 0; period = 500; state.bpm = 120;
         energyLong = 0; lastNow = 0; lastBeatAt = 0; midMax = 0.2;
-        bassSlow = 0; bassDev = 0.05; bassPrev = 0; lastOver = 0;
+        bassSlow = 0; bassFast = 0; bassDev = 0.05; bassPrev = 0; lastOver = 0;
+        acBuf.fill(0); acHead = acCount = acTick = 0; acAccum = 0; acConf = 0;
         // flow and t keep their values so time never jumps backwards.
     }
 
