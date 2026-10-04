@@ -736,3 +736,14 @@ Cymatic, Mandelbrot and Molecular could add midrange/energy. 3D is untouched.
 - **Not verified:** the page in a real browser (local file preview is blocked by browser policy, so I did not
   bypass it), audio from a real file, the WebGL path of Mandelbrot Dive in the lab, and phone layout.
   The lab omits the app's palette-mood drift and new-palette-on-big-beat behaviour.
+
+### 2026-10-04 addendum 2 — Music Lab: playlist source, locks, auto-save, one-copy export (Claude)
+
+- **Playlist source.** The lab can play the app's own songs ("Nocturnal Drift", Favorites and custom playlists) through the same analyser as a loaded file. It reads the app's saved favorites/playlists/banished list (same browser storage, read only) and never writes them. Plays on to the next song, previous/next buttons, track picker, wraps around.
+- **Auto-save.** Every slider change is saved in the browser (`eternalvoid.musiclab.v1`: changed reactions plus locks) and restored on the next visit, so tuning can span several sessions. Browser storage is per device and browser.
+- **Lock.** "Lock this reaction" marks a geometry as done: sliders and reset are protected, the preset list shows ✓ (locked) and ● (edited). Locking a reaction that was never changed means "keep the default". A "Your tuned reactions" list shows every tuned/locked reaction with Open, Lock/Unlock.
+- **One copy for everything.** "Copy all tuned reactions (N)" copies one line holding every edited reaction across all presets plus the locked list: `{"lab":"music","voices":{...},"locked":[...]}`. "Copy locked reactions only" narrows it. Pasting a line restores values and locks. "Reset everything" needs a second click, then clears values, locks and the saved copy.
+- **Applying the line.** Merge each geometry in `voices` into `DEFAULT_PROFILES` in `js/music-moods.js`; geometries only in `locked` are reviewed and keep their defaults.
+- Also loads `js/stellar-nursery.js` so Stellar Nursery draws in the lab.
+- **Evidence.** `scratch/music_lab_tests.js` now boots the lab twice in jsdom (fake canvas/audio/storage) on the origin/main tree: all 39 presets render with music; playlist lists six songs, plays, advances on `ended`, wraps; locking disables sliders; copy holds every edit and lock in one clipboard line; locked-only filter; edits and locks survive a second page load; paste restores; reset-everything confirmation and cleanup; silence returns to neutral.
+- **Not verified.** Real browser, real audio files or the six mp3 files actually loading on the live site, phone layout, and real clipboard permissions.

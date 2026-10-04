@@ -51,6 +51,15 @@ select { background: var(--void); max-width: 100%; }
 #presetSelect { width: 100%; }
 textarea { width: 100%; box-sizing: border-box; min-height: 72px; background: var(--void); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; font: 11.5px/1.45 var(--mono); padding: 8px; resize: vertical; }
 audio { width: 100%; }
+.tuned { display: flex; flex-direction: column; gap: 6px; }
+.tuned-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; }
+.tuned-row .names { font-size: 12px; color: var(--ink); overflow-wrap: anywhere; }
+.tuned-row .state { font: 11px var(--mono); color: var(--muted); }
+.tuned-row.locked .state { color: var(--accent); }
+.tuned-row .mini { display: flex; gap: 6px; }
+button.tiny { font: 600 11px var(--display); background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+button.tiny:hover { border-color: var(--accent); }
+.row input[type=range]:disabled, .row select:disabled { opacity: .45; }
 .status { color: var(--muted); font-size: 12px; min-height: 1.4em; margin: 0; }
 .note { color: var(--muted); font-size: 12px; margin: 0; }
 .note b { color: var(--ink); font-weight: 600; }
@@ -95,6 +104,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px;
     <h2 id="h-music">Music</h2>
     <select id="source" aria-label="Music source">
       <option value="beat">Test beat (built in)</option>
+      <option value="playlist">Nocturnal Drift playlist (from the app)</option>
       <option value="file">My own audio file</option>
       <option value="off">Silence</option>
     </select>
@@ -113,6 +123,16 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px;
       <audio id="audio" controls loop></audio>
       <p class="note">Plays through your speakers. Nothing is uploaded.</p>
     </div>
+    <div id="listBox" hidden>
+      <select id="playlistSelect" aria-label="Playlist"></select>
+      <select id="trackSelect" aria-label="Track"></select>
+      <div class="buttons">
+        <button class="act" id="prevTrack" type="button">Previous track</button>
+        <button class="act" id="nextTrack" type="button">Next track</button>
+      </div>
+      <audio id="listAudio" controls></audio>
+      <p class="note" id="listNote">Uses the same songs, favorites, playlists and banned songs as the main app in this browser. Plays on to the next song by itself.</p>
+    </div>
     <label class="check"><input type="checkbox" id="moods" checked> Music Moods on (turn off to compare with the old generic reaction)</label>
     <label class="check"><input type="checkbox" id="generic" checked> Include the app's built-in bass and treble layer</label>
     <label class="check"><input type="checkbox" id="comfort"> Comfort mode (half strength, like the app)</label>
@@ -122,17 +142,27 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px;
     <h2 id="h-voice">This preset's reaction</h2>
     <p class="note" id="voiceNote"></p>
     <div id="voiceRows"></div>
-    <div class="buttons"><button class="act" id="resetVoice" type="button">Reset this reaction</button></div>
+    <div class="buttons">
+      <button class="act primary" id="lockVoice" type="button">Lock this reaction</button>
+      <button class="act" id="resetVoice" type="button">Reset this reaction</button>
+    </div>
+    <p class="note" id="lockNote">Lock a reaction when you're happy with it. Locked reactions are protected from accidental slider changes and are marked ✓ in the preset list. Everything auto-saves in this browser.</p>
+  </section>
+
+  <section aria-labelledby="h-tuned">
+    <h2 id="h-tuned">Your tuned reactions</h2>
+    <div class="tuned" id="tunedList"></div>
   </section>
 
   <section aria-labelledby="h-save">
     <h2 id="h-save">Save</h2>
     <div class="buttons">
-      <button class="act primary" id="copy" type="button">Copy settings</button>
+      <button class="act primary" id="copy" type="button">Copy all tuned reactions</button>
       <button class="act" id="resetAll" type="button">Reset everything</button>
     </div>
-    <textarea id="settingsText" aria-label="Settings text" spellcheck="false" placeholder="Edited reactions appear here. Paste a settings line here to load it."></textarea>
-    <p class="status" id="status" role="status">Copy settings holds every reaction you changed, across all presets.</p>
+    <label class="check"><input type="checkbox" id="lockedOnly"> Copy locked reactions only</label>
+    <textarea id="settingsText" aria-label="Settings text" spellcheck="false" placeholder="Your tuned reactions appear here as one line. Paste a settings line here to load it."></textarea>
+    <p class="status" id="status" role="status">One copy holds every reaction you tuned or locked, across all presets. Your work also auto-saves in this browser, so it's still here next time.</p>
     <p class="keys"><kbd>[</kbd> <kbd>]</kbd> previous / next preset · <kbd>M</kbd> moods on/off · <kbd>Space</kbd> pause · <kbd>H</kbd> hide panel</p>
   </section>
 </aside>
@@ -145,6 +175,8 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px;
 <script src="../js/cymatic-resonance.js"></script>
 <script src="../js/mandelbrot-dive.js"></script>
 <script src="../js/molecular-dance.js"></script>
+<script src="../js/stellar-nursery.js"></script>
+<script src="../js/music-library.js"></script>
 <script src="../js/music-moods.js"></script>
 <script src="../js/simulation.js"></script>
 <script>
@@ -270,9 +302,20 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px;
     const treble = Math.min(1, (0.08 + 0.7 * hat) * beatCfg.treble * (0.4 + 0.6 * loud));
     return { bass, mid, treble, level: 0.5 * bass + 0.3 * mid + 0.2 * treble };
   }
-  let audioCtx = null, analyser = null, audioBound = false;
+  let audioCtx = null, analyser = null;
   const bins = new Uint8Array(128);
-  function fileAnalysis() {
+  // One analyser (same size as the app's) listens to whichever audio element is playing.
+  function bindAudio(el) {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.connect(audioCtx.destination);
+    }
+    if (!el._node) { el._node = audioCtx.createMediaElementSource(el); el._node.connect(analyser); }
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  }
+  function mediaAnalysis() {
     if (!analyser) return { bass: 0, mid: 0, treble: 0, level: 0 };
     analyser.getByteFrequencyData(bins);
     const avg = (from, to) => { let s = 0; for (let i = from; i < to; i++) s += bins[i]; return s / (to - from) / 255; };
@@ -283,28 +326,64 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px;
     if (!f) return;
     const audio = $("audio");
     audio.src = URL.createObjectURL(f);
-    if (!audioBound) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 256;
-      const node = audioCtx.createMediaElementSource(audio);
-      node.connect(analyser);
-      analyser.connect(audioCtx.destination);
-      audioBound = true;
-    }
+    bindAudio(audio);
     audio.play().catch(() => { $("status").textContent = "Press play on the audio bar to start."; });
-    if (audioCtx.state === "suspended") audioCtx.resume();
   });
   $("source").addEventListener("change", () => {
     const v = $("source").value;
     $("beatBox").hidden = v !== "beat";
     $("fileBox").hidden = v !== "file";
+    $("listBox").hidden = v !== "playlist";
     if (v !== "file") $("audio").pause();
+    if (v !== "playlist") $("listAudio").pause();
+    else startPlaylist();
   });
+  // ---- playlist: the app's own song list (read only; nothing here changes your app data) ----
+  const library = new MusicLibrary((() => { try { return window.localStorage; } catch { return { getItem() { return null; }, setItem() {} }; } })());
+  let queue = [], queueIndex = 0;
+  const trackUrl = id => "../" + library.track(id).url;
+  function fillPlaylists() {
+    const sel = $("playlistSelect");
+    sel.innerHTML = "";
+    for (const pl of library.playlists()) {
+      if (!library.playable(pl.id).length) continue;
+      const o = document.createElement("option");
+      o.value = pl.id; o.textContent = `${pl.name} (${library.playable(pl.id).length})`;
+      sel.appendChild(o);
+    }
+  }
+  function fillTracks() {
+    queue = library.playable($("playlistSelect").value);
+    const sel = $("trackSelect");
+    sel.innerHTML = "";
+    queue.forEach((id, i) => { const o = document.createElement("option"); o.value = i; o.textContent = library.track(id).title; sel.appendChild(o); });
+    queueIndex = 0;
+  }
+  function playTrack(i) {
+    if (!queue.length) { $("status").textContent = "That playlist has no playable songs."; return; }
+    queueIndex = ((i % queue.length) + queue.length) % queue.length;
+    $("trackSelect").value = queueIndex;
+    const el = $("listAudio");
+    bindAudio(el);
+    el.src = trackUrl(queue[queueIndex]);
+    el.play().catch(() => { $("status").textContent = "Press play on the audio bar to start."; });
+  }
+  function startPlaylist() {
+    if (!$("playlistSelect").options.length) fillPlaylists();
+    if (!queue.length) fillTracks();
+    if ($("listAudio").paused) playTrack(queueIndex);
+  }
+  $("playlistSelect").addEventListener("change", () => { fillTracks(); playTrack(0); });
+  $("trackSelect").addEventListener("change", e => playTrack(Number(e.target.value)));
+  $("prevTrack").addEventListener("click", () => playTrack(queueIndex - 1));
+  $("nextTrack").addEventListener("click", () => playTrack(queueIndex + 1));
+  $("listAudio").addEventListener("ended", () => playTrack(queueIndex + 1));
+  $("listAudio").addEventListener("error", () => { $("status").textContent = "That song could not load. Try the next one."; });
+  fillPlaylists(); fillTracks();
   function analysis(t) {
     const v = $("source").value;
     if (v === "beat") return testBeat(t);
-    if (v === "file") return fileAnalysis();
+    if (v === "file" || v === "playlist") return mediaAnalysis();
     return null;
   }
 
@@ -360,9 +439,83 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px;
     s.rotationSpeed = base.rotationSpeed + aSpeed * 0.08;
   }
 
+  // ---- saved work: auto-save, locks, one-copy export ----
+  const STORE_KEY = "eternalvoid.musiclab.v1";
+  const locked = new Set();
+  const store = (() => { try { return window.localStorage; } catch { return null; } })();
+  function persist() {
+    if (!store) return;
+    try { store.setItem(STORE_KEY, JSON.stringify({ v: 1, voices: MM.exportChanges(), locked: [...locked] })); } catch { /* storage full or blocked: copy still works */ }
+  }
+  function restore() {
+    if (!store) return;
+    try {
+      const saved = JSON.parse(store.getItem(STORE_KEY) || "null");
+      if (!saved || typeof saved !== "object") return;
+      for (const [shape, values] of Object.entries(saved.voices || {})) MM.setProfile(shape, values);
+      for (const shape of Array.isArray(saved.locked) ? saved.locked : []) if (MM.PROFILES[shape]) locked.add(shape);
+    } catch { /* corrupt save: start clean */ }
+  }
+  const sharedBy = shape => presetKeys.filter(k => shapeOf(k) === shape).map(presetName);
+  const editedShapes = () => Object.keys(MM.exportChanges());
+  const tunedShapes = () => [...new Set([...editedShapes(), ...locked])].filter(sh => MM.PROFILES[sh]);
+  function labelPresets() {
+    const edited = new Set(editedShapes());
+    for (const o of $("presetSelect").options) {
+      const sh = shapeOf(o.value);
+      const mark = locked.has(sh) ? "✓ " : edited.has(sh) ? "● " : "";
+      o.textContent = `${mark}${presetName(o.value)}  ·  ${sh}`;
+    }
+  }
+  function lineFor(lockedOnly) {
+    const all = MM.exportChanges();
+    const voices = {};
+    for (const [shape, values] of Object.entries(all)) if (!lockedOnly || locked.has(shape)) voices[shape] = values;
+    const lockList = [...locked].filter(sh => MM.PROFILES[sh]);
+    if (!Object.keys(voices).length && !lockList.length) return "";
+    return JSON.stringify({ lab: "music", voices, locked: lockList });
+  }
+  function renderTuned() {
+    const host = $("tunedList");
+    host.innerHTML = "";
+    const shapes = tunedShapes();
+    if (!shapes.length) { host.innerHTML = '<p class="note">Nothing tuned yet. Move a slider, or lock a reaction you already like as it is.</p>'; return; }
+    const edited = new Set(editedShapes());
+    for (const shape of shapes) {
+      const row = document.createElement("div");
+      const isLocked = locked.has(shape);
+      row.className = "tuned-row" + (isLocked ? " locked" : "");
+      row.innerHTML = `<div><div class="names"></div><div class="state"></div></div><div class="mini"></div>`;
+      row.querySelector(".names").textContent = sharedBy(shape).join(", ") || shape;
+      row.querySelector(".state").textContent = (isLocked ? "Locked ✓" : "Editing") + (edited.has(shape) ? "" : " · default");
+      const mini = row.querySelector(".mini");
+      const open = document.createElement("button"); open.type = "button"; open.className = "tiny"; open.textContent = "Open";
+      open.addEventListener("click", () => { const k = presetKeys.find(key => shapeOf(key) === shape); if (k) applyPreset(k); });
+      const lock = document.createElement("button"); lock.type = "button"; lock.className = "tiny"; lock.textContent = isLocked ? "Unlock" : "Lock";
+      lock.addEventListener("click", () => toggleLock(shape));
+      mini.append(open, lock);
+      host.appendChild(row);
+    }
+  }
+  function refreshText() {
+    const lockedOnly = $("lockedOnly").checked;
+    $("settingsText").value = lineFor(lockedOnly);
+    const n = lockedOnly ? locked.size : tunedShapes().length;
+    $("copy").textContent = n ? `Copy all ${lockedOnly ? "locked" : "tuned"} reactions (${n})` : "Copy all tuned reactions";
+    labelPresets();
+    renderTuned();
+    persist();
+  }
+  function toggleLock(shape) {
+    if (locked.has(shape)) locked.delete(shape); else locked.add(shape);
+    if (shapeOf(current) === shape) buildVoiceRows();
+    refreshText();
+  }
+  $("lockedOnly").addEventListener("change", refreshText);
+  $("lockVoice").addEventListener("click", () => toggleLock(shapeOf(current)));
+
   // ---- reaction editor ----
   const rowRefs = [];
-  function sharedBy(shape) { return presetKeys.filter(k => shapeOf(k) === shape).map(presetName); }
   function readParam(prof, key) {
     if (key.startsWith("ripple.")) return prof.ripple ? prof.ripple[key.slice(7)] ?? 0 : 0;
     return prof[key] ?? 0;
@@ -373,8 +526,13 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px;
     const shape = shapeOf(current);
     const prof = MM.profileFor(shape);
     const def = MM.DEFAULT_PROFILES[shape];
+    const isLocked = locked.has(shape);
     const names = sharedBy(shape);
-    $("voiceNote").innerHTML = `Reaction <b>${shape}</b>` + (names.length > 1 ? `, shared by ${names.join(", ")}. Changes affect all of them.` : ".");
+    $("voiceNote").innerHTML = `Reaction <b>${shape}</b>` + (names.length > 1 ? `, shared by ${names.join(", ")}. Changes affect all of them.` : ".")
+      + (isLocked ? " <b>Locked ✓</b>: unlock to change it." : "");
+    $("lockVoice").textContent = isLocked ? "Unlock this reaction" : "Lock this reaction";
+    $("lockVoice").classList.toggle("primary", !isLocked);
+    $("resetVoice").disabled = isLocked;
     if (!def) { $("voiceNote").innerHTML += " This geometry has no reaction table yet."; return; }
     if (def.self) {
       $("voiceNote").innerHTML += " This preset has its own music code, so there is nothing to tune here yet.";
@@ -390,6 +548,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px;
         <input id="${id}" type="range" min="${meta.min}" max="${meta.max}" step="${meta.step}"><span class="hint">${meta.hint}</span>`;
       host.appendChild(row);
       const input = row.querySelector("input"), out = row.querySelector("output");
+      input.disabled = isLocked;
       const show = v => { input.value = v; out.textContent = Number(v).toFixed(meta.step >= 0.1 ? 1 : 2); };
       show(readParam(prof, meta.key));
       input.addEventListener("input", () => { MM.setProfile(shape, { [meta.key]: Number(input.value) }); out.textContent = Number(input.value).toFixed(meta.step >= 0.1 ? 1 : 2); refreshText(); });
@@ -402,6 +561,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px;
       row.innerHTML = `<label for="v-${key}">${label}</label><span></span><select id="v-${key}">${MM.CHOICES[key].map(c => `<option value="${c}">${c}</option>`).join("")}</select>`;
       host.appendChild(row);
       const select = row.querySelector("select");
+      select.disabled = isLocked;
       select.value = (prof.ripple && prof.ripple[key.slice(7)]) || (key === "ripple.dir" ? "out" : "both");
       select.addEventListener("change", () => { MM.setProfile(shape, { [key]: select.value }); refreshText(); });
       rowRefs.push(() => { const p = MM.profileFor(shape); select.value = (p.ripple && p.ripple[key.slice(7)]) || select.value; });
@@ -412,16 +572,13 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px;
     $("status").textContent = "This reaction is back to its defaults.";
   });
 
-  // ---- save / load ----
-  function refreshText() {
-    const changes = MM.exportChanges();
-    $("settingsText").value = Object.keys(changes).length ? JSON.stringify({ lab: "music", voices: changes }) : "";
-  }
+  // ---- load / copy / reset ----
   function load(text) {
     const data = JSON.parse(text);
     if (data.lab !== "music" || !data.voices || typeof data.voices !== "object") throw new Error("not a music lab line");
     let n = 0;
     for (const [shape, values] of Object.entries(data.voices)) if (MM.setProfile(shape, values)) n++;
+    for (const shape of Array.isArray(data.locked) ? data.locked : []) if (MM.PROFILES[shape]) locked.add(shape);
     buildVoiceRows(); refreshText();
     return n;
   }
@@ -432,14 +589,26 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px;
   $("copy").addEventListener("click", async () => {
     refreshText();
     const text = $("settingsText").value;
-    if (!text) { $("status").textContent = "Nothing changed yet. Move a slider first."; return; }
-    try { await navigator.clipboard.writeText(text); $("status").textContent = "Copied. Paste it to Claude to make these the defaults."; }
+    if (!text) { $("status").textContent = "Nothing tuned yet. Move a slider or lock a reaction first."; return; }
+    const n = $("lockedOnly").checked ? locked.size : tunedShapes().length;
+    try { await navigator.clipboard.writeText(text); $("status").textContent = `Copied ${n} reaction${n === 1 ? "" : "s"} in one line. Paste it to Claude to make them the defaults.`; }
     catch { $("settingsText").select(); $("status").textContent = "Copy was blocked here. The text is selected: press Ctrl+C (or ⌘C)."; }
   });
+  let resetArmed = 0;
   $("resetAll").addEventListener("click", () => {
+    const now = Date.now();
+    if (now - resetArmed > 4000) {
+      resetArmed = now;
+      $("resetAll").textContent = "Click again to reset everything";
+      setTimeout(() => { if (Date.now() - resetArmed >= 3900) $("resetAll").textContent = "Reset everything"; }, 4000);
+      return;
+    }
+    resetArmed = 0;
+    $("resetAll").textContent = "Reset everything";
     for (const shape of Object.keys(MM.PROFILES)) MM.resetProfile(shape);
+    locked.clear();
     buildVoiceRows(); refreshText();
-    $("status").textContent = "Every reaction is back to its defaults.";
+    $("status").textContent = "Every reaction is back to its defaults and every lock is cleared.";
   });
 
   // ---- panel and keys ----
@@ -500,6 +669,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px;
     requestAnimationFrame(loop);
   }
   fit();
+  restore();
   const startKey = presetKeys.includes("quantum") ? "quantum" : presetKeys[0];
   applyPreset(startKey);
   refreshText();
