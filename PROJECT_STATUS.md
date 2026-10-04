@@ -10,6 +10,12 @@ Browser-based immersive visual / meditation / music-reactive experience (2D + 3D
 
 ## Working now
 
+- 2026-10-03 **Molecular Dance (Claude):** new 2D preset: glowing ball-and-stick molecules (water,
+  benzene, buckyball, DNA, salt crystal...) and Bohr atoms tumble in depth, assemble, vibrate and
+  burst apart while electrons race their shells; bespoke bass/treble response, app kaleidoscope and
+  Veil Drift compensated. Tuning bench: `tools/molecular-lab.html`. Merged onto production b984c61;
+  gates pass; not yet pushed or deployed. See `PRESET_IMPLEMENTATION_REVIEW.md`.
+
 - 2026-10-03 **HUD heading refinement (Codex, PR #1):** Support us/Feedback are
   styled as buttons at the upper-right of the title box, beside the logo area.
   Narrow screens stack the two actions on the right. Native link/new-tab
