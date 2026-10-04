@@ -132,6 +132,12 @@ body {
     flex-direction: column;
 }
 
+/* Available after entry; new tabs preserve the current scene and controls. */
+.project-links { pointer-events: auto; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.project-links a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; color: var(--text-secondary); font: 500 12px/1.4 var(--font-display); text-decoration: underline; text-underline-offset: 4px; }
+.project-links a:hover { color: var(--text-accent); }
+.project-links a:focus-visible { outline: 2px solid var(--text-accent); outline-offset: 2px; border-radius: 4px; }
+
 .logo-title-row, .splash-title-row { display: flex; align-items: center; justify-content: center; gap: 8px; }
 .logo-title-row { justify-content: flex-start; }
 .beta-badge {

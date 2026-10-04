@@ -10,6 +10,16 @@ Browser-based immersive visual / meditation / music-reactive experience (2D + 3D
 
 ## Working now
 
+- 2026-10-03 **Support and feedback expansion (Codex, PR #1):** owner approved
+  support discovery deployment. Candidate now adds persistent Support us and
+  Feedback links beside the HUD title, plus private `/feedback` collection via
+  Netlify Forms. Suggestions/problems/favorite scene links, no identity field;
+  private review only. New form registration and labeled delivery test are not
+  verified live. Community gallery/voting is documented as a future staged plan,
+  not enabled. Expanded full release gate passed (including feedback and
+  supporter-interest delivery/error tests). Production remains c57f365 while
+  browser QA is unresolved.
+
 - 2026-10-03 **Growth funnel candidate (Codex, review branch):** adds a clearly
   labeled interest-only `/support` entry link and refreshes the closest-preset
   HUD after a shared scene restores its geometry and Flow setting. Six scene

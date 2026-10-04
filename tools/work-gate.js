@@ -23,7 +23,8 @@ const suites = {
   ],
   release: [
     "node tools/work-gate.js preset-2d", "node scratch/color_cycles_tests.js",
-    "node scratch/color_theory_tests.js", "node scratch/meditation_mode_tests.js"
+    "node scratch/color_theory_tests.js", "node scratch/meditation_mode_tests.js",
+    "node --check js/feedback.js", "node scratch/feedback_tests.js", "node scratch/support_interest_tests.js"
   ]
 };
 if (!suites[lane]) {
