@@ -20,28 +20,28 @@ const StellarNursery = (() => {
     // defaults. Several are multiplied with the matching app setting
     // (speed, baseSize, density, stretch, wobble, rotationSpeed, dissipation).
     const DEFAULT_TUNING = {
-        gasLevel: 1.15,       // brightness of the glowing gas
-        dustLevel: 1.0,       // darkness of the dust lanes laid over it
-        filaments: 1.0,       // number of gas filaments (× density)
-        cloudScale: 1.0,      // size of the gas puffs
-        detail: 1.0,          // share of fine, sharp ridges inside the gas
-        swirl: 1.0,           // how much the filaments undulate and bend
-        drift: 1.0,           // how fast the gas drifts
-        depth: 1.0,           // parallax between the layers (camera sway)
-        coreLevel: 1.0,       // brightness of newborn-star cores
-        cores: 1.0,           // how many filaments hold a newborn star
-        starDensity: 1.0,     // stars in the field
-        starSize: 1.0,        // star size (× baseSize / 2.4)
-        spikeLevel: 1.0,      // diffraction spikes on bright stars
-        twinkle: 1.0,         // star shimmer
-        colorFlow: 0.05,      // palette cycles per second across the gas
-        colorSpread: 0.5,     // how many palette colours show at once in one filament
-        lifeSeconds: 60,      // average life of a filament before it fades away
+        gasLevel: 0.44,       // brightness of the glowing gas
+        dustLevel: 0.25,       // darkness of the dust lanes laid over it
+        filaments: 3,       // number of gas filaments (× density)
+        cloudScale: 1.78,      // size of the gas puffs
+        detail: 0.82,          // share of fine, sharp ridges inside the gas
+        swirl: 3,           // how much the filaments undulate and bend
+        drift: 4,           // how fast the gas drifts
+        depth: 1.2,           // parallax between the layers (camera sway)
+        coreLevel: 0.07,       // brightness of newborn-star cores
+        cores: 1.69,           // how many filaments hold a newborn star
+        starDensity: 3,     // stars in the field
+        starSize: 1,        // star size (× baseSize / 2.4)
+        spikeLevel: 0.8,      // diffraction spikes on bright stars
+        twinkle: 1.13,         // star shimmer
+        colorFlow: 0.21,      // palette cycles per second across the gas
+        colorSpread: 0.83,     // how many palette colours show at once in one filament
+        lifeSeconds: 124,      // average life of a filament before it fades away
         fadeSeconds: 12,      // fade in / out time
-        bassPulse: 1.0,       // bass → gas and cores swell
-        bassWave: 1.0,        // bass → ionisation shockwave through the clouds
-        trebleSparkle: 1.0,   // treble → stars flare, spikes lengthen
-        quality: 1.0          // cap on detail; the frame guard can lower it further
+        bassPulse: 1,       // bass → gas and cores swell
+        bassWave: 1,        // bass → ionisation shockwave through the clouds
+        trebleSparkle: 1,   // treble → stars flare, spikes lengthen
+        quality: 1          // cap on detail; the frame guard can lower it further
     };
     const tuning = { ...DEFAULT_TUNING };
 

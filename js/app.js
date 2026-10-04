@@ -419,10 +419,10 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         } else if (nextShape === "stellarNursery") {
             Object.assign(randomSettings, {
-                speed: rnd(0.35, 0.7), turbulence: 0.05, density: rndInt(1100, 2400),
-                flowOrganic: 1, dissipation: rnd(0.22, 0.38), zoom: 1,
-                baseSize: rnd(1.9, 3.0), sizeVariation: 0.5, stretch: rnd(0.8, 1.7), interaction: 0,
-                rotationSpeed: rnd(0.01, 0.04), wobble: rnd(0.08, 0.22), kaleidoscopeEnabled: false,
+                speed: rnd(1.4, 2), turbulence: 0.05, density: rndInt(2400, 3000),
+                flowOrganic: 1, dissipation: rnd(0.03, 0.07), zoom: 1,
+                baseSize: rnd(1.9, 3.0), sizeVariation: 0.5, stretch: rnd(0.9, 1.5), interaction: 0,
+                rotationSpeed: rnd(0.01, 0.04), wobble: rnd(0.2, 0.36), kaleidoscopeEnabled: false,
                 psychedelicMode: false, morphingBg: false, spinningKaleido: false, particleLighting: "glow"
             });
         } else if (nextShape === "mandelbrotDive") {
@@ -2294,10 +2294,10 @@ document.addEventListener("DOMContentLoaded", () => {
             } : nextPatternShape === "stellarNursery" ? {
                 // Filament count, drift pace, cloud elongation and trail softness vary;
                 // where filaments form, which carry newborn stars and the colours stay autonomous.
-                speed: rnd(0.35, 0.7), turbulence: 0.05, density: Math.round(rnd(1100, 2400)),
-                flowOrganic: 1, dissipation: rnd(0.22, 0.38), zoom: 1,
-                baseSize: rnd(1.9, 3.0), sizeVariation: 0.5, stretch: rnd(0.8, 1.7), interaction: 0,
-                rotationSpeed: rnd(0.01, 0.04), wobble: rnd(0.08, 0.22), drag: 0.93
+                speed: rnd(1.4, 2), turbulence: 0.05, density: Math.round(rnd(2400, 3000)),
+                flowOrganic: 1, dissipation: rnd(0.03, 0.07), zoom: 1,
+                baseSize: rnd(1.9, 3.0), sizeVariation: 0.5, stretch: rnd(0.9, 1.5), interaction: 0,
+                rotationSpeed: rnd(0.01, 0.04), wobble: rnd(0.2, 0.36), drag: 0.93
             } : nextPatternShape === "mandelbrotDive" ? {
                 // Dive pace, filament width, colour-band density and field
                 // brightness vary; the dive targets and loop are autonomous.

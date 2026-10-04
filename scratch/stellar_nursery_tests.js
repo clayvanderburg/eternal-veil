@@ -173,9 +173,9 @@ for (const [key, value] of Object.entries(N.DEFAULT_TUNING)) assert(Number.isFin
     assert(drawnOf({ quality: 0.4 }, "puffs") < drawnOf({ quality: 1 }, "puffs"), "quality sheds detail");
     assert(count({}, "filaments") > 0);
     // The app's density setting scales the population.
-    const M = load(); const { ctx } = makeCtx();
+    const M = load(); M.setTuning({ filaments: 1 }); const { ctx } = makeCtx();
     M.draw(ctx, 1280, 720, 0, { ...settings, density: 300 }, palette, 1); const low = M.inspect().filaments;
-    const H = load(); H.draw(ctx, 1280, 720, 0, { ...settings, density: 3000 }, palette, 1); const high = H.inspect().filaments;
+    const H = load(); H.setTuning({ filaments: 1 }); H.draw(ctx, 1280, 720, 0, { ...settings, density: 3000 }, palette, 1); const high = H.inspect().filaments;
     assert(high > low * 1.5, `density scales filaments (${low} -> ${high})`);
 }
 
