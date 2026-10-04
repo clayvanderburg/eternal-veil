@@ -511,7 +511,7 @@ const StylePresets = {
         interaction: 0.8,
         rotationSpeed: 0.01,
         wobble: 0.15,
-        colors: ["#3b82f6", "#8b5cf6", "#ec4899", "#d8b4fe", "#bae6fd", "#ffffff"],
+        colors: ["#9333ea", "#c026d3", "#7c3aed", "#3b82f6", "#e879f9", "#fdba74"],
         particleShape: "nebula",
         psychedelicMode: false,
         morphingBg: false,
