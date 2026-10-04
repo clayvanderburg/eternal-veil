@@ -2532,6 +2532,8 @@ class FlowSimulation {
                 window.CelticKnotwork.draw(this.ctx, this.width, this.height, this.globalTime / 60, this.settings, this.palette, sceneScale);
             } else if (this.settings.particleShape === "mandelbrotDive" && window.MandelbrotDive) {
                 window.MandelbrotDive.draw(this.ctx, this.width, this.height, this.globalTime / 60, this.settings, this.palette);
+            } else if (this.settings.particleShape === "molecularDance" && window.MolecularDance) {
+                window.MolecularDance.draw(this.ctx, this.width, this.height, this.globalTime / 60, this.settings, this.palette, sceneScale);
             } else if (this.settings.particleShape === "cymaticResonance" && window.CymaticResonance) {
                 window.CymaticResonance.draw(this.ctx, this.width, this.height, this.globalTime / 60, this.settings, this.palette, sceneScale);
             } else if (this.settings.particleShape === "painterlyVortex") {
@@ -2590,9 +2592,10 @@ class FlowSimulation {
             // Expanding shockwaves are physical forces only (no white lines drawn)
 
             // Apply Kaleidoscope mirror reflection quadrant symmetry
-            // Mandelbrot Dive mirrors inside its own shader; the particle mirror
-            // pass would only redraw that preset's idle particle pool.
-            if (this.settings.kaleidoscopeEnabled && this.settings.particleShape !== "mandelbrotDive") {
+            // Mandelbrot Dive mirrors inside its own shader and Molecular Dance
+            // mirrors its own layer; the particle mirror pass would only redraw
+            // those presets' idle particle pool.
+            if (this.settings.kaleidoscopeEnabled && this.settings.particleShape !== "mandelbrotDive" && this.settings.particleShape !== "molecularDance") {
                 const cx = this.width / 2;
                 const cy = this.height / 2;
                 const segments = Math.max(3, Math.floor(this.settings.kaleidoscopeSegments));

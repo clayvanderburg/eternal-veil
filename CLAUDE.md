@@ -13,6 +13,13 @@ Connect that path in Cowork as a **plain local folder** (not a junction).
 4. Hub desk: `F:\MadKing\grok-shared\agents-hub\projects\eternal-void\README.md`
 5. Task lane: `AGENT_ROUTING.md`  
 
+## Preset work
+
+- **Lab first:** build `tools/<presetKey>-lab.html` (see `PRESET_INTEGRATION_CHECKLIST.md` section 0) before polishing a new preset. When Clay pastes the lab's settings JSON, apply it as the preset defaults in one step.
+- 2D only for now; 3D/VR is getting its own overhaul.
+- Flow palettes are `hsl()` strings: never assume `#rrggbb`.
+- Clay pushes to GitHub himself; Cowork's shell has no credentials. Give him: `git -C "C:\Users\MadKing\.gemini\antigravity\scratch\eternal-veil" push origin main`
+
 ## Hub
 
 - Canonical hub: `F:\MadKing\grok-shared\agents-hub` — mount it **directly** in Cowork (the `C:\Users\MadKing\Claude\agents-hub` junction can't be mounted).

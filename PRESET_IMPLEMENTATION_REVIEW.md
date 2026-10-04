@@ -462,3 +462,90 @@ at 35/45/70/75/97/99% of every dive (GPU path, software GL); preset switching
 **Known gaps.** Interior pixels at the final hold run the full budget (the costliest
 moment); phones rely on the resolution guard. Fern Gate is visually noisy (dense lace)
 at mid-depth. Real phone FPS, real audio capture, fullscreen and 3D/VR untested.
+
+## Molecular Dance — new 2D preset (2026-10-03, Claude)
+
+Built by Claude at Clay's request ("a new trippy preset inspired by the way atoms and
+molecules look"). Lab first: `tools/molecular-lab.html`. Committed locally; needs Clay's push.
+
+**Name / stable ID / geometry:** Molecular Dance / preset key and particle shape
+`molecularDance` / authored 2D renderer `js/molecular-dance.js` (Canvas 2D, cached sprites;
+no WebGL, no new schema keys).
+
+**Creative intent.** Ball-and-stick molecules and shell-model (Bohr) atoms tumble in
+perspective across the whole screen. 15 structures: water, carbon dioxide, methane,
+ammonia, acetylene (triple bond), ethene, benzene (delocalised ring current), a graphene
+flake, a buckyball (C60, 60 atoms/90 bonds), a salt crystal, a DNA double helix, and
+helium/carbon/neon/sodium atoms with tilted precessing electron shells. Each molecule
+assembles atom by atom with a flash ring, vibrates, spins, then bursts apart as the next
+forms elsewhere, so the screen is always changing. Every atom has soft s/p/d electron-cloud
+lobes; electrons race tilted rings with streaks; bonds carry travelling shared-electron
+pulses; colours flow through the elements and shade across large molecules; quantum dust
+drifts behind. Atmosphere: luminous, dark space, neon glow.
+
+**Controls (existing app keys).**
+
+| Aspect | Setting | Mapping | Preset / Flow |
+|---|---|---|---|
+| Tempo (spin, travel, electrons, life) | `speed` | tempo = speed/0.5; 0 freezes everything (tested) | 0.4 / 0.32–0.55 |
+| Molecule size | `baseSize` | size × baseSize/2.4 | 2.4 / 1.9–3.0 |
+| Molecule count | `density` | 6 + 10·(density−300)/2700, × tuning count | 1600 / 1200–2200 |
+| Electron-cloud strength | `stretch` | cloud level × stretch | 1.0 / 0.7–1.4 |
+| Tumble variety | `wobble` | tumble × (0.65 + 0.35·wobble/0.14) | 0.14 / 0.08–0.22 |
+| Trail length | `dissipation` | app trail fade; additive glow is scaled by dissipation/0.3 so long trails don't whiten | 0.3 (fixed) |
+| Scene rotation | `rotationSpeed` (shared) | shared | 0.02 / 0.01–0.04 |
+
+Artistic tunables are in `DEFAULT_TUNING` (24 values: count, size, life/assemble/burst
+seconds, tumble, travel, vibration, bond width, atom glow, cloud level, shell share,
+electron speed/streaks, Bohr-atom share, depth, dust, colour flow, flash rings, bass/treble
+responses, quality cap) and are edited in the lab; "Copy settings" JSON
+`{"preset","app","tuning","palette"}` is what an agent applies as defaults (checklist
+section 0). Which molecule appears, where, and when it bursts are autonomous (seeded
+random, weighted; large "solo" structures at most one at a time).
+
+**Flow.** Random Config branch, Serene/Alive/Wild pool, protected authored targets with
+the bounded envelope above, kaleidoscope-eligible. The app's kaleidoscope (toggle or Flow)
+is mirrored inside the module (own layer, copies rotated/mirrored like the app's pass),
+and the app's particle mirror skips this preset. Veil Drift: the scene is drawn shrunk by
+zoom^0.75 and spread over the visible area (extents and count scale with zoom, count
+≤ 1.8×), tested.
+Side effect: Flow's Mandala ticket weight was raised by one (3→4 serene, 4→5 others) so
+adding another pattern keeps its Flow share above the existing test threshold.
+
+**Music response card.**
+
+| Input | Response | Limits |
+|---|---|---|
+| Bass attacks | **Bespoke:** baseSize swell (shared pipeline) detected as a pulse (same detector as Mandelbrot Dive): atoms swell, bond glow flashes, electrons leap to wider shells and speed up (`jump`), molecules lurch into extra spin | Pulse ≤ 0.7 × bassPulse; a swell lasting > 0.6 s is a slider change, not a beat; all decay in < 1 s |
+| Midrange | None (no shared midrange channel) | — |
+| Treble | **Bespoke:** `trebleIntensity` makes electrons flicker and glint, speeds electrons slightly and colour flow | Bounded multipliers; zero treble = baseline |
+| Palette / mood | Inherited Flow mood palette (read live each frame; `hsl()` supported) | — |
+| Silence / stop | Shared pipeline restores baseline; modulation is temporary and never written to settings (tested) | Real audio capture not tested |
+
+**Performance.** Sprites cached per quantised colour (≤ 600); additive glow stays bounded.
+Typical 12–18 molecules ≈ 120–190 atoms, 150 bonds, 180 electrons. A frame-time guard
+sheds molecules, shells and rings (down to ~45%) when frames exceed ~24 ms and restores
+them when smooth; the lab/`quality` tuning caps detail. Headless Chromium uses software
+rendering (11–60 fps depending on scene): real GPU/phone frame rate **not measured**.
+
+**Coverage.** 2D implemented. Parallax dome/native 3D/headset not built (3D overhaul
+pending).
+
+**Evidence.** `scratch/molecular_dance_tests.js` (13 groups, strict canvas stub that fails
+on alpha outside 0–1, NaN coordinates, non-positive widths): every template's geometry
+(C60 = 60 atoms/90 bonds, salt = 27/54, bond indices/orders, shells), 90 s of simulated
+frames keep 6–26 molecules with ≥ 9 different structures, speed-0 freeze, tuning clamps,
+density/atom-share control, bass pulse/leap/decay and slider rule, treble, no mutation of
+settings, hsl/rgb/junk/empty palettes, Veil Drift compensation, re-entry from another
+preset, forced template, kaleidoscope segments, app integration (menu, script tag, schema,
+share-link table, preset entry, Random Config, authored Flow, kaleidoscope list). Gates:
+preset-2d PASS (13), release PASS. Visual: Molecular Lab screenshots of water, benzene,
+buckyball, DNA and the full mix; kaleidoscope (6 segments); full app (preset card →
+Molecular Dance, and picked by Flow on launch) in headless Chromium, no errors.
+
+**Known gaps / next.** Not visually checked on a real GPU, phone or with real audio;
+Clay's lab session should set the final defaults. Share-link table appends the shape at
+the end (wire order preserved); old links unaffected.
+
+**Release status:** local candidate, committed locally; awaiting Clay's lab tuning, visual
+approval and push.

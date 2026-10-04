@@ -15,6 +15,31 @@ Experiments may have gaps if marked experimental. A release candidate needs eith
 evidence for each applicable item or a visible, agreed limitation. Never silently
 replace a valued effect merely to make its name fit.
 
+## 0. Tuning lab first (required for new presets — Clay, 2026-10-03)
+
+Clay tunes presets himself. Build the lab before polishing, so tuning is one paste
+instead of many "make it 10% faster" round trips.
+
+- [ ] Ship `tools/<presetKey>-lab.html` that loads the **real** renderer
+      (`<script src="../js/<module>.js">`), so the lab and the site can never drift.
+      It is live at `https://eternalvoid.io/tools/<presetKey>-lab.html` after a push.
+- [ ] The renderer exposes `DEFAULT_TUNING`, the live `tuning` object and
+      `setTuning(values)` (clamped). Artistic constants worth tuning live there,
+      not scattered through the code.
+- [ ] Lab controls: every meaningful app setting the preset reads (same names and
+      ranges as the app), every tuning value, a 6-colour palette (test a Flow-style
+      `hsl()` palette too), a music test (bass hit, beat loop, treble level), an app
+      camera preview (Veil Drift rotation/zoom, app kaleidoscope), quality, and
+      pause/scrub when the effect evolves over time. Show FPS and render scale.
+- [ ] "Copy settings" produces one JSON line: `{"preset","app","tuning","palette"}`.
+      Pasting that line back into the lab loads it.
+- [ ] When Clay pastes settings JSON: `app` → the preset entry in `js/presets.js`
+      (re-centre its Random Config / authored Flow ranges around the new values),
+      `tuning` → `DEFAULT_TUNING`, `palette` → preset `colors`. Re-run the gates,
+      commit, and say what changed. Do not ask him to describe tweaks in words.
+- Reference implementation: `tools/mandelbrot-lab.html` + `js/mandelbrot-dive.js`.
+  A private claude.ai copy of a lab (module inlined) is optional, for phone use.
+
 ## 1. Identity and preservation
 
 - [ ] State the intended visible shapes, motion, distinguishing feature, and atmosphere.

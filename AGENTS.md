@@ -20,6 +20,7 @@
 
 ## Rules
 
+- **Lab first:** every new preset starts with a tuning lab page (`tools/<presetKey>-lab.html`) so Clay can tune it and paste back settings JSON. See section 0 of `PRESET_INTEGRATION_CHECKLIST.md`.
 - For every new or substantially changed preset, follow `PRESET_INTEGRATION_CHECKLIST.md` and record evidence, music behavior, and known mode gaps. See `PRESET_IMPLEMENTATION_REVIEW.md` for the 2026-09-18 baseline review.
 - Use `node tools/work-gate.js <lane>` for deterministic completion checks. A passing gate does not replace visual, audio, phone, or deployment verification.
 
