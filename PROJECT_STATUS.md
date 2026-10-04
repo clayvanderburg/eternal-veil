@@ -10,6 +10,15 @@ Browser-based immersive visual / meditation / music-reactive experience (2D + 3D
 
 ## Working now
 
+- 2026-10-03 **Growth funnel candidate (Codex, review branch):** adds a clearly
+  labeled interest-only `/support` entry link and refreshes the closest-preset
+  HUD after a shared scene restores its geometry and Flow setting. Six scene
+  names, saved Flow state, and unknown geometry are covered by a regression
+  test included in the release gate. Full release gate passed. This branch is
+  not production; desktop/phone visual, focus and navigation QA remain pending
+  because the earlier local preview was blocked. Do not bypass that block or
+  merge/deploy without resolving the permitted QA route and production notice.
+
 - 2026-09-29 **Mandelbrot Dive (Claude):** endless GPU zoom into the Mandelbrot set,
   5 dives to hidden mini-Mandelbrots 10^9–10^14 deep that loop seamlessly; palette
   filaments, bass glow, treble colour flow. Tuning bench: `tools/mandelbrot-lab.html`.
