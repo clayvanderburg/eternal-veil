@@ -19,6 +19,9 @@ const MusicMoods = (() => {
     };
 
     let lastNow = 0, lastBeatAt = 0, period = 500, intervals = [], energyLong = 0, midMax = 0.2, lastLoud = 0;
+    // Adaptive onset tracking: real music never drops to silence between kicks and the analyser smooths it,
+    // so beats are found by bass rising above its own recent average rather than by a big frame-to-frame jump.
+    let bassSlow = 0, bassDev = 0.05, bassPrev = 0, lastOver = 0;
 
     // Voices. All values are bounded, modest multipliers; gain (Comfort / 3D) scales them all.
     //  kick   radial impulse on a beat (+ outward, - inward "gasp")   swirl  tangential push from midrange
@@ -202,9 +205,18 @@ const MusicMoods = (() => {
         midMax = Math.max(0.1, midRaw, midMax * 0.9995);
         const midN = clamp(midRaw / midMax, 0, 1);
 
-        // Beats come from sharp bass attacks with a short refractory period.
-        if (bassOn && clamp(f.bassAttack, 0, 1) > 0.05 && bass > 0.3 && now - lastBeatAt > 220) {
-            registerBeat(now, clamp(f.bassAttack * 4, 0.4, 1));
+        // Beats: a sharp bass attack (clean material) OR bass rising clearly above its own running average
+        // (real, smoothed music). Short refractory period either way.
+        const rise = bass - bassPrev;
+        bassPrev = bass;
+        bassSlow += (bass - bassSlow) * Math.min(1, 0.05 * dt);
+        const over = bass - bassSlow;
+        bassDev += (Math.abs(over) - bassDev) * Math.min(1, 0.05 * dt);
+        const sharp = clamp(f.bassAttack, 0, 1) > 0.05 && bass > 0.3;
+        const swell = over > Math.max(0.04, bassDev * 1.4) && rise > 0.003 && over >= lastOver && bass > 0.2;
+        lastOver = over;
+        if (bassOn && (sharp || swell) && now - lastBeatAt > 220) {
+            registerBeat(now, clamp(Math.max(f.bassAttack * 4, 0.6 + over * 3), 0.6, 1));
         }
         state.beat = bassOn ? state.beat * Math.pow(0.88, dt) : 0;
         if (state.beat < 0.01) state.beat = 0;
@@ -234,6 +246,7 @@ const MusicMoods = (() => {
         state.beat = 0; state.lock = 0; state.phase = 0;
         intervals.length = 0; period = 500; state.bpm = 120;
         energyLong = 0; lastNow = 0; lastBeatAt = 0; midMax = 0.2;
+        bassSlow = 0; bassDev = 0.05; bassPrev = 0; lastOver = 0;
         // flow and t keep their values so time never jumps backwards.
     }
 
