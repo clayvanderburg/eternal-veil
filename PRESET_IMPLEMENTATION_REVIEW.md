@@ -630,3 +630,109 @@ Share-link table appends the shape at the end (wire order preserved); old links 
 
 **Release status:** local candidate, committed locally; awaiting Clay's lab tuning, visual
 approval and push.
+
+---
+
+## 2026-10-04 — Music Moods: every preset reacts to music (Claude, local candidate)
+
+**Why.** Only Cymatic Resonance, Mandelbrot Dive and Molecular Dance had bespoke music
+code. The other 33 geometries shared one reaction (bass size swell + trails + centre burst,
+treble speed/wobble/sparks, warm/cool colour drift). The app had no midrange, sustained
+energy or tempo signal at all.
+
+**What changed.**
+- `js/synth.js` `getMusicAnalysis()` also returns `mid` (bins 4-9) and `level` (bins 0-39).
+- `js/music-moods.js` (new): one shared signal and a "voice" per geometry.
+  Signal: `beat` (decaying pulse), `beatId`, `phase` (0 = on the beat, soft-locked to tempo),
+  `lock` (tempo confidence), `bpm`, `mid`, `treble` (attack envelope), `energy`/`drive`
+  (sustained loudness, 0 in quiet passages), `flow` (extra flow-seconds earned from music).
+- `js/app.js` `processMusicReactivity()` feeds it every frame (respecting the bass/treble
+  pulse toggles, Comfort gain 0.5 and 3D gain) and resets it on stop.
+- `js/simulation.js`: `Particle.update` steers targets via `MusicMoods.steer`,
+  `Particle.draw` scales size/alpha via `MusicMoods.look`, and the composition clock uses
+  `MusicMoods.speedMul`. Celtic Current/Knotwork read `flowOffset()`/`beatSwell()`.
+- Effects are per-frame multipliers/impulses, never written to settings or saved/morph
+  targets. `reset()` returns everything to neutral (tested).
+- Bounds: size 0.85-1.9x, alpha 0.7-1.5x, clock surge <= 1.9x, kick < 3.5 px/frame (tested
+  for every voice).
+
+**Music response card (shared; voices differ per family).**
+
+| Input | Visible response | Limits |
+|---|---|---|
+| Bass / beat | Radial kick (out or in), size swell, glow, family hops/spins | Beat decays in ~0.25 s; kick bounded; needs bass attack > 0.05 and level > 0.3 |
+| Midrange | Swirl / sideways sway; feeds sustained energy | Normalised against a rolling peak |
+| Treble | Per-particle shimmer on twinkle families (plus existing sparks) | Attack envelope only |
+| Sustained energy | Bloom, brightness lift, speed surge, clock surge | Zero below ~20% loudness, so quiet passages stay at baseline |
+| Beat phase | Tempo-locked ripple (outward, inward, sideways or rising) | Only while tempo is detected (`lock`); fades 2.5 s after the last beat |
+| Silence / stop | Everything decays; stop resets to neutral | Flow clock keeps its value (never runs backwards) |
+
+**Voices (what each family does).**
+
+| Geometry (presets) | Beat | Sustained / mid | Signature |
+|---|---|---|---|
+| lotus (Breath Sanctuary, Lotus Pulse) | petals open outward | gentle bloom | outward size ripple |
+| nebulaSpark (Nebula Spark) | sparks fly out hard | clouds bloom, swirl | outward alpha ripple |
+| solarFlare (Solar Flare) | flares blast outward | brighter, faster | outward alpha ripple |
+| jadeCurrents (Jade Currents) | glow | sway + swirl | ripple travels along the current (left to right) |
+| quantumDrift (Quantum Drift) | **quantum jump on the beat** | shimmer on treble | outward alpha ripple |
+| violetUndertow (Violet Undertow) | inward gasp | strong swirl + surge | none |
+| prismDrift (Prism Drift) | facets spin up | spin builds with energy | outward size ripple |
+| pendulumSpiral (Chaotic Spiral) | coils surge along their path | faster with energy | outward alpha ripple |
+| spiral (Astral Tangle) | arms surge | swirl + faster | outward ripple |
+| tightTailVortex, painterlyVortex | inward gasp | swirl + surge | none |
+| aquatic (Aquatic Bubbles) | bubbles shoot upward | sway, float faster | rising size ripple |
+| acid (Acid Rain) | rain slams downward | falls faster, shimmer | none |
+| ellipse (Chakra Alignment) | outward kick | swirl | outward size ripple |
+| ring (Prismatic Lace) | rings swell | bloom | outward ripple |
+| nebula (Cosmic Nebula) | gentle | clouds bloom, stars twinkle on treble | outward alpha ripple |
+| brush (Impressionist Oil) | swell | swirl + sway + surge | none |
+| cluster (Cosmic Organelles) | heartbeat: strong swell + inward kick | bloom | none |
+| ocean (Rain Ocean) | swell lifts | sway | alpha ripple across the sea |
+| aurora (Aurora Cathedral) | curtains lift | sway + lift, twinkle | rising alpha ripple |
+| orbitals (Celestial Orrery) | orbits accelerate | orbit rate builds | outward alpha ripple |
+| pipes / pipesTight / pipesCathedral / pipesShrine | circuit-flash glow | brighter | signal pulse: sideways / vertical / outward / inward |
+| quantumLattice, zenMandala, gravityWell, fractalBloom, chromeRibbon | pulse + glow | composition clock surges | sideways / outward / inward / outward / sideways ripple |
+| celticCurrent, celticKnotwork | marks widen (Currents) | flow time surges | none |
+| cymaticResonance, mandelbrotDive, molecularDance | unchanged (own code) | not yet using mid/energy | candidates for a next pass |
+
+**Evidence.** `node scratch/music_moods_tests.js` (new, 35 voices): silence is neutral;
+120 BPM kick found (tempo 105-135, phase locks to the beat, drive builds); every voice
+bounded and finite; voices are distinct; midrange alone is a real channel; bass toggle off
+gives no beats; Comfort gain softens the response; reset restores neutral; every preset
+geometry has a voice; real `Particle.update/draw` run for every geometry under music then
+silence with finite state. `music`, `preset-2d` and `release` gates pass.
+
+**Not verified (do not claim).** I cannot hear audio or see the canvas from here. Feel,
+strength, strobing/whiteout comfort, real-song tempo detection, phone FPS, 3D/VR and the
+live site are all untested. Strengths are first guesses for Clay to tune by ear.
+
+**Known gaps / next.** Voices are tuned by constant tables in `js/music-moods.js`
+(`PROFILES`); a Music Lab page to tune them by ear and paste JSON is the natural next step.
+Cymatic, Mandelbrot and Molecular could add midrange/energy. 3D is untouched.
+
+**Release status:** local candidate; awaiting Clay's listen-through and push.
+
+### 2026-10-04 addendum — Music Lab (tune the voices by ear)
+
+- `tools/music-lab.html` (live at `https://eternalvoid.io/tools/music-lab.html` after a push) runs the **real**
+  `FlowSimulation` and every preset. Sources: built-in test beat (four on the floor, breakbeat, half-time,
+  build and drop, ambient), your own audio file (analysed with the same bands as the app), or silence.
+- It repeats the app's own order of work: the generic bass/treble layer (size swell, trails, treble pulses,
+  centre burst/shockwave, canvas bounce) and then Music Moods. Both can be switched off to A/B
+  ("Music Moods on" is the old-versus-new comparison). Comfort mode halves strength like the app.
+- Sliders edit the selected preset's reaction (shared geometries say who shares them). Meters show bass,
+  mid, treble, drive, beat and the beat-phase dot.
+- **Copy settings** yields one line: `{"lab":"music","voices":{"<geometry>":{"kick":1.2,"ripple.amp":0.3}}}`
+  holding only what changed, across all presets. Pasting a line back loads it.
+- **When Clay pastes a line:** merge each geometry's values into `DEFAULT_PROFILES` in `js/music-moods.js`
+  (same keys; `ripple.amp` etc. go inside that voice's `ripple`), bump the cache tag, re-run the gates, commit.
+- `MusicMoods` now exposes `setProfile` (clamped to `PARAMS` limits, unknown keys ignored), `resetProfile`,
+  `exportChanges`, and a hard velocity ceiling (3.4) so no tuned combination can fling marks.
+- Evidence: `scratch/music_lab_tests.js` loads the lab in jsdom with a fake canvas and audio, renders all 38
+  presets (35 geometries) with the test beat through the real renderer without errors, edits and pastes
+  reactions, and confirms silence returns to neutral. `preset-2d` (15 checks) and `music` gates pass;
+  colour and meditation tests pass.
+- **Not verified:** the page in a real browser (local file preview is blocked by browser policy, so I did not
+  bypass it), audio from a real file, the WebGL path of Mandelbrot Dive in the lab, and phone layout.
+  The lab omits the app's palette-mood drift and new-palette-on-big-beat behaviour.

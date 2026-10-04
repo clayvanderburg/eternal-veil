@@ -923,6 +923,13 @@ class Particle {
             }
         }
 
+        // Music moods: per-family beat/energy/midrange reaction (temporary, never saved).
+        if (window.MusicMoods && window.MusicMoods.active) {
+            const mood = window.MusicMoods.steer(this, settings, globalTime, scaleRef, dt);
+            targetVx = targetVx * mood.speed + mood.vx;
+            targetVy = targetVy * mood.speed + mood.vy;
+        }
+
         // Apply drag/friction using time-corrected exponential decay
         const drag = settings.drag !== undefined ? settings.drag : 0.90;
         const dragFactor = Math.pow(drag, dt);
@@ -1767,7 +1774,8 @@ class Particle {
         
         // Dynamic transparency fades based on age and particle preset styles
         const meditationGlowScale = settings.meditationGlowScale || 1.0;
-        const alpha = lifeRatio * 0.78 * meditationGlowScale;
+        const musicLook = window.MusicMoods && window.MusicMoods.active ? window.MusicMoods.look(this, settings) : null;
+        const alpha = lifeRatio * 0.78 * meditationGlowScale * (musicLook ? musicLook.alpha : 1);
         const stretch = (settings.stretch ?? 1.6) * (settings.meditationTailScale || 1.0);
         let shape = settings.particleShape || "ellipse";
         
@@ -1777,7 +1785,7 @@ class Particle {
             ? 1
             : 0.56 + meditationBreath * 1.28;
         const size = Math.max(0.4, (settings.baseSize + this.randomSizeOffset * settings.sizeVariation) * (0.6 + lifeRatio * 0.5))
-            * scaleRef * meditationParticleScale;
+            * scaleRef * meditationParticleScale * (musicLook ? musicLook.size : 1);
         
         let drawSize = size;
         let drawAlpha = alpha;
@@ -2384,7 +2392,8 @@ class FlowSimulation {
         this.globalTime += delta * 60; // normalized speed steps
         if (this.settings.particleShape === "pendulumSpiral") this.syncMiniHosts(dt);
         const currentSpeed = Math.max(0, Number(this.settings.speed ?? 1.0));
-        this.compositionTime = (this.compositionTime || 0) + delta * Math.max(0, Number(this.settings.speed ?? 1.0)) * 8;
+        this.compositionTime = (this.compositionTime || 0) + delta * Math.max(0, Number(this.settings.speed ?? 1.0)) * 8
+            * (window.MusicMoods ? window.MusicMoods.speedMul(this.settings.particleShape) : 1);
 
         // Update painted custom force field lifetimes
         for (let i = this.customForces.length - 1; i >= 0; i--) {

@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Music Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Same look as the other labs: full-bleed canvas, translucent drawer on the right (bottom sheet on phones). */
+:root {
+  --void: #05060a; --panel: rgba(12, 14, 24, 0.88); --line: rgba(148, 163, 214, 0.18);
+  --ink: #e6e9f5; --muted: #8d95b3; --accent: #8b9cff; --accent-ink: #0b0e1a; --warn: #f6b35c;
+  --display: "Sora", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--void); color: var(--ink); font: 13px/1.4 var(--display); overflow: hidden; }
+#stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; background: #000; touch-action: none; transform-origin: 50% 50%; }
+.hud { position: fixed; left: 16px; top: calc(12px + env(safe-area-inset-top, 0px)); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; pointer-events: none; max-width: calc(100% - 32px); z-index: 2; }
+.chip { pointer-events: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; font: 12px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; backdrop-filter: blur(8px); }
+.chip b { color: var(--ink); font-weight: 600; }
+#toggle { cursor: pointer; color: var(--accent-ink); background: var(--accent); border: 0; font: 600 12px var(--display); letter-spacing: .04em; }
+#meters { position: fixed; left: 16px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); width: 190px; height: 64px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; z-index: 2; }
+#drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(380px, 100%); background: var(--panel); border-left: 1px solid var(--line); backdrop-filter: blur(14px); overflow-y: auto; padding: calc(56px + env(safe-area-inset-top, 0px)) 16px calc(24px + env(safe-area-inset-bottom, 0px)); box-sizing: border-box; display: flex; flex-direction: column; gap: 18px; z-index: 3; }
+@media (max-width: 700px) {
+  #drawer { top: auto; left: 0; width: 100%; height: 58%; border-left: 0; border-top: 1px solid var(--line); border-radius: 16px 16px 0 0; padding-top: 16px; }
+  #meters { bottom: calc(60% + 8px); }
+}
+h1 { font: 600 17px var(--display); margin: 0; letter-spacing: .01em; text-wrap: balance; }
+.lede { color: var(--muted); margin: 4px 0 0; max-width: 60ch; }
+section { display: flex; flex-direction: column; gap: 10px; }
+h2 { font: 600 11px var(--display); text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin: 0; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; margin-bottom: 8px; }
+.row label { color: var(--ink); }
+.row output { font: 12px var(--mono); color: var(--accent); font-variant-numeric: tabular-nums; min-width: 6ch; text-align: right; }
+.row .hint { grid-column: 1 / -1; color: var(--muted); font-size: 11.5px; }
+.row input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); margin: 2px 0 0; }
+.row select { grid-column: 1 / -1; }
+.check { display: flex; gap: 8px; align-items: center; }
+.check input { accent-color: var(--accent); width: 16px; height: 16px; }
+.buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+button.act, select, input[type=file] { font: 600 12px var(--display); background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 7px 11px; cursor: pointer; }
+button.act.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button.act:hover, select:hover { border-color: var(--accent); }
+button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+select { background: var(--void); max-width: 100%; }
+#presetSelect { width: 100%; }
+textarea { width: 100%; box-sizing: border-box; min-height: 72px; background: var(--void); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; font: 11.5px/1.45 var(--mono); padding: 8px; resize: vertical; }
+audio { width: 100%; }
+.status { color: var(--muted); font-size: 12px; min-height: 1.4em; margin: 0; }
+.note { color: var(--muted); font-size: 12px; margin: 0; }
+.note b { color: var(--ink); font-weight: 600; }
+.keys { color: var(--muted); font-size: 11.5px; margin: 0; }
+kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+
+<canvas id="stage" aria-label="Preset preview"></canvas>
+<canvas id="meters" width="380" height="128" aria-label="Music signal meters"></canvas>
+<div class="hud">
+  <button class="chip" id="toggle" type="button" aria-expanded="true" aria-controls="drawer">Controls</button>
+  <span class="chip" id="hudPreset"><b>–</b></span>
+  <span class="chip" id="hudMoods">Moods <b id="hudMoodsState">on</b></span>
+  <span class="chip">Tempo <b id="hudBpm">–</b></span>
+  <span class="chip"><b id="hudFps">–</b> fps</span>
+  <span class="chip"><b id="hudCount">–</b> marks</span>
+</div>
+
+<aside id="drawer" aria-label="Music Lab controls">
+  <div>
+    <h1>Music Lab</h1>
+    <p class="lede">Pick a preset, play a beat or your own song, and tune how that preset reacts. Copy the settings and paste them to Claude to make them the defaults.</p>
+  </div>
+
+  <section aria-labelledby="h-preset">
+    <h2 id="h-preset">Preset</h2>
+    <select id="presetSelect" aria-label="Preset"></select>
+    <div class="buttons">
+      <button class="act" id="prev" type="button">Previous</button>
+      <button class="act" id="next" type="button">Next</button>
+      <button class="act" id="pause" type="button">Pause</button>
+    </div>
+    <label class="check"><input type="checkbox" id="veil" checked> Veil Drift (the app's camera turn and zoom)</label>
+    <div class="row"><label for="kaleido">Kaleidoscope segments (app / Flow)</label><output id="kaleidoOut">0</output>
+      <input id="kaleido" type="range" min="0" max="12" step="1" value="0"><span class="hint">0 = off. Flow turns this on at random in the app.</span></div>
+  </section>
+
+  <section aria-labelledby="h-music">
+    <h2 id="h-music">Music</h2>
+    <select id="source" aria-label="Music source">
+      <option value="beat">Test beat (built in)</option>
+      <option value="file">My own audio file</option>
+      <option value="off">Silence</option>
+    </select>
+    <div id="beatBox">
+      <select id="pattern" aria-label="Test pattern">
+        <option value="four">Four on the floor</option>
+        <option value="break">Syncopated breakbeat</option>
+        <option value="half">Half-time</option>
+        <option value="drop">Build and drop (32 beats)</option>
+        <option value="ambient">Ambient pad (no beats)</option>
+      </select>
+      <div id="beatRows"></div>
+    </div>
+    <div id="fileBox" hidden>
+      <input type="file" id="file" accept="audio/*" aria-label="Choose an audio file">
+      <audio id="audio" controls loop></audio>
+      <p class="note">Plays through your speakers. Nothing is uploaded.</p>
+    </div>
+    <label class="check"><input type="checkbox" id="moods" checked> Music Moods on (turn off to compare with the old generic reaction)</label>
+    <label class="check"><input type="checkbox" id="generic" checked> Include the app's built-in bass and treble layer</label>
+    <label class="check"><input type="checkbox" id="comfort"> Comfort mode (half strength, like the app)</label>
+  </section>
+
+  <section aria-labelledby="h-voice">
+    <h2 id="h-voice">This preset's reaction</h2>
+    <p class="note" id="voiceNote"></p>
+    <div id="voiceRows"></div>
+    <div class="buttons"><button class="act" id="resetVoice" type="button">Reset this reaction</button></div>
+  </section>
+
+  <section aria-labelledby="h-save">
+    <h2 id="h-save">Save</h2>
+    <div class="buttons">
+      <button class="act primary" id="copy" type="button">Copy settings</button>
+      <button class="act" id="resetAll" type="button">Reset everything</button>
+    </div>
+    <textarea id="settingsText" aria-label="Settings text" spellcheck="false" placeholder="Edited reactions appear here. Paste a settings line here to load it."></textarea>
+    <p class="status" id="status" role="status">Copy settings holds every reaction you changed, across all presets.</p>
+    <p class="keys"><kbd>[</kbd> <kbd>]</kbd> previous / next preset · <kbd>M</kbd> moods on/off · <kbd>Space</kbd> pause · <kbd>H</kbd> hide panel</p>
+  </section>
+</aside>
+
+<script src="../js/presets.js"></script>
+<script src="../js/preset-compositions.js"></script>
+<script src="../js/chrome-ribbons.js"></script>
+<script src="../js/celtic-currents.js"></script>
+<script src="../js/celtic-knotwork.js"></script>
+<script src="../js/cymatic-resonance.js"></script>
+<script src="../js/mandelbrot-dive.js"></script>
+<script src="../js/molecular-dance.js"></script>
+<script src="../js/music-moods.js"></script>
+<script src="../js/simulation.js"></script>
+<script>
+(() => {
+  const MM = window.MusicMoods;
+  const $ = id => document.getElementById(id);
+  const canvas = $("stage");
+  const meters = $("meters").getContext("2d");
+  const presetKeys = Object.keys(StylePresets);
+  const presetName = key => StylePresets[key].name || key;
+  const shapeOf = key => StylePresets[key].particleShape || "ellipse";
+
+  const sim = new FlowSimulation("stage");
+  sim.settings.psychedelicMode = false;
+  let current = presetKeys[0];
+  let base = null;                      // the preset's own settings that music temporarily modulates
+  let paused = false;
+
+  // ---- sizing (same cap as a phone-friendly 2D run) ----
+  function fit() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    sim.resize(window.innerWidth, window.innerHeight, dpr);
+  }
+  window.addEventListener("resize", fit);
+
+  // ---- preset loading (mirrors the app's loadPreset without the slow morph) ----
+  function applyPreset(key) {
+    const p = StylePresets[key];
+    if (!p) return;
+    current = key;
+    const s = sim.settings;
+    Object.assign(s, {
+      speed: p.speed, turbulence: p.turbulence, flowOrganic: p.curl, density: p.density, dissipation: p.dissipation,
+      zoom: p.zoom, baseSize: p.size, sizeVariation: p.sizeVar, stretch: p.stretch, interaction: p.interaction,
+      rotationSpeed: p.rotationSpeed, wobble: p.wobble,
+      particleShape: p.particleShape || "ellipse", particleLighting: p.particleLighting || "glow",
+      psychedelicMode: false, morphingBg: p.morphingBg === true, spinningKaleido: p.spinningKaleido === true,
+      trebleIntensity: 0
+    });
+    for (const k of ["miniSpiralCount", "spiralExtent", "wanderMix", "eclipseCount", "eclipseSize"]) if (p[k] != null) s[k] = p[k];
+    if (p.kaleidoscopeEnabled === true) { s.kaleidoscopeSegments = p.kaleidoscopeSegments || 6; $("kaleido").value = s.kaleidoscopeSegments; }
+    else $("kaleido").value = 0;
+    s.kaleidoscopeEnabled = p.kaleidoscopeEnabled === true;
+    $("kaleidoOut").textContent = $("kaleido").value;
+    sim.updatePalette([...p.colors]);
+    sim.spawnParticles();
+    captureBase();
+    $("presetSelect").value = key;
+    $("hudPreset").innerHTML = `<b>${presetName(key)}</b>`;
+    buildVoiceRows();
+  }
+  function captureBase() {
+    const s = sim.settings;
+    base = { baseSize: s.baseSize, turbulence: s.turbulence, speed: s.speed, dissipation: s.dissipation,
+      wobble: s.wobble, stretch: s.stretch, rotationSpeed: s.rotationSpeed };
+  }
+  function restoreBase() {
+    if (!base) return;
+    Object.assign(sim.settings, base);
+    sim.settings.trebleIntensity = 0;
+    canvas.style.transform = "";
+  }
+
+  for (const key of presetKeys) {
+    const o = document.createElement("option");
+    o.value = key; o.textContent = `${presetName(key)}  ·  ${shapeOf(key)}`;
+    $("presetSelect").appendChild(o);
+  }
+  const step = d => applyPreset(presetKeys[(presetKeys.indexOf(current) + d + presetKeys.length) % presetKeys.length]);
+  $("presetSelect").addEventListener("change", e => applyPreset(e.target.value));
+  $("prev").addEventListener("click", () => step(-1));
+  $("next").addEventListener("click", () => step(1));
+  function setPaused(v) { paused = v; sim.isPaused = v; $("pause").textContent = v ? "Play" : "Pause"; }
+  $("pause").addEventListener("click", () => setPaused(!paused));
+  $("veil").addEventListener("change", e => { sim.settings.veilDriftEnabled = e.target.checked; });
+  $("kaleido").addEventListener("input", e => {
+    const v = Number(e.target.value);
+    $("kaleidoOut").textContent = v;
+    sim.settings.kaleidoscopeEnabled = v >= 3;
+    if (v >= 3) sim.settings.kaleidoscopeSegments = v;
+  });
+
+  // ---- music sources ----
+  const beatCfg = { bpm: 120, loud: 0.85, punch: 0.9, mid: 0.5, treble: 0.5 };
+  const BEAT_ROWS = [["bpm", "Tempo (bpm)", 60, 180, 1], ["loud", "Loudness", 0.1, 1, 0.01], ["punch", "Bass punch", 0, 1, 0.01],
+    ["mid", "Midrange body", 0, 1, 0.01], ["treble", "Treble sizzle", 0, 1, 0.01]];
+  for (const [key, label, min, max, st] of BEAT_ROWS) {
+    const row = document.createElement("div");
+    row.className = "row";
+    row.innerHTML = `<label for="b-${key}">${label}</label><output id="b-${key}-out"></output><input id="b-${key}" type="range" min="${min}" max="${max}" step="${st}" value="${beatCfg[key]}">`;
+    $("beatRows").appendChild(row);
+    const input = row.querySelector("input"), out = row.querySelector("output");
+    out.textContent = beatCfg[key];
+    input.addEventListener("input", () => { beatCfg[key] = Number(input.value); out.textContent = input.value; });
+  }
+  const KICKS = { four: [0, 1, 2, 3], break: [0, 1.5, 2.25, 3], half: [0, 2], ambient: [] };
+  const envAt = (beats, positions, bar, decay) => {
+    let e = 0;
+    const pos = beats % bar;
+    for (const k of positions) {
+      let d = pos - k; if (d < 0) d += bar;
+      e = Math.max(e, Math.exp(-d * decay));
+    }
+    return e;
+  };
+  // Synthesises what the analyser would report for a simple track (same 0..1 scale as the app's bands).
+  function testBeat(t) {
+    const pattern = $("pattern").value;
+    const beats = t * beatCfg.bpm / 60;
+    let loud = beatCfg.loud, kicks = KICKS[pattern] || KICKS.four, hats = pattern !== "ambient", build = 1;
+    if (pattern === "drop") {
+      const pos = beats % 32;
+      if (pos < 24) { build = 0.4 + 0.6 * pos / 24; kicks = pos < 8 ? [0, 2] : [0, 1, 2, 3]; }
+      else if (pos < 26) { build = 0.08; kicks = []; hats = false; }
+      else { build = 1; kicks = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5]; }
+      loud *= build;
+    }
+    const kick = envAt(beats, kicks, 4, 5.5);
+    const hat = hats ? envAt(beats, [0.5, 1.5, 2.5, 3.5], 4, 9) : 0;
+    const pad = 0.5 + 0.5 * Math.sin(t * 0.7);
+    const bass = Math.min(1, (0.22 + 0.78 * kick * beatCfg.punch) * loud + 0.05);
+    const mid = Math.min(1, (0.12 + 0.35 * pad) * beatCfg.mid * (0.4 + 0.6 * loud) + (pattern === "ambient" ? 0.22 : 0));
+    const treble = Math.min(1, (0.08 + 0.7 * hat) * beatCfg.treble * (0.4 + 0.6 * loud));
+    return { bass, mid, treble, level: 0.5 * bass + 0.3 * mid + 0.2 * treble };
+  }
+  let audioCtx = null, analyser = null, audioBound = false;
+  const bins = new Uint8Array(128);
+  function fileAnalysis() {
+    if (!analyser) return { bass: 0, mid: 0, treble: 0, level: 0 };
+    analyser.getByteFrequencyData(bins);
+    const avg = (from, to) => { let s = 0; for (let i = from; i < to; i++) s += bins[i]; return s / (to - from) / 255; };
+    return { bass: avg(0, 4), mid: avg(4, 10), treble: avg(10, 30), level: avg(0, 40) };
+  }
+  $("file").addEventListener("change", e => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    const audio = $("audio");
+    audio.src = URL.createObjectURL(f);
+    if (!audioBound) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      const node = audioCtx.createMediaElementSource(audio);
+      node.connect(analyser);
+      analyser.connect(audioCtx.destination);
+      audioBound = true;
+    }
+    audio.play().catch(() => { $("status").textContent = "Press play on the audio bar to start."; });
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  });
+  $("source").addEventListener("change", () => {
+    const v = $("source").value;
+    $("beatBox").hidden = v !== "beat";
+    $("fileBox").hidden = v !== "file";
+    if (v !== "file") $("audio").pause();
+  });
+  function analysis(t) {
+    const v = $("source").value;
+    if (v === "beat") return testBeat(t);
+    if (v === "file") return fileAnalysis();
+    return null;
+  }
+
+  // ---- music processing: the app's generic layer plus Music Moods, in the app's order ----
+  let maxBass = 0.4, maxTreble = 0.4, prevBass = 0, prevTreble = 0, lastShock = 0;
+  let sizePulse = 0, speedPulse = 0, turbPulse = 0, wobblePulse = 0, stretchPulse = 0;
+  function processMusic(now, t) {
+    const a = analysis(t);
+    if (!a) {
+      MM.reset(); restoreBase();
+      sizePulse = speedPulse = turbPulse = wobblePulse = stretchPulse = 0; prevBass = prevTreble = 0;
+      return;
+    }
+    if (a.bass > maxBass) maxBass = a.bass; else maxBass = Math.max(0.1, maxBass * 0.9995);
+    if (a.treble > maxTreble) maxTreble = a.treble; else maxTreble = Math.max(0.1, maxTreble * 0.9995);
+    const nBass = Math.min(1, a.bass / maxBass), nTreble = Math.min(1, a.treble / maxTreble);
+    const bassAttack = Math.max(0, nBass - prevBass), trebleAttack = Math.max(0, nTreble - prevTreble);
+    prevBass = nBass; prevTreble = nTreble;
+    const gain = $("comfort").checked ? 0.5 : 1;
+
+    if ($("moods").checked) {
+      MM.feed({ now, bass: nBass, mid: a.mid, trebleLevel: nTreble, bassAttack, trebleAttack, gain, bassOn: true, trebleOn: true });
+    } else MM.reset();
+
+    if (!$("generic").checked) { restoreBase(); return; }
+    if (bassAttack > 0.015) sizePulse = Math.max(sizePulse, bassAttack * 3.8);
+    if (trebleAttack > 0.015) {
+      speedPulse = Math.max(speedPulse, trebleAttack * 4.2); turbPulse = Math.max(turbPulse, trebleAttack * 3.5);
+      wobblePulse = Math.max(wobblePulse, trebleAttack * 5.0); stretchPulse = Math.max(stretchPulse, trebleAttack * 6.0);
+    }
+    sizePulse *= 0.82; speedPulse *= 0.86; turbPulse *= 0.86; wobblePulse *= 0.84; stretchPulse *= 0.84;
+    const aSize = sizePulse * gain, aSpeed = speedPulse * gain, aTurb = turbPulse * gain, aWobble = wobblePulse * gain, aStretch = stretchPulse * gain;
+    canvas.style.transform = `scale(${1 + Math.min(0.035, aSize * 0.03)})`;
+    const s = sim.settings;
+    s.trebleIntensity = aSpeed;
+    s.baseSize = base.baseSize * (1 + Math.min(2.5, aSize));
+    s.dissipation = Math.max(Math.min(0.004, base.dissipation), base.dissipation - Math.min(0.04, aSize * 0.05));
+    if (bassAttack > 0.12 && now - lastShock > 380) {
+      const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+      for (const p of sim.particles) {
+        const dx = p.x - cx, dy = p.y - cy, d2 = dx * dx + dy * dy;
+        if (d2 > 9) { const d = Math.sqrt(d2), push = 8 + bassAttack * 18; p.vx += dx / d * push; p.vy += dy / d * push; }
+      }
+      sim.triggerBurst(cx, cy, 35);
+      sim.triggerVortex(cx, cy, 280, 16.0, 45);
+      sim.triggerShockwave(cx, cy, 55.0, 10.5);
+      lastShock = now;
+    }
+    s.speed = base.speed * (1 + Math.min(2.5, aSpeed));
+    s.turbulence = base.turbulence * (1 + Math.min(2.0, aTurb));
+    s.wobble = base.wobble + Math.min(6.0, aWobble);
+    s.stretch = base.stretch + Math.min(7.0, aStretch);
+    s.rotationSpeed = base.rotationSpeed + aSpeed * 0.08;
+  }
+
+  // ---- reaction editor ----
+  const rowRefs = [];
+  function sharedBy(shape) { return presetKeys.filter(k => shapeOf(k) === shape).map(presetName); }
+  function readParam(prof, key) {
+    if (key.startsWith("ripple.")) return prof.ripple ? prof.ripple[key.slice(7)] ?? 0 : 0;
+    return prof[key] ?? 0;
+  }
+  function buildVoiceRows() {
+    const host = $("voiceRows");
+    host.innerHTML = ""; rowRefs.length = 0;
+    const shape = shapeOf(current);
+    const prof = MM.profileFor(shape);
+    const def = MM.DEFAULT_PROFILES[shape];
+    const names = sharedBy(shape);
+    $("voiceNote").innerHTML = `Reaction <b>${shape}</b>` + (names.length > 1 ? `, shared by ${names.join(", ")}. Changes affect all of them.` : ".");
+    if (!def) { $("voiceNote").innerHTML += " This geometry has no reaction table yet."; return; }
+    if (def.self) {
+      $("voiceNote").innerHTML += " This preset has its own music code, so there is nothing to tune here yet.";
+      return;
+    }
+    for (const meta of MM.PARAMS) {
+      if (def.module && meta.key !== "surge") continue;
+      if (meta.only && !def[meta.only]) continue;
+      const row = document.createElement("div");
+      row.className = "row";
+      const id = `v-${meta.key}`;
+      row.innerHTML = `<label for="${id}">${meta.label}</label><output id="${id}-out"></output>
+        <input id="${id}" type="range" min="${meta.min}" max="${meta.max}" step="${meta.step}"><span class="hint">${meta.hint}</span>`;
+      host.appendChild(row);
+      const input = row.querySelector("input"), out = row.querySelector("output");
+      const show = v => { input.value = v; out.textContent = Number(v).toFixed(meta.step >= 0.1 ? 1 : 2); };
+      show(readParam(prof, meta.key));
+      input.addEventListener("input", () => { MM.setProfile(shape, { [meta.key]: Number(input.value) }); out.textContent = Number(input.value).toFixed(meta.step >= 0.1 ? 1 : 2); refreshText(); });
+      rowRefs.push(() => show(readParam(MM.profileFor(shape), meta.key)));
+    }
+    if (!def.module) for (const key of ["ripple.dir", "ripple.to"]) {
+      const row = document.createElement("div");
+      row.className = "row";
+      const label = key === "ripple.dir" ? "Ripple direction" : "Ripple affects";
+      row.innerHTML = `<label for="v-${key}">${label}</label><span></span><select id="v-${key}">${MM.CHOICES[key].map(c => `<option value="${c}">${c}</option>`).join("")}</select>`;
+      host.appendChild(row);
+      const select = row.querySelector("select");
+      select.value = (prof.ripple && prof.ripple[key.slice(7)]) || (key === "ripple.dir" ? "out" : "both");
+      select.addEventListener("change", () => { MM.setProfile(shape, { [key]: select.value }); refreshText(); });
+      rowRefs.push(() => { const p = MM.profileFor(shape); select.value = (p.ripple && p.ripple[key.slice(7)]) || select.value; });
+    }
+  }
+  $("resetVoice").addEventListener("click", () => {
+    MM.resetProfile(shapeOf(current)); buildVoiceRows(); refreshText();
+    $("status").textContent = "This reaction is back to its defaults.";
+  });
+
+  // ---- save / load ----
+  function refreshText() {
+    const changes = MM.exportChanges();
+    $("settingsText").value = Object.keys(changes).length ? JSON.stringify({ lab: "music", voices: changes }) : "";
+  }
+  function load(text) {
+    const data = JSON.parse(text);
+    if (data.lab !== "music" || !data.voices || typeof data.voices !== "object") throw new Error("not a music lab line");
+    let n = 0;
+    for (const [shape, values] of Object.entries(data.voices)) if (MM.setProfile(shape, values)) n++;
+    buildVoiceRows(); refreshText();
+    return n;
+  }
+  $("settingsText").addEventListener("paste", () => setTimeout(() => {
+    try { const n = load($("settingsText").value); $("status").textContent = `Loaded ${n} reaction${n === 1 ? "" : "s"}.`; }
+    catch { $("status").textContent = "That text isn't a Music Lab settings line. Copy it again from this panel and paste the whole line."; }
+  }, 0));
+  $("copy").addEventListener("click", async () => {
+    refreshText();
+    const text = $("settingsText").value;
+    if (!text) { $("status").textContent = "Nothing changed yet. Move a slider first."; return; }
+    try { await navigator.clipboard.writeText(text); $("status").textContent = "Copied. Paste it to Claude to make these the defaults."; }
+    catch { $("settingsText").select(); $("status").textContent = "Copy was blocked here. The text is selected: press Ctrl+C (or ⌘C)."; }
+  });
+  $("resetAll").addEventListener("click", () => {
+    for (const shape of Object.keys(MM.PROFILES)) MM.resetProfile(shape);
+    buildVoiceRows(); refreshText();
+    $("status").textContent = "Every reaction is back to its defaults.";
+  });
+
+  // ---- panel and keys ----
+  function setPanel(open) {
+    $("drawer").hidden = !open;
+    $("toggle").setAttribute("aria-expanded", String(open));
+    $("toggle").textContent = open ? "Hide controls" : "Controls";
+    try { localStorage.setItem("musicLabPanel", open ? "1" : "0"); } catch {}
+  }
+  $("toggle").addEventListener("click", () => setPanel($("drawer").hidden));
+  let startOpen = true;
+  try { startOpen = localStorage.getItem("musicLabPanel") !== "0"; } catch {}
+  setPanel(startOpen);
+  function setMoods(v) { $("moods").checked = v; }
+  window.addEventListener("keydown", e => {
+    if (e.target.matches("input[type=text], textarea")) return;
+    if (e.target.matches("select, input")) { if (e.code === "Space") return; }
+    if (e.key === "[") step(-1);
+    else if (e.key === "]") step(1);
+    else if (e.key === "m" || e.key === "M") setMoods(!$("moods").checked);
+    else if (e.key === "h" || e.key === "H") setPanel($("drawer").hidden);
+    else if (e.code === "Space" && !e.target.matches("button, audio")) { e.preventDefault(); setPaused(!paused); }
+  });
+
+  // ---- meters ----
+  function drawMeters() {
+    const st = MM.state, w = 380, h = 128;
+    meters.clearRect(0, 0, w, h);
+    const bars = [["BASS", st.bass], ["MID", st.mid], ["TREB", st.treble], ["DRIVE", st.drive], ["BEAT", st.beat]];
+    const bw = 44, gap = 14, left = 14;
+    meters.font = "600 15px Sora, sans-serif";
+    bars.forEach(([label, v], i) => {
+      const x = left + i * (bw + gap), height = Math.max(2, Math.min(1, v) * 78);
+      meters.fillStyle = "rgba(148,163,214,.18)"; meters.fillRect(x, 12, bw, 78);
+      meters.fillStyle = "#8b9cff"; meters.fillRect(x, 12 + 78 - height, bw, height);
+      meters.fillStyle = "#8d95b3"; meters.fillText(label, x, 116);
+    });
+    // beat phase dot travelling along the bottom edge
+    meters.fillStyle = st.lock > 0.05 ? "#f6b35c" : "rgba(246,179,92,.25)";
+    meters.beginPath(); meters.arc(14 + st.phase * 350, 100, 5, 0, Math.PI * 2); meters.fill();
+  }
+
+  // ---- main loop ----
+  let frames = 0, fpsClock = performance.now();
+  function loop(nowMs) {
+    const t = nowMs / 1000;
+    if (!paused) processMusic(Date.now(), t);
+    sim.tick();
+    drawMeters();
+    frames++;
+    if (nowMs - fpsClock >= 500) {
+      $("hudFps").textContent = Math.round(frames * 1000 / (nowMs - fpsClock));
+      $("hudCount").textContent = sim.particles.length;
+      $("hudBpm").textContent = MM.state.lock > 0.3 ? Math.round(MM.state.bpm) : "–";
+      $("hudMoodsState").textContent = $("moods").checked ? "on" : "off";
+      frames = 0; fpsClock = nowMs;
+    }
+    requestAnimationFrame(loop);
+  }
+  fit();
+  const startKey = presetKeys.includes("quantum") ? "quantum" : presetKeys[0];
+  applyPreset(startKey);
+  refreshText();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

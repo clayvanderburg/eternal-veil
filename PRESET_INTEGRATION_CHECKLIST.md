@@ -91,6 +91,8 @@ Record actual implementation, not hoped-for behavior:
 - [ ] Audio modulation is temporary; do not contaminate saved or morph target settings.
 - [ ] Do not assume audio exists in every browser/VR capture route. Explain unavailable audio.
 - [ ] No claims of treatment, guaranteed trance, or health benefit.
+- [ ] Give the geometry a voice in `js/music-moods.js` (`DEFAULT_PROFILES`) so Clay can tune it by ear in
+      `tools/music-lab.html`; when he pastes the lab line, `voices` becomes the new defaults for those shapes.
 
 ## 4. Rendering and performance
 

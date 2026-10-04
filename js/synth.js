@@ -565,6 +565,7 @@ class BinauralBeatEngine {
     // Query bass and treble normalized levels
     getMusicAnalysis() {
         if (!this.musicAnalyser || this.visualizerMode === "none") return null;
+        if (this.visualizerMode === 'playlist' && this.playlistAudio?.paused) return null;
         const dataArray = new Uint8Array(this.musicAnalyser.frequencyBinCount);
         this.musicAnalyser.getByteFrequencyData(dataArray);
         
@@ -585,7 +586,16 @@ class BinauralBeatEngine {
         }
         const trebleVal = trebleSum / trebleBins / 255; // 0.0 to 1.0
         
-        return { bass: bassVal, treble: trebleVal };
+        // Midrange (bins 4-9) sits between the bass and treble bands; level is overall loudness.
+        let midSum = 0;
+        for (let i = 4; i < 10; i++) midSum += dataArray[i];
+        const midVal = midSum / 6 / 255;
+        const levelBins = Math.min(40, dataArray.length);
+        let levelSum = 0;
+        for (let i = 0; i < levelBins; i++) levelSum += dataArray[i];
+        const levelVal = levelBins ? levelSum / levelBins / 255 : 0;
+
+        return { bass: bassVal, treble: trebleVal, mid: midVal, level: levelVal };
     }
 
     // Helper to glide master ambient sound gain smoothly
@@ -606,13 +616,17 @@ class BinauralBeatEngine {
         
         this.stopMusicReactivity();
         this.setupMusicAnalyser();
+        const request = this.sourceGeneration;
         
         try {
-            this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            if (request !== this.sourceGeneration) { stream.getTracks().forEach(t => t.stop()); return false; }
+            this.micStream = stream;
             this.micSource = this.ctx.createMediaStreamSource(this.micStream);
             // Route ONLY to analyser to avoid creating a nasty feedback screech loop!
             this.micSource.connect(this.musicAnalyser);
             this.visualizerMode = "mic";
+            window.dispatchEvent(new CustomEvent('cosmic-audio-source', { detail: 'mic' }));
             
             // Auto mute binaural carrier/ASMR/bilateral tones
             this.glideMasterGain(0.0001);
@@ -634,10 +648,11 @@ class BinauralBeatEngine {
         
         this.stopMusicReactivity();
         this.setupMusicAnalyser();
+        const request = this.sourceGeneration;
         
         try {
             // Request display media capture with audio track
-            this.systemStream = await navigator.mediaDevices.getDisplayMedia({
+            const stream = await navigator.mediaDevices.getDisplayMedia({
                 video: {
                     width: 1,
                     height: 1,
@@ -645,6 +660,8 @@ class BinauralBeatEngine {
                 },
                 audio: true
             });
+            if (request !== this.sourceGeneration) { stream.getTracks().forEach(t => t.stop()); return false; }
+            this.systemStream = stream;
             
             // Discard the video track instantly to release resources
             this.systemStream.getVideoTracks().forEach(track => track.stop());
@@ -662,6 +679,7 @@ class BinauralBeatEngine {
             // Route only to the analyser; the captured source already handles playback.
             this.systemSource.connect(this.musicAnalyser);
             this.visualizerMode = "system";
+            window.dispatchEvent(new CustomEvent('cosmic-audio-source', { detail: 'system' }));
             
             // Auto mute binaural carrier/ASMR/bilateral tones
             this.glideMasterGain(0.0001);
@@ -680,6 +698,7 @@ class BinauralBeatEngine {
         this.setupMusicAnalyser();
         
         const fileUrl = URL.createObjectURL(file);
+        this.uploadedUrl = fileUrl;
         this.uploadedAudio = new Audio(fileUrl);
         this.uploadedAudio.loop = true;
         
@@ -694,6 +713,7 @@ class BinauralBeatEngine {
         
         this.uploadedAudio.play();
         this.visualizerMode = "upload";
+        window.dispatchEvent(new CustomEvent('cosmic-audio-source', { detail: 'upload' }));
         
         // Auto mute binaural carrier/ASMR/bilateral tones
         this.glideMasterGain(0.0001);
@@ -701,9 +721,36 @@ class BinauralBeatEngine {
         console.log("[BinauralSynth] Playing uploaded track.");
     }
 
+    // Built-in playlists share the exact analyser used by device capture.
+    attachPlaylistAudio(audio) {
+        this.init();
+        this.stopMusicReactivity();
+        this.setupMusicAnalyser();
+        if (!this.playlistSources) this.playlistSources = new WeakMap();
+        let source = this.playlistSources.get(audio);
+        if (!source) { source = this.ctx.createMediaElementSource(audio); this.playlistSources.set(audio, source); }
+        this.playlistSource = source;
+        this.playlistAudio = audio;
+        this.playlistGain = this.ctx.createGain();
+        source.connect(this.musicAnalyser);
+        this.musicAnalyser.connect(this.playlistGain);
+        this.playlistGain.connect(this.ctx.destination);
+        this.visualizerMode = 'playlist';
+        this.setMute(true);
+        window.dispatchEvent(new CustomEvent('cosmic-audio-source', { detail: 'playlist' }));
+    }
+
     // Stop all active music visualizer tasks and restore defaults
     stopMusicReactivity() {
+        this.sourceGeneration = (this.sourceGeneration || 0) + 1;
         this.visualizerMode = "none";
+        if (this.playlistAudio) this.playlistAudio.pause();
+        if (this.playlistSource) this.playlistSource.disconnect();
+        if (this.playlistGain) this.playlistGain.disconnect();
+        this.playlistAudio = this.playlistSource = this.playlistGain = null;
+        // Remove old speaker routes before a capture-only source is connected.
+        if (this.musicAnalyser) this.musicAnalyser.disconnect();
+        window.dispatchEvent(new CustomEvent('cosmic-audio-source', { detail: 'none' }));
         
         // Restore binaural carrier/ASMR/bilateral tones if not master muted
         if (this.initialized && !this.isMuted) {
@@ -738,6 +785,7 @@ class BinauralBeatEngine {
             this.uploadedGain.disconnect();
             this.uploadedGain = null;
         }
+        if (this.uploadedUrl) { URL.revokeObjectURL(this.uploadedUrl); this.uploadedUrl = null; }
     }
 
     // Cleanup resources

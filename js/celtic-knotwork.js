@@ -162,6 +162,8 @@ const CelticKnotwork = (() => {
 
     function render(ctx, width, height, seconds, settings, palette, outerSceneScale = 1) {
         if (!palette?.length || !Number.isFinite(width) || !Number.isFinite(height)) return;
+        // Music: loud passages and beats earn extra flow time (the knot stays legible).
+        if (typeof window !== 'undefined' && window.MusicMoods) seconds += window.MusicMoods.flowOffset();
         const minDim = Math.min(width, height);
         const zoomCompensation = 1 / Math.sqrt(clamp(Number(outerSceneScale) || 1, 1, 3));
         const speed = clamp(Number(settings.speed) || 0, 0, 2);

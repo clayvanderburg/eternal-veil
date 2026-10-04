@@ -67,6 +67,9 @@ const CelticCurrents = (() => {
     }
 
     function draw(ctx, width, height, seconds, settings, palette, outerSceneScale = 1) {
+        // Music: loud passages and beats earn extra flow time; beats briefly widen the marks.
+        if (typeof window !== 'undefined' && window.MusicMoods) seconds += window.MusicMoods.flowOffset();
+        const musicSwell = (typeof window !== 'undefined' && window.MusicMoods) ? window.MusicMoods.beatSwell(0.3) : 1;
         const minDim = Math.min(width, height);
         const fieldSize = Math.hypot(width, height) * 1.9;
         const density = clamp(Number(settings.density) || 1500, 850, 2400);
@@ -133,7 +136,7 @@ const CelticCurrents = (() => {
             ctx.scale(layerScale * horizontalTension, layerScale / horizontalTension);
             ctx.translate(-fieldSize * 0.5, -fieldSize * 0.5);
             const common = { t, width: baseWidth, axisLength: fieldSize, amplitude, spacing,
-                palette, alpha: layer.alpha, sizePulse: 1, bandCount: layer.bands, gap };
+                palette, alpha: layer.alpha, sizePulse: musicSwell, bandCount: layer.bands, gap };
             drawFamily(ctx, { ...common, direction: 1 });
             ctx.save();
             ctx.translate(fieldSize, 0);

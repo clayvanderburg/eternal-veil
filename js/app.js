@@ -3570,7 +3570,18 @@ document.addEventListener("DOMContentLoaded", () => {
         };
 
         elements.systemReactBtn.onclick = toggleDeviceAudioReactivity;
-        elements.musicReactQuickBtn.onclick = toggleDeviceAudioReactivity;
+        window.EternalMusicPlayer.init({
+            device: toggleDeviceAudioReactivity,
+            toast: showToast,
+            playlist: () => {
+                clearVisualizerHighlights();
+                setDeviceAudioUi(false);
+                elements.visualizerStatus.textContent = 'Playlist music · scene reaction active';
+                elements.visualizerStatus.style.display = 'block';
+            },
+            stopped: () => { clearVisualizerHighlights(); setDeviceAudioUi(false); }
+        });
+        elements.musicReactQuickBtn.onclick = () => window.VoidMusic.openSources();
 
         elements.uploadReactBtn.onclick = () => {
             const synth = window.CosmicSynth;
@@ -3668,7 +3679,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Global key listeners
         window.addEventListener("keydown", (e) => {
-            if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+            if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.closest('#music-player, #music-source-dialog')) return;
             
             switch (e.key.toLowerCase()) {
                 case "m":
@@ -3745,7 +3756,7 @@ document.addEventListener("DOMContentLoaded", () => {
         };
 
         // Inactivity UI Fading listeners
-        const uiContainers = [elements.hud, elements.floatingActions, elements.sidebarHandle, elements.controlPanel];
+        const uiContainers = [elements.hud, elements.floatingActions, elements.sidebarHandle, elements.controlPanel, document.getElementById('music-player')];
         uiContainers.forEach(container => {
             if (container) {
                 container.addEventListener("mouseenter", () => {
@@ -3874,7 +3885,7 @@ document.addEventListener("DOMContentLoaded", () => {
         };
 
         const handleStart = (e) => {
-            if (e.target.tagName === "INPUT" || e.target.closest("aside") || e.target.closest("#hud") || e.target.closest("#floating-actions")) return;
+            if (e.target.tagName === "INPUT" || e.target.closest("aside") || e.target.closest("#hud") || e.target.closest("#floating-actions") || e.target.closest('#music-player, #music-source-dialog')) return;
             
             isDrawing = true;
             const coords = getCoords(e);
@@ -4006,7 +4017,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (uiFadeTimeout) clearTimeout(uiFadeTimeout);
         
         // Remove fade styling instantly
-        const uiElements = [elements.hud, elements.floatingActions, elements.sidebarHandle, elements.controlPanel];
+        const uiElements = [elements.hud, elements.floatingActions, elements.sidebarHandle, elements.controlPanel, document.getElementById('music-player')];
         uiElements.forEach(el => {
             if (el) el.classList.remove("ui-faded");
         });
@@ -4018,8 +4029,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function fadeUiElements() {
-        if (isMouseOverUI) return;
-        const uiElements = [elements.hud, elements.floatingActions, elements.sidebarHandle, elements.controlPanel];
+        if (isMouseOverUI || document.getElementById('music-source-dialog')?.open || document.getElementById('music-player')?.matches(':focus-within')) return;
+        const uiElements = [elements.hud, elements.floatingActions, elements.sidebarHandle, elements.controlPanel, document.getElementById('music-player')];
         uiElements.forEach(el => {
             if (el) el.classList.add("ui-faded");
         });
@@ -4209,6 +4220,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         const analysis = window.CosmicSynth.getMusicAnalysis();
         if (!analysis) {
+            if (window.MusicMoods) window.MusicMoods.reset();
             // Restore settings if visualizer mode was deactivated
             if (baseSettings) {
                 for (const key in baseSettings) {
@@ -4279,6 +4291,20 @@ document.addEventListener("DOMContentLoaded", () => {
         
         prevBass = normalizedBass;
         prevTreble = normalizedTreble;
+
+        // Shared music signal (beat phase, midrange, sustained energy) for every preset family.
+        if (window.MusicMoods) {
+            const bassOn = elements.pulseBassToggle.checked;
+            const trebleOn = elements.pulseTrebleToggle.checked;
+            if (bassOn || trebleOn) {
+                window.MusicMoods.feed({
+                    now, bass: normalizedBass, mid: analysis.mid, trebleLevel: normalizedTreble,
+                    bassAttack, trebleAttack, gain: musicResponseGain, bassOn, trebleOn
+                });
+            } else {
+                window.MusicMoods.reset();
+            }
+        }
         
         // 3. ADSR Envelope Injection (Instant Attack)
         // Feed the transient attack strength directly into the visual envelopes

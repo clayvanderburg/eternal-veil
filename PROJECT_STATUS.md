@@ -1,8 +1,25 @@
+## 2026-10-04 music release candidate
+
+Six approved Nocturnal Drift spatial tracks, music/device source chooser, compact expandable player,
+favorites, reversible bans and personal playlists (saved in this browser). Playlist playback feeds
+the existing scene analyser. Prepared on latest origin/main f11bb05, preserving tuned Stellar Nursery,
+Molecular Dance, support and feedback. Deployment verification is recorded in the dated hub release log.
+
 # Eternal Veil / Void — project status
 
-**Updated:** 2026-09-24
+**Updated:** 2026-10-02
 **Path:** `C:\Users\MadKing\.gemini\antigravity\scratch\eternal-veil`  
 **Live:** https://eternalvoid.io  
+
+## Current release clarification — October 2
+
+Source and origin/main are c57f365. This release repairs the previously missing public og-image.png using original app frames and adds an explicit Twitter image tag. Live image verified with Flow through the Void. Full release gate passed before push. Visualizer JavaScript unchanged; same ten pre-existing scratch files preserved. This documentation update is local only, not another production push.
+
+The supporter-interest page is already live from3c015d9, with interest-only Netlify Forms; no payments, names or emails requested. Standard request metadata is retained. Mandelbrot Dive and Cymatic Resonance in the older entries below have since shipped; their earlier awaiting-push/local-candidate labels are historical.
+
+Growth material lives in F:/MadKing/grok-shared/agents-hub/projects/eternal-void/growth/. Revised showcase v4 is public on both channels; Fractal v2 replaces the Oct9 scheduled video. Original Instagram showcase awaits owner mobile Archive. Twelve native scene schedules remain, no new recurring work or spend.
+
+Prepared homepage support-link and shared-scene HUD-label fixes are not integrated. Local-file preview was blocked by browser policy; do not bypass through an alternate browser/server. Candidate HUD function checks pass but do not establish live browser behavior.
 
 ## What it is
 
@@ -46,6 +63,13 @@ Browser-based immersive visual / meditation / music-reactive experience (2D + 3D
   because the earlier local preview was blocked. Do not bypass that block or
   merge/deploy without resolving the permitted QA route and production notice.
 
+- 2026-10-04 **Music Moods (local candidate, Claude):** every 2D preset now reacts to music with its own voice.
+  New shared signal (beat phase/tempo, midrange, sustained energy) in `js/music-moods.js`; per-family
+  reactions (quantum jumps on the beat, rain slamming down, bubbles shooting up, inward gasps, tempo-locked
+  ripples, flow surges). Bounded, Comfort-aware, reset on stop. `scratch/music_moods_tests.js` plus music,
+  preset-2d and release gates pass. Not heard on real audio yet; awaiting Clay's listen and push. See
+  Tuning bench: `tools/music-lab.html` (test beat or your own song, per-preset sliders, one-line copy/paste).
+  `PRESET_IMPLEMENTATION_REVIEW.md`.
 - 2026-09-29 **Mandelbrot Dive (Claude):** endless GPU zoom into the Mandelbrot set,
   5 dives to hidden mini-Mandelbrots 10^9–10^14 deep that loop seamlessly; palette
   filaments, bass glow, treble colour flow. Tuning bench: `tools/mandelbrot-lab.html`.
