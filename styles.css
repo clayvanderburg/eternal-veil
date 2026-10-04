@@ -132,11 +132,23 @@ body {
     flex-direction: column;
 }
 
-/* Available after entry; new tabs preserve the current scene and controls. */
-.project-links { pointer-events: auto; display: flex; flex-wrap: wrap; gap: 4px 14px; }
-.project-links a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; color: var(--text-secondary); font: 500 12px/1.4 var(--font-display); text-decoration: underline; text-underline-offset: 4px; }
-.project-links a:hover { color: var(--text-accent); }
+/* Heading actions stay at the upper-right, preserving the current scene in a new tab. */
+.hud-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.hud-heading .logo-area { min-width: 0; }
+.hud-heading .logo-title-row { flex-wrap: wrap; }
+.project-links { pointer-events: auto; display: flex; flex-shrink: 0; gap: 6px; }
+.project-links a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 10px; border: 1px solid rgba(196, 181, 253, 0.35); border-radius: 8px; background: rgba(139, 92, 246, 0.13); color: var(--text-secondary); font: 600 11px/1.3 var(--font-display); text-decoration: none; }
+.project-links a:hover { color: var(--text-accent); background: rgba(139, 92, 246, 0.25); border-color: var(--text-accent); }
 .project-links a:focus-visible { outline: 2px solid var(--text-accent); outline-offset: 2px; border-radius: 4px; }
+@media (max-width: 480px) {
+    .hud-heading { gap: 10px; }
+    .project-links { flex-direction: column; }
+    .project-links a { min-width: 82px; }
+}
+@media (max-width: 360px) {
+    .hud-heading .logo-title { font-size: 18px; }
+    .hud-heading .logo-subtitle { font-size: 8px; letter-spacing: 1px; }
+}
 
 .logo-title-row, .splash-title-row { display: flex; align-items: center; justify-content: center; gap: 8px; }
 .logo-title-row { justify-content: flex-start; }
