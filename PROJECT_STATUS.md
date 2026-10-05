@@ -1,3 +1,17 @@
+## 2026-10-05 search discovery candidate
+
+Prepared from verified production/origin main 3f7a98f, preserving the released music,
+presets, support buttons and private feedback. Adds robots.txt and a three-page
+sitemap (home, support, feedback), plus the support page's canonical URL. No scene
+hashes, test links, future pages or invented lastmod dates. This helps discovery;
+it does not establish indexing, traffic or revenue. Release evidence and current
+deployment truth are in the dated hub log and growth/CURRENT.md.
+
+The older pending-release entries below are historical. Support/feedback shipped
+October 3; music/player and subsequent music changes shipped October 4. Current
+Patreon work is separate: free welcome post saved, creator-page publication awaits
+the owner's private setup step. No paid tiers or checkout are active.
+
 ## 2026-10-04 music release candidate
 
 Six approved Nocturnal Drift spatial tracks, music/device source chooser, compact expandable player,
