@@ -3779,7 +3779,9 @@ document.addEventListener("DOMContentLoaded", () => {
         window.addEventListener("pointercancel", finishUiGesture, { passive: true });
         window.addEventListener("blur", () => { uiPointerHeld = false; });
         window.addEventListener("input", resetUiFadeTimer);
-        window.addEventListener("scroll", resetUiFadeTimer, { passive: true, capture: true });
+        // Scroll events also come from log auto-scroll and layout changes.
+        // Only wheel/pointer input is evidence that the user is interacting.
+        window.addEventListener("wheel", resetUiFadeTimer, { passive: true });
         window.addEventListener("keydown", () => {
             uiKeyboardActive = true;
             resetUiFadeTimer();

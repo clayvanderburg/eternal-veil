@@ -30,6 +30,14 @@ elements.controlPanel.focused = true;
 ids['spatial-player'].focused = true;
 timer.fn();
 assert(faded(), 'Touch focus must not strand any overlay, including Back to flow');
+// Diagnostic logger auto-scrolls on periodic Flow updates. A scroll event
+// must never be treated as user input, even when the browser marks it trusted.
+handlers.scroll?.();
+assert(faded(), 'Automatic scrolling must not wake idle controls');
+handlers.wheel();
+assert(!faded(), 'Actual scroll-wheel input reveals controls');
+timer.fn();
+assert(faded());
 wake();
 assert(all.every(el => !el.classes.has('ui-faded')), 'A new tap restores all overlays');
 handlers.pointerdown(); timer.fn();
