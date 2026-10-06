@@ -107,7 +107,8 @@
         }
     }
     class SpatialPlayer {
-        constructor() {
+        constructor(options = {}) {
+            this.options = options;
             let saved; try { saved = JSON.parse(localStorage.getItem('eternalvoid.spatial.v1')); } catch (_) {}
             this.settings = sanitize(saved || {}); this.engine = new SpatialEngine(window.CosmicSynth, this.settings);
             this.panel = document.getElementById('spatial-player'); this.expanded = false;
@@ -141,6 +142,7 @@
         }
         save() { try { localStorage.setItem('eternalvoid.spatial.v1', JSON.stringify(this.settings)); } catch (_) {} }
         open() {
+            this.options.reveal?.();
             window.CosmicSynth.setMute(true); window.CosmicSynth.stopMusicReactivity();
             window.VoidMusic?.audio.pause(); document.getElementById('music-player').hidden = true;
             this.panel.hidden = false; this.expand(true); this.sync(); document.getElementById('spatial-play').focus();

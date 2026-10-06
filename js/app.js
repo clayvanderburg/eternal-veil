@@ -3568,7 +3568,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         };
 
-        window.SpatialPlayer = new window.SpatialAudio.SpatialPlayer();
+        window.SpatialPlayer = new window.SpatialAudio.SpatialPlayer({ reveal: resetUiFadeTimer });
         window.addEventListener('cosmic-audio-source', e => {
             if (e.detail === 'spatial') {
                 clearVisualizerHighlights(); setDeviceAudioUi(false);
