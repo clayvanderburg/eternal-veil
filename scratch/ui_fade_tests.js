@@ -24,7 +24,7 @@ const all = [...Object.values(elements), ids['music-player'], ids['spatial-playe
 const faded = () => all.every(el => el.classes.has('ui-faded'));
 const wake = () => { handlers.pointerdown(); handlers.pointerup(); };
 wake();
-assert.equal(timer.delay, 2000);
+assert.equal(timer.delay, 4000);
 // Simulate sticky focus after closing the console or touching an audio control.
 elements.controlPanel.focused = true;
 ids['spatial-player'].focused = true;

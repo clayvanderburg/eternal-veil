@@ -4015,7 +4015,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (el) el.classList.remove("ui-faded");
         });
         
-        uiFadeTimeout = setTimeout(fadeUiElements, 2000);
+        uiFadeTimeout = setTimeout(fadeUiElements, 4000);
     }
 
     function fadeUiElements(force = false) {
@@ -4024,7 +4024,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // closing a dialog or leaving focus cannot strand the menu onscreen.
         if (!force && (uiPointerHeld || document.getElementById('music-source-dialog')?.open ||
             (uiKeyboardActive && uiElements.some(el => el.matches(':focus-within'))))) {
-            uiFadeTimeout = setTimeout(fadeUiElements, 2000);
+            uiFadeTimeout = setTimeout(fadeUiElements, 4000);
             return;
         }
         clearTimeout(uiFadeTimeout);
