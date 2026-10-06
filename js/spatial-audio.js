@@ -1,6 +1,6 @@
 (function () {
     'use strict';
-    const defaults = { binaural: true, bilateral: true, carrier: 200, beat: 6, interval: 5, width: .8, volume: .3, tone: .35, texture: .6, sound: 'soft', movement: 'sweep', minutes: 0 };
+    const defaults = { binaural: true, bilateral: true, carrier: 200, beat: 6, interval: 5, width: .8, volume: .3, tone: .75, texture: .22, sound: 'soft', movement: 'sweep', minutes: 0 };
     const ranges = { carrier: [80, 400], beat: [1, 40], interval: [2, 20], width: [0, 1], volume: [0, 1], tone: [0, 1], texture: [0, 1], minutes: [0, 120] };
     function sanitize(raw = {}) {
         const s = { ...defaults };
@@ -109,18 +109,26 @@
     class SpatialPlayer {
         constructor(options = {}) {
             this.options = options;
-            let saved; try { saved = JSON.parse(localStorage.getItem('eternalvoid.spatial.v1')); } catch (_) {}
+            let saved; try {
+                saved = JSON.parse(localStorage.getItem('eternalvoid.spatial.v2'));
+                if (!saved) {
+                    const previous = JSON.parse(localStorage.getItem('eternalvoid.spatial.v1'));
+                    if (previous) saved = { ...previous, beat: 6, tone: defaults.tone, texture: defaults.texture };
+                }
+            } catch (_) {}
             this.settings = sanitize(saved || {}); this.engine = new SpatialEngine(window.CosmicSynth, this.settings);
             this.panel = document.getElementById('spatial-player'); this.expanded = false;
+            const icon = path => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
+            this.playIcon = icon('<path d="m8 5 11 7-11 7z"/>'); this.pauseIcon = icon('<path d="M8 5v14M16 5v14"/>');
+            this.expandIcon = icon('<path d="m6 15 6-6 6 6"/>');
             const slider = (key, label, min, max, step) => `<label class="spatial-control">${label}<output id="spatial-${key}-value"></output><input type="range" id="spatial-${key}" data-key="${key}" aria-label="${label}" min="${min}" max="${max}" step="${step}"></label>`;
-            this.panel.innerHTML = `<div class="music-compact"><button class="music-art" data-action="source" aria-label="Choose music source">◉</button><div class="music-now"><span>Spatial Audio</span><small id="spatial-status" role="status">Ready · headphones recommended</small></div><button data-action="play" id="spatial-play" aria-label="Play spatial audio">▶</button><button data-action="stop" aria-label="Stop spatial audio">■</button><button data-action="expand" id="spatial-expand" aria-label="Expand spatial audio" aria-expanded="false" aria-controls="spatial-details">⌃</button></div>
-            <div id="spatial-details" hidden><div class="spatial-path" aria-hidden="true"><span>L</span><div><i id="spatial-orb"></i></div><span>R</span></div>
-            <p class="spatial-intro">A steady tone in each ear, with soft sounds moving across the space between them.</p>
+            this.panel.innerHTML = `<div class="music-compact"><button class="music-art" data-action="source" aria-label="Choose music source">◉</button><div class="music-now"><span>Spatial Audio</span><small id="spatial-status" role="status">Ready · headphones recommended</small></div><button data-action="play" id="spatial-play" aria-label="Play spatial audio">${this.playIcon}<span>Play</span></button><button data-action="stop" aria-label="Stop spatial audio">${icon('<rect x="6" y="6" width="12" height="12" rx="1"/>')}</button><button data-action="expand" id="spatial-expand" aria-label="Expand spatial audio" aria-expanded="false" aria-controls="spatial-details">${this.expandIcon}</button></div>
+            <div id="spatial-details" hidden><div class="spatial-explanation"><div class="spatial-binaural-focus"><strong>Binaural beats <span>Theta · 6 Hz default</span></strong><p>A steady tone plays in each ear at a slightly different pitch. Their difference can be heard as a soft pulsing sensation: 200 Hz on the left and 206 Hz on the right create a 6 Hz binaural beat. Theta is the name for the 4–8 Hz range. Use stereo headphones so each ear receives its own tone.</p></div><div class="spatial-bilateral-explanation"><strong>Bilateral movement</strong><p>A separate sound sweeps or alternates between your left and right ears. It adds gentle spatial motion alongside the steady binaural tones. Each movement begins five seconds apart by default; its softer level keeps the binaural sound in focus.</p></div></div><div class="spatial-path" aria-hidden="true"><span>L</span><div><i id="spatial-orb"></i></div><span>R</span></div>
             <div class="spatial-switches"><label><input type="checkbox" id="spatial-binaural" data-key="binaural"> Binaural tones</label><label><input type="checkbox" id="spatial-bilateral" data-key="bilateral"> Bilateral movement</label></div>
-            <div class="spatial-grid">${slider('volume','Spatial volume',0,100,1)}${slider('interval','Movement interval',2,20,.5)}
+            <div class="spatial-grid">${slider('volume','Spatial volume',0,100,1)}${slider('tone','Binaural level',0,100,1)}${slider('texture','Bilateral level',0,100,1)}${slider('interval','Movement interval',2,20,.5)}
             <label class="spatial-control">Sound<select id="spatial-sound" data-key="sound" aria-label="Spatial sound"><option value="soft">Soft pulse</option><option value="wind">Warm wind</option><option value="deep">Deep resonance</option></select></label>
             <label class="spatial-control">Movement<select id="spatial-movement" data-key="movement" aria-label="Spatial movement"><option value="sweep">Drifting sweep</option><option value="alternate">Alternating sides</option></select></label></div>
-            <details class="spatial-advanced"><summary>Fine-tune the sound</summary><div class="spatial-grid">${slider('carrier','Carrier pitch',80,400,1)}${slider('beat','Beat difference',1,40,.5)}${slider('width','Stereo width',0,100,1)}${slider('tone','Binaural level',0,100,1)}${slider('texture','Bilateral level',0,100,1)}
+            <details class="spatial-advanced"><summary>Fine-tune the sound</summary><div class="spatial-grid">${slider('carrier','Carrier pitch',80,400,1)}${slider('beat','Beat difference',1,40,.5)}${slider('width','Stereo width',0,100,1)}
             <label class="spatial-control">Sleep timer<select id="spatial-minutes" data-key="minutes" aria-label="Spatial sleep timer"><option value="0">Keep playing</option><option value="10">10 minutes</option><option value="20">20 minutes</option><option value="30">30 minutes</option><option value="60">60 minutes</option></select></label></div><p id="spatial-frequencies"></p><button data-action="reset">Restore defaults</button></details>
             <div class="music-footer"><span>Settings saved in this browser</span><button data-action="source">Change source</button></div></div>`;
             this.panel.addEventListener('keydown', e => e.stopPropagation());
@@ -140,7 +148,7 @@
             });
             this.sync(); this.visualTimer = setInterval(() => { if (!this.panel.hidden) { document.getElementById('spatial-orb').style.left = `${50 + this.engine.position() * 44}%`; if (this.engine.running) this.syncStatus(); } }, 100);
         }
-        save() { try { localStorage.setItem('eternalvoid.spatial.v1', JSON.stringify(this.settings)); } catch (_) {} }
+        save() { try { localStorage.setItem('eternalvoid.spatial.v2', JSON.stringify(this.settings)); } catch (_) {} }
         open() {
             this.options.reveal?.();
             window.CosmicSynth.setMute(true); window.CosmicSynth.stopMusicReactivity();
@@ -148,7 +156,7 @@
             this.panel.hidden = false; this.expand(true); this.sync(); document.getElementById('spatial-play').focus();
         }
         leave() { this.engine.stop(); this.panel.hidden = true; this.sync(); }
-        expand(value) { this.expanded = value; document.getElementById('spatial-details').hidden = !value; this.panel.classList.toggle('expanded', value); const b = document.getElementById('spatial-expand'); b.setAttribute('aria-expanded', String(value)); b.setAttribute('aria-label', value ? 'Collapse spatial audio' : 'Expand spatial audio'); b.textContent = value ? '⌄' : '⌃'; }
+        expand(value) { this.expanded = value; document.getElementById('spatial-details').hidden = !value; if (value) document.getElementById('spatial-details').scrollTop = 0; this.panel.classList.toggle('expanded', value); const b = document.getElementById('spatial-expand'); b.setAttribute('aria-expanded', String(value)); b.setAttribute('aria-label', value ? 'Collapse spatial audio' : 'Expand spatial audio'); b.innerHTML = this.expandIcon; }
         async restart() { this.engine.stop(); await this.play(); }
         async play() { try { await this.engine.start(); this.sync(); } catch (_) { this.engine.stop(); this.sync(); document.getElementById('spatial-status').textContent = 'Audio could not start. Try Play again.'; } }
         action(a) {
@@ -160,14 +168,14 @@
         }
         syncStatus() {
             const s = this.settings, remain = s.minutes && this.engine.running ? Math.max(0, Math.ceil(s.minutes * 60 - (this.engine.ctx.currentTime - this.engine.started))) : 0;
-            document.getElementById('spatial-status').textContent = `${this.engine.running ? 'Playing' : 'Paused'} · ${s.binaural ? s.beat + ' Hz binaural' : 'Tones off'} · ${s.bilateral ? s.interval + 's movement' : 'Movement off'}${remain ? ' · ' + Math.floor(remain / 60) + ':' + String(remain % 60).padStart(2,'0') + ' left' : ''}`;
+            document.getElementById('spatial-status').textContent = `${this.engine.running ? 'Playing' : 'Paused'} · ${s.binaural ? (s.beat >= 4 && s.beat <= 8 ? 'Theta · ' : '') + s.beat + ' Hz binaural' : 'Tones off'} · ${s.bilateral ? s.interval + 's movement' : 'Movement off'}${remain ? ' · ' + Math.floor(remain / 60) + ':' + String(remain % 60).padStart(2,'0') + ' left' : ''}`;
         }
         sync() {
             const s = this.settings;
             for (const input of this.panel.querySelectorAll('[data-key]')) { const key = input.dataset.key; if (input.type === 'checkbox') input.checked = s[key]; else input.value = s[key] * (['volume','width','tone','texture'].includes(key) ? 100 : 1) || (typeof s[key] === 'string' ? s[key] : 0); }
             for (const key of Object.keys(ranges)) { const out = document.getElementById(`spatial-${key}-value`); if (out) out.textContent = ['carrier','beat'].includes(key) ? s[key] + ' Hz' : key === 'interval' ? s[key] + ' sec' : Math.round(s[key] * 100) + '%'; }
             document.getElementById('spatial-frequencies').textContent = `Left ear ${s.carrier} Hz · Right ear ${s.carrier + s.beat} Hz. Headphones preserve the separation.`;
-            const b = document.getElementById('spatial-play'); b.textContent = this.engine.running ? 'Ⅱ' : '▶'; b.setAttribute('aria-label', this.engine.running ? 'Pause spatial audio' : 'Play spatial audio'); this.syncStatus();
+            const b = document.getElementById('spatial-play'); b.innerHTML = (this.engine.running ? this.pauseIcon : this.playIcon) + `<span>${this.engine.running ? 'Pause' : 'Play'}</span>`; b.setAttribute('aria-label', this.engine.running ? 'Pause spatial audio' : 'Play spatial audio'); this.syncStatus();
         }
     }
     if (typeof module !== 'undefined' && module.exports) module.exports = { SpatialEngine, sanitize, defaults };

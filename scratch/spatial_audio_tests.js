@@ -1,5 +1,7 @@
 const assert = require('node:assert/strict');
-const { SpatialEngine, sanitize } = require('../js/spatial-audio.js');
+const { SpatialEngine, sanitize, defaults } = require('../js/spatial-audio.js');
+assert.equal(defaults.beat,6, 'Theta default');
+assert(defaults.tone > defaults.texture * 2, 'binaural layer leads the default mix');
 const param = () => ({ value: 0, events: [], setTargetAtTime(v,t) { this.events.push(['target',v,t]); }, setValueAtTime(v,t) { this.events.push(['set',v,t]); }, linearRampToValueAtTime(v,t) { this.events.push(['ramp',v,t]); }, cancelAndHoldAtTime(t) { this.events.push(['hold',t]); } });
 const nodes = [];
 function node(type) { const n = { type, gain:param(), pan:param(), frequency:param(), links:[], connect(...args){this.links.push(args);}, disconnect(){this.links=[];}, start(){this.started=true;},stop(){this.stopped=true;} }; nodes.push(n); return n; }
