@@ -44,5 +44,8 @@ resolveCapture({getTracks:()=>[track]});
     assert.equal(engine.musicAnalyser.outputs.length,0,'device analysis never routes capture back to speakers');
     engine.stopMusicReactivity();assert.equal(engine.systemStream,null);assert.equal(engine.systemSource,null);
     assert(events.includes('playlist')&&events.includes('system')&&events.includes('none'));
+    const spatial=node(); engine.stopMusicReactivity(); engine.attachSpatialAudio(spatial);
+    assert.equal(engine.visualizerMode,'spatial'); assert.equal(spatial.outputs[0],engine.musicAnalyser); assert.equal(engine.musicAnalyser.outputs[0],engine.ctx.destination); assert(engine.getMusicAnalysis().bass>0);
+    engine.stopMusicReactivity(); assert.equal(spatial.outputs.length,0); assert.equal(engine.musicAnalyser.outputs.length,0);
     console.log('Music routing: scene analyser, pause reset, source reuse/cleanup, capture race, and no device feedback passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

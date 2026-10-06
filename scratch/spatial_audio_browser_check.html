@@ -1,0 +1,27 @@
+<!doctype html><meta charset="utf-8"><title>Spatial audio render check</title><button id="run">Check stereo rendering</button><pre id="result">Ready</pre><script src="../js/spatial-audio.js"></script><script>
+const result=document.getElementById('result');
+document.getElementById('run').onclick=async()=>{
+ try {
+  async function render(settings) {
+   const off=new OfflineAudioContext(2,48000*12,48000);
+   const ctx={currentTime:0,sampleRate:48000,resume:async()=>{}};
+   for(const m of ['createGain','createChannelMerger','createOscillator','createStereoPanner','createBiquadFilter','createBuffer','createBufferSource'])ctx[m]=off[m].bind(off);
+   const synth={ctx,sourceGeneration:0,init(){},stopMusicReactivity(){this.sourceGeneration++;},attachSpatialAudio(n){n.connect(off.destination);this.visualizerMode='spatial';}};
+   const engine=new SpatialAudio.SpatialEngine(synth,settings);await engine.start();clearInterval(engine.timer);
+   for(let t=0;t<12;t+=.1){ctx.currentTime=t;engine.schedule();}
+   const data=await off.startRendering();engine.stop();return data;
+  }
+  const tones=await render({binaural:true,bilateral:false});
+  function amp(data,f) {let re=0,im=0;for(let i=48000;i<96000;i++){const a=2*Math.PI*f*i/48000;re+=data[i]*Math.cos(a);im+=data[i]*Math.sin(a);}return Math.hypot(re,im)/24000;}
+  const l=tones.getChannelData(0),r=tones.getChannelData(1);
+  const carrier={left200:amp(l,200),left206:amp(l,206),right200:amp(r,200),right206:amp(r,206)};
+  if(carrier.left200<.01||carrier.right206<.01||carrier.left206/carrier.left200>.0001||carrier.right200/carrier.right206>.0001)throw Error('Carrier isolation failed');
+  const movement=await render({binaural:false,bilateral:true});
+  function rms(d,start,end){let sum=0;for(let i=start*48000;i<end*48000;i++)sum+=d[i]*d[i];return Math.sqrt(sum/((end-start)*48000));}
+  const ml=movement.getChannelData(0),mr=movement.getChannelData(1);
+  const pan={earlyLeft:rms(ml,.4,1),earlyRight:rms(mr,.4,1),lateLeft:rms(ml,3.5,4),lateRight:rms(mr,3.5,4)};
+  if(pan.earlyLeft<pan.earlyRight*1.5||pan.lateRight<pan.lateLeft*1.5)throw Error('Sweep did not cross stereo channels');
+  result.textContent=JSON.stringify({passed:true,carrier,pan},null,2);
+ } catch(e){result.textContent='FAIL '+e.message;}
+};
+</script>

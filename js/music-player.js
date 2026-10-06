@@ -47,13 +47,14 @@
             this.panel.addEventListener('keydown', e => e.stopPropagation());
             this.dialog.addEventListener('keydown', e => e.stopPropagation());
             document.getElementById('music-close-source').onclick = () => this.dialog.close();
-            document.getElementById('music-source-playlist').onclick = () => { this.dialog.close(); this.panel.hidden = false; this.expand(true); this.render(); document.getElementById('music-playlists').focus(); };
+            document.getElementById('music-source-playlist').onclick = () => { window.SpatialPlayer?.leave(); this.dialog.close(); this.panel.hidden = false; this.expand(true); this.render(); document.getElementById('music-playlists').focus(); };
             document.getElementById('music-source-device').onclick = () => {
+                window.SpatialPlayer?.leave();
                 this.dialog.close();
                 if (window.CosmicSynth.visualizerMode !== 'system') this.options.device();
                 this.panel.hidden = true;
             };
-            document.getElementById('music-source-off').onclick = () => { this.stop(); this.dialog.close(); };
+            document.getElementById('music-source-off').onclick = () => { window.SpatialPlayer?.leave(); this.stop(); this.dialog.close(); };
             this.dialog.addEventListener('click', e => { if (e.target === this.dialog) { const r = this.dialog.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) this.dialog.close(); } });
             document.getElementById('music-playlists').onchange = e => {
                 const playing = !this.audio.paused;
@@ -93,7 +94,7 @@
         persist() { if (!this.library.save()) this.message('Listening works, but this browser could not save your music library.'); }
         openSources() {
             const mode = window.CosmicSynth.visualizerMode;
-            document.getElementById('music-source-status').textContent = mode === 'playlist' ? (this.audio.paused ? 'Playlist paused' : `Playing ${this.library.track(this.current)?.title || 'music'}`) : mode === 'system' ? 'Listening to device audio' : mode === 'mic' ? 'Listening to your microphone' : mode === 'upload' ? 'Playing an audio file' : 'Choose what moves the scene';
+            document.getElementById('music-source-status').textContent = mode === 'playlist' ? (this.audio.paused ? 'Playlist paused' : `Playing ${this.library.track(this.current)?.title || 'music'}`) : mode === 'spatial' ? 'Playing Spatial Audio' : mode === 'system' ? 'Listening to device audio' : mode === 'mic' ? 'Listening to your microphone' : mode === 'upload' ? 'Playing an audio file' : 'Choose what moves the scene';
             if (!this.dialog.open) this.dialog.showModal();
         }
         expand(value) {

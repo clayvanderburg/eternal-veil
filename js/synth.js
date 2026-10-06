@@ -740,10 +740,23 @@ class BinauralBeatEngine {
         window.dispatchEvent(new CustomEvent('cosmic-audio-source', { detail: 'playlist' }));
     }
 
+    // Dedicated spatial generator follows the same speaker/analyser route as playlists.
+    attachSpatialAudio(output) {
+        this.setupMusicAnalyser();
+        this.spatialSource = output;
+        output.connect(this.musicAnalyser);
+        this.musicAnalyser.connect(this.ctx.destination);
+        this.visualizerMode = 'spatial';
+        this.setMute(true);
+        window.dispatchEvent(new CustomEvent('cosmic-audio-source', { detail: 'spatial' }));
+    }
+
     // Stop all active music visualizer tasks and restore defaults
     stopMusicReactivity() {
         this.sourceGeneration = (this.sourceGeneration || 0) + 1;
         this.visualizerMode = "none";
+        if (this.spatialSource) this.spatialSource.disconnect();
+        this.spatialSource = null;
         if (this.playlistAudio) this.playlistAudio.pause();
         if (this.playlistSource) this.playlistSource.disconnect();
         if (this.playlistGain) this.playlistGain.disconnect();

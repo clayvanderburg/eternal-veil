@@ -517,7 +517,6 @@ document.addEventListener("DOMContentLoaded", () => {
         toast: document.getElementById("toast-notify"),
         
         // Quick Buttons
-        audioToggleBtn: document.getElementById("audio-toggle-btn"),
         fullscreenToggleBtn: document.getElementById("fullscreen-toggle-btn"),
         pauseBtn: document.getElementById("pause-btn"),
         
@@ -2940,7 +2939,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         
         // Audio Toggle Click
-        elements.audioToggleBtn.onclick = () => toggleAudio();
+        document.getElementById("open-spatial-console").onclick = () => window.SpatialPlayer.open();
         
         // Fullscreen Toggle Click
         elements.fullscreenToggleBtn.onclick = () => toggleFullscreen();
@@ -3569,6 +3568,14 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         };
 
+        window.SpatialPlayer = new window.SpatialAudio.SpatialPlayer();
+        window.addEventListener('cosmic-audio-source', e => {
+            if (e.detail === 'spatial') {
+                clearVisualizerHighlights(); setDeviceAudioUi(false);
+                elements.visualizerStatus.textContent = 'Spatial Audio · scene reaction active';
+                elements.visualizerStatus.style.display = 'block';
+            } else if (e.detail === 'none') elements.visualizerStatus.style.display = 'none';
+        });
         elements.systemReactBtn.onclick = toggleDeviceAudioReactivity;
         window.EternalMusicPlayer.init({
             device: toggleDeviceAudioReactivity,
@@ -3614,7 +3621,7 @@ document.addEventListener("DOMContentLoaded", () => {
             showToast("Visualizer track playing!");
             CosmicLogger.info(`Uploaded audio track playing: "${file.name}" (${(file.size / (1024 * 1024)).toFixed(2)} MB). Internal ambient chimes auto-muted.`);
             
-            if (synth.isMuted) toggleAudio(true);
+            synth.setMute(true);
             elements.musicFileInput.value = "";
         };
 
@@ -3679,7 +3686,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Global key listeners
         window.addEventListener("keydown", (e) => {
-            if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.closest('#music-player, #music-source-dialog')) return;
+            if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.closest('#music-player, #spatial-player, #music-source-dialog')) return;
             
             switch (e.key.toLowerCase()) {
                 case "m":
@@ -3692,7 +3699,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     break;
                 case "a":
                     e.preventDefault();
-                    toggleAudio();
+                    window.SpatialPlayer.open();
                     break;
                 case "f":
                     e.preventDefault();
@@ -3756,7 +3763,7 @@ document.addEventListener("DOMContentLoaded", () => {
         };
 
         // Inactivity UI Fading listeners
-        const uiContainers = [elements.hud, elements.floatingActions, elements.sidebarHandle, elements.controlPanel, document.getElementById('music-player')];
+        const uiContainers = [elements.hud, elements.floatingActions, elements.sidebarHandle, elements.controlPanel, document.getElementById('music-player'), document.getElementById('spatial-player')];
         uiContainers.forEach(container => {
             if (container) {
                 container.addEventListener("mouseenter", () => {
@@ -3885,7 +3892,7 @@ document.addEventListener("DOMContentLoaded", () => {
         };
 
         const handleStart = (e) => {
-            if (e.target.tagName === "INPUT" || e.target.closest("aside") || e.target.closest("#hud") || e.target.closest("#floating-actions") || e.target.closest('#music-player, #music-source-dialog')) return;
+            if (e.target.tagName === "INPUT" || e.target.closest("aside") || e.target.closest("#hud") || e.target.closest("#floating-actions") || e.target.closest('#music-player, #spatial-player, #music-source-dialog')) return;
             
             isDrawing = true;
             const coords = getCoords(e);
@@ -3973,36 +3980,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    function toggleAudio(active) {
-        const synth = window.CosmicSynth;
-        const state = (active !== undefined) ? !active : !synth.isMuted;
-        
-        synth.setMute(state);
-        
-        const muteIcon = elements.audioToggleBtn.querySelector(".audio-muted-icon");
-        const playIcon = elements.audioToggleBtn.querySelector(".audio-playing-icon");
-        
-        elements.soundEnableToggle.checked = !state;
-        
-        if (state) {
-            muteIcon.classList.remove("hide");
-            playIcon.classList.add("hide");
-            elements.audioToggleBtn.classList.remove("highlight");
-            elements.audioSettingsSliders.classList.add("disabled-element");
-            showToast("Ambient synthesizer muted");
-        } else {
-            muteIcon.classList.add("hide");
-            playIcon.classList.remove("hide");
-            elements.audioToggleBtn.classList.add("highlight");
-            elements.audioSettingsSliders.classList.remove("disabled-element");
-            showToast("Ambient synthesizer unmuted");
-            
-            // Show headphones alert prompt overlay
-            triggerHeadphonesPrompt();
-            
-            // Sync frequencies immediately
-            modulateSynth();
-        }
+    function toggleAudio() {
+        window.SpatialPlayer?.open();
     }
 
     function triggerHeadphonesPrompt() {
@@ -4017,7 +3996,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (uiFadeTimeout) clearTimeout(uiFadeTimeout);
         
         // Remove fade styling instantly
-        const uiElements = [elements.hud, elements.floatingActions, elements.sidebarHandle, elements.controlPanel, document.getElementById('music-player')];
+        const uiElements = [elements.hud, elements.floatingActions, elements.sidebarHandle, elements.controlPanel, document.getElementById('music-player'), document.getElementById('spatial-player')];
         uiElements.forEach(el => {
             if (el) el.classList.remove("ui-faded");
         });
@@ -4029,8 +4008,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function fadeUiElements() {
-        if (isMouseOverUI || document.getElementById('music-source-dialog')?.open || document.getElementById('music-player')?.matches(':focus-within')) return;
-        const uiElements = [elements.hud, elements.floatingActions, elements.sidebarHandle, elements.controlPanel, document.getElementById('music-player')];
+        if (isMouseOverUI || document.getElementById('music-source-dialog')?.open || document.getElementById('music-player')?.matches(':focus-within') || document.getElementById('spatial-player')?.matches(':focus-within')) return;
+        const uiElements = [elements.hud, elements.floatingActions, elements.sidebarHandle, elements.controlPanel, document.getElementById('music-player'), document.getElementById('spatial-player')];
         uiElements.forEach(el => {
             if (el) el.classList.add("ui-faded");
         });

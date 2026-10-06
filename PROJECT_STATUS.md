@@ -1,3 +1,13 @@
+## 2026-10-06 Spatial Audio player candidate
+
+Prepared from origin/main 6e1fbd5. Removes the floating speaker button and moves generated
+sound into Music sources > Spatial Audio. Dedicated compact/expanded player controls separate
+fixed binaural carriers and a bilateral soft pulse/warm wind/deep resonance, with five-second
+movement, sweep/alternating modes, independent levels, width, pitch/difference and sleep timer.
+Starts only after Play; source changes stop and disconnect the prior generator. Browser-local
+settings, same music analyser and scene response. Local preview http://127.0.0.1:8770/.
+Not pushed or deployed. Detailed checks and listening boundary are in the October 6 hub log.
+
 ## 2026-10-05 search discovery candidate
 
 Prepared from verified production/origin main 3f7a98f, preserving the released music,

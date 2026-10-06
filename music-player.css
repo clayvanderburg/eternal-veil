@@ -74,3 +74,24 @@
     .music-inline-form { flex-wrap: wrap; }
 }
 @media(prefers-reduced-motion:reduce) { .music-player { transition: none; } }
+
+/* Spatial player: progressive controls beside the existing music source choices. */
+.spatial-player .music-compact { grid-template-columns: 42px minmax(0,1fr) repeat(3,36px); }
+.spatial-player #spatial-details { padding: 0 18px 14px; max-height: min(67vh,650px); overflow-y:auto; }
+.spatial-player #spatial-details[hidden] { display:none; }
+.spatial-path { display:flex; align-items:center; gap:14px; margin:16px 0; color:#bcb2ce; font-size:11px; }
+.spatial-path > div { position:relative; flex:1; height:1px; background:linear-gradient(90deg,#7c7fac,#c5a4de,#7c7fac); }
+.spatial-path i { position:absolute; top:-5px; left:50%; width:11px; height:11px; border-radius:50%; background:#d6b2f5; box-shadow:0 0 12px #b384e0; transform:translateX(-50%); }
+.spatial-intro { font-size:12px; line-height:1.6; color:#b9afc7; margin:0 0 16px; }
+.spatial-switches { display:flex; gap:20px; flex-wrap:wrap; padding:0 0 16px; font-size:12px; }
+.spatial-switches input { accent-color:#b993dc; }
+.spatial-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px 24px; }
+.spatial-control { display:flex; flex-wrap:wrap; align-items:center; gap:9px; font-size:11px; color:#b9afc7; min-width:0; }
+.spatial-control output { margin-left:auto; color:#eee4fa; font-variant-numeric:tabular-nums; }
+.spatial-control input, .spatial-control select { width:100%; margin:0; }
+.spatial-advanced { border-top:1px solid #ffffff12; margin-top:20px; padding-top:14px; }
+.spatial-advanced summary { cursor:pointer; font-size:12px; color:#d4c1e8; padding-bottom:14px; }
+.spatial-advanced p { font-size:11px; color:#b9afc7; line-height:1.5; }
+.spatial-player .music-footer { margin-top:16px; }
+.spatial-player #spatial-play, .spatial-player [data-action=stop], .spatial-player #spatial-expand { font-size:14px; color:#d4c1e8; }
+@media(max-width:480px) { .spatial-player #spatial-details { padding:0 12px 12px; } .spatial-grid { gap:16px 14px; } .spatial-switches { gap:12px; } .spatial-player .music-compact { grid-template-columns:34px minmax(0,1fr) repeat(3,32px); } }
