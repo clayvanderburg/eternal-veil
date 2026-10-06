@@ -487,7 +487,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Fading UI inactivity timers & headphones warning variables
     let uiFadeTimeout = null;
-    let isMouseOverUI = false;
+    let uiPointerHeld = false;
+    let uiKeyboardActive = false;
     let headphonesPromptTimeout = null;
 
     // Cache DOM Elements
@@ -3762,26 +3763,33 @@ document.addEventListener("DOMContentLoaded", () => {
             showToast(`Binaural wave shifted to: ${mode.toUpperCase()}`);
         };
 
-        // Inactivity UI Fading listeners
-        const uiContainers = [elements.hud, elements.floatingActions, elements.sidebarHandle, elements.controlPanel, document.getElementById('music-player'), document.getElementById('spatial-player')];
-        uiContainers.forEach(container => {
-            if (container) {
-                container.addEventListener("mouseenter", () => {
-                    isMouseOverUI = true;
-                    resetUiFadeTimer();
-                });
-                container.addEventListener("mouseleave", () => {
-                    isMouseOverUI = false;
-                    resetUiFadeTimer();
-                });
-            }
+        // Touch browsers retain hover/focus after a tap. Only actual activity
+        // keeps controls awake; never use hover as an inactivity lock.
+        window.addEventListener("pointerdown", () => {
+            uiKeyboardActive = false;
+            uiPointerHeld = true;
+            resetUiFadeTimer();
+        }, { passive: true });
+        window.addEventListener("pointermove", resetUiFadeTimer, { passive: true });
+        const finishUiGesture = () => {
+            uiPointerHeld = false;
+            resetUiFadeTimer();
+        };
+        window.addEventListener("pointerup", finishUiGesture, { passive: true });
+        window.addEventListener("pointercancel", finishUiGesture, { passive: true });
+        window.addEventListener("blur", () => { uiPointerHeld = false; });
+        window.addEventListener("input", resetUiFadeTimer);
+        window.addEventListener("scroll", resetUiFadeTimer, { passive: true, capture: true });
+        window.addEventListener("keydown", () => {
+            uiKeyboardActive = true;
+            resetUiFadeTimer();
         });
-
-        // Global user activity listeners to trigger UI reveal
-        window.addEventListener("mousemove", resetUiFadeTimer);
-        window.addEventListener("mousedown", resetUiFadeTimer);
-        window.addEventListener("touchstart", resetUiFadeTimer, { passive: true });
-        window.addEventListener("keydown", resetUiFadeTimer);
+        ["hide-controls-btn", "panel-hide-controls-btn"].forEach(id => {
+            document.getElementById(id)?.addEventListener("click", () => {
+                document.activeElement?.blur();
+                fadeUiElements(true);
+            });
+        });
 
         // One-step entry with an explicit comfort choice. The audio context is
         // unlocked only after the user's gesture, as required by browsers.
@@ -3992,24 +4000,34 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 3500); // fade out after 3.5 seconds
     }
 
+    function getFadeUiElements() {
+        return [elements.hud, elements.floatingActions, elements.sidebarHandle,
+            elements.controlPanel, elements.flowStatusBanner,
+            document.getElementById('music-player'), document.getElementById('spatial-player')].filter(Boolean);
+    }
+
     function resetUiFadeTimer() {
         if (uiFadeTimeout) clearTimeout(uiFadeTimeout);
         
         // Remove fade styling instantly
-        const uiElements = [elements.hud, elements.floatingActions, elements.sidebarHandle, elements.controlPanel, document.getElementById('music-player'), document.getElementById('spatial-player')];
+        const uiElements = getFadeUiElements();
         uiElements.forEach(el => {
             if (el) el.classList.remove("ui-faded");
         });
         
-        // Start countdown only if mouse is NOT hovering over UI elements
-        if (!isMouseOverUI) {
-            uiFadeTimeout = setTimeout(fadeUiElements, 5000); // 5 seconds fadeout timer
-        }
+        uiFadeTimeout = setTimeout(fadeUiElements, 2000);
     }
 
-    function fadeUiElements() {
-        if (isMouseOverUI || document.getElementById('music-source-dialog')?.open || document.getElementById('music-player')?.matches(':focus-within') || document.getElementById('spatial-player')?.matches(':focus-within')) return;
-        const uiElements = [elements.hud, elements.floatingActions, elements.sidebarHandle, elements.controlPanel, document.getElementById('music-player'), document.getElementById('spatial-player')];
+    function fadeUiElements(force = false) {
+        const uiElements = getFadeUiElements();
+        // Keep active drags, dialogs, and keyboard editing usable. Recheck so
+        // closing a dialog or leaving focus cannot strand the menu onscreen.
+        if (!force && (uiPointerHeld || document.getElementById('music-source-dialog')?.open ||
+            (uiKeyboardActive && uiElements.some(el => el.matches(':focus-within'))))) {
+            uiFadeTimeout = setTimeout(fadeUiElements, 2000);
+            return;
+        }
+        clearTimeout(uiFadeTimeout);
         uiElements.forEach(el => {
             if (el) el.classList.add("ui-faded");
         });

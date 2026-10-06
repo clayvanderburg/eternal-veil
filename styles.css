@@ -1466,8 +1466,20 @@ kbd {
 }
 
 /* UI inactivity fade system */
-.hud-container, .floating-controls, .sidebar-edge-handle, .control-panel {
-    transition: opacity 0.6s cubic-bezier(0.25, 1, 0.5, 1), visibility 0.6s, transform 0.35s cubic-bezier(0.25, 1, 0.3, 1) !important;
+.panel-hide-btn {
+    min-height: 44px;
+    padding: 6px 10px;
+    border: 1px solid var(--border-glass);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.hud-container, .floating-controls, .sidebar-edge-handle, .control-panel, .flow-status-banner {
+    transition: opacity 0.25s ease, visibility 0.25s, transform 0.35s cubic-bezier(0.25, 1, 0.3, 1) !important;
 }
 
 .ui-faded {
