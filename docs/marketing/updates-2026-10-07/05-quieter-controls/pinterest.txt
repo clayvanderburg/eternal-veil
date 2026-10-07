@@ -1,4 +1,4 @@
-More scene. Less interface.
+Hide the controls
 
 The controls fade after four seconds without input. Automatic scene updates no longer bring them back.
 

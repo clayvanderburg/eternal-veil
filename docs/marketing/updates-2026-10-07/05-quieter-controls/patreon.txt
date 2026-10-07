@@ -1,4 +1,4 @@
-# More scene. Less interface.
+# Hide the controls
 
 The controls now fade after four seconds without input, so the scene has room to fill the screen. The console-close behavior was also fixed, and automatic updates no longer bring the controls back.
 
