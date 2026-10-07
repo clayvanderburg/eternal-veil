@@ -146,10 +146,10 @@ assert.equal(M.kaleidoSegments({ kaleidoscopeEnabled: true, kaleidoscopeSegments
 assert(!("kaleidoscope" in M.DEFAULT_TUNING), "no separate preset kaleidoscope");
 {
     const app = fs.readFileSync("js/app.js", "utf8");
-    const eligible = app.slice(app.indexOf("const kaleidoEligibleShapes"), app.indexOf("const kaleidoGeometricShapes"));
-    assert(eligible.includes('"mandelbrotDive"'), "Flow can pick the kaleidoscope for Mandelbrot Dive");
+    const excluded = app.slice(app.indexOf("const kaleidoExcludedShapes"), app.indexOf("const kaleidoHalfShapes"));
+    assert(!excluded.includes('"mandelbrotDive"'), "Flow can pick the kaleidoscope for Mandelbrot Dive");
     const sim = fs.readFileSync("js/simulation.js", "utf8");
-    assert(/kaleidoscopeEnabled && this\.settings\.particleShape !== "mandelbrotDive"/.test(sim), "app particle mirror skipped for the shader kaleidoscope");
+    assert(/LAYER_KALEIDOSCOPE_SHAPES = new Set\(\[[^\]]*"mandelbrotDive"/.test(sim), "app particle mirror skipped for the shader kaleidoscope");
 }
 
 // 11. Flow palettes are hsl() strings: every colour must reach the shader, not a fallback.

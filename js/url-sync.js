@@ -36,8 +36,10 @@ const UrlStateSync = {
         const flags = [state.ke, state.pm, state.mb, state.sk, state.se, state.be,
             state.ae, state.sm, state.ap, state.vm, state.vs === "dome"];
         word(flags.reduce((bits, on, index) => bits | ((on ? 1 : 0) << index), 0));
-        byte(state.p.length);
-        state.p.forEach(color);
+        // Up to 8 colors (Chakra Alignment uses 7). Links with 1-6 colors are unchanged.
+        const colors = state.p.slice(0, 8);
+        byte(colors.length);
+        colors.forEach(color);
         color(state.bg);
         return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     },
@@ -65,7 +67,7 @@ const UrlStateSync = {
         });
         state.vs = flags & (1 << 10) ? "dome" : "native";
         const count = byte();
-        if (count < 1 || count > 6 || bytes.length !== offset + count * 3 + 3) return null;
+        if (count < 1 || count > 8 || bytes.length !== offset + count * 3 + 3) return null;
         state.p = Array.from({ length: count }, color);
         state.bg = color();
         return state;

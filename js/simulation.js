@@ -21,6 +21,13 @@ const MINI_SPIRALS = [
     { minR: 0.010, maxR: 0.13, turns: 14, dir: 1, spin: 0.0070, travel: 0.00058 }
 ];
 const SPIRAL_WANDER_FAMILY = 9;
+// Scenes whose kaleidoscope mirrors the whole drawn frame (their own module or
+// drawKaleidoscoped), so the particle mirror pass skips them.
+const LAYER_KALEIDOSCOPE_SHAPES = new Set(["mandelbrotDive", "molecularDance", "stellarNursery", "chromeRibbon", "celticCurrent", "celticKnotwork", "cymaticResonance", "quantumDrift"]);
+// Evenly screen-filling scenes hide overlapping mirror copies; mirror one wedge instead.
+const WEDGE_KALEIDOSCOPE_SHAPES = new Set(["quantumDrift"]);
+// How large an authored composition is drawn relative to the screen (1 = original).
+const COMPOSITION_SCALE = { quantumLattice: 0.55 };
 
 const p_table = [
     151,160,137,91,90,15,131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,
@@ -562,7 +569,7 @@ class Particle {
             this.compositionTime = time;
             this.compositionAge = sample.age;
             this.compositionBranch = sample.branch;
-            const extent = Math.min(this.w, this.h);
+            const extent = Math.min(this.w, this.h) * (COMPOSITION_SCALE[settings.particleShape] ?? 1);
             const x = this.w * 0.5 + sample.x * extent;
             const y = this.h * 0.5 + sample.y * extent;
             const discontinuity = this.activeEffectShape !== settings.particleShape || Math.hypot(x - this.x, y - this.y) > extent * 0.15;
@@ -1320,8 +1327,9 @@ class Particle {
                 const span = Math.min(1 / 0.15, this.compositionAge || 0);
                 for (let i = 0; i <= 5; i++) {
                     const tail = window.PresetCompositions.point(shape, this.effectLane, this.effectRole, this.effectPhase, this.compositionTime - span * (1 - i / 5));
-                    const x = this.w * 0.5 + tail.x * Math.min(this.w, this.h);
-                    const y = this.h * 0.5 + tail.y * Math.min(this.w, this.h);
+                    const extent = Math.min(this.w, this.h) * (COMPOSITION_SCALE[shape] ?? 1);
+                    const x = this.w * 0.5 + tail.x * extent;
+                    const y = this.h * 0.5 + tail.y * extent;
                     if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
                 }
             } else {
@@ -2094,6 +2102,74 @@ class FlowSimulation {
         this.spawnParticles();
     }
 
+    // Scenes drawn by their own module (not particles) are mirrored as a whole
+    // frame: render once into a layer, then lay rotated, mirrored copies.
+    drawKaleidoscoped(draw, { wedge = false } = {}) {
+        const segments = this.settings.kaleidoscopeEnabled
+            ? Math.max(3, Math.floor(this.settings.kaleidoscopeSegments || 6)) : 0;
+        // A hidden or minimized window can briefly report a 0×0 canvas; drawImage
+        // of an empty layer throws and would stop the render loop.
+        if (segments < 3 || typeof document === "undefined" || !this.canvas.width || !this.canvas.height) {
+            draw(this.ctx);
+            return;
+        }
+        if (!this.sceneLayer) {
+            this.sceneLayer = document.createElement("canvas");
+            this.sceneLayerCtx = this.sceneLayer.getContext("2d");
+        }
+        const w = this.canvas.width, h = this.canvas.height;
+        if (this.sceneLayer.width !== w || this.sceneLayer.height !== h) {
+            this.sceneLayer.width = w;
+            this.sceneLayer.height = h;
+        }
+        const layer = this.sceneLayerCtx;
+        layer.setTransform(1, 0, 0, 1, 0, 0);
+        layer.clearRect(0, 0, w, h);
+        layer.setTransform(this.ctx.getTransform());
+        draw(layer);
+        const step = (Math.PI * 2) / segments;
+        const spin = this.settings.spinningKaleido ? this.globalTime * 0.002 : 0;
+        this.ctx.save();
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        if (wedge) {
+            // Copy only the source wedge centred on the wide axis; odd copies are
+            // reflected about their own axis so neighbouring wedges meet edge to
+            // edge. Enlarge the copies just enough that the wedge reaches the corners.
+            const half = step / 2;
+            const radius = Math.hypot(w, h);
+            const available = Math.min(w / 2, half < Math.PI / 2 ? (h / 2) / Math.sin(half) : h / 2);
+            const zoom = Math.max(1, Math.hypot(w / 2, h / 2) / available);
+            for (let seg = 0; seg < segments; seg++) {
+                this.ctx.save();
+                this.ctx.translate(w / 2, h / 2);
+                this.ctx.rotate(step * seg + spin);
+                if (seg % 2 === 1) this.ctx.scale(1, -1);
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, 0);
+                this.ctx.arc(0, 0, radius, -half, half);
+                this.ctx.closePath();
+                this.ctx.clip();
+                this.ctx.scale(zoom, zoom);
+                this.ctx.translate(-w / 2, -h / 2);
+                this.ctx.drawImage(this.sceneLayer, 0, 0);
+                this.ctx.restore();
+            }
+            this.ctx.restore();
+            return;
+        }
+        this.ctx.drawImage(this.sceneLayer, 0, 0);
+        for (let seg = 1; seg < segments; seg++) {
+            this.ctx.save();
+            this.ctx.translate(w / 2, h / 2);
+            this.ctx.rotate(step * seg + spin);
+            if (seg % 2 === 1) this.ctx.scale(-1, 1);
+            this.ctx.translate(-w / 2, -h / 2);
+            this.ctx.drawImage(this.sceneLayer, 0, 0);
+            this.ctx.restore();
+        }
+        this.ctx.restore();
+    }
+
     initCanvas() {
         const d = this.dpr;
         this.canvas.width = Math.floor(this.width * d);
@@ -2534,11 +2610,11 @@ class FlowSimulation {
             // Painterly Depth Spiral renders far marks first, so larger nearer
             // daubs visibly pass over the distant layer.
             if (this.settings.particleShape === "chromeRibbon" && window.ChromeRibbons) {
-                window.ChromeRibbons.draw(this.ctx, this.width, this.height, this.compositionTime, this.settings, this.palette);
+                this.drawKaleidoscoped(ctx => window.ChromeRibbons.draw(ctx, this.width, this.height, this.compositionTime, this.settings, this.palette));
             } else if (this.settings.particleShape === "celticCurrent" && window.CelticCurrents) {
-                window.CelticCurrents.draw(this.ctx, this.width, this.height, this.globalTime / 60, this.settings, this.palette, sceneScale);
+                this.drawKaleidoscoped(ctx => window.CelticCurrents.draw(ctx, this.width, this.height, this.globalTime / 60, this.settings, this.palette, sceneScale));
             } else if (this.settings.particleShape === "celticKnotwork" && window.CelticKnotwork) {
-                window.CelticKnotwork.draw(this.ctx, this.width, this.height, this.globalTime / 60, this.settings, this.palette, sceneScale);
+                this.drawKaleidoscoped(ctx => window.CelticKnotwork.draw(ctx, this.width, this.height, this.globalTime / 60, this.settings, this.palette, sceneScale));
             } else if (this.settings.particleShape === "mandelbrotDive" && window.MandelbrotDive) {
                 window.MandelbrotDive.draw(this.ctx, this.width, this.height, this.globalTime / 60, this.settings, this.palette);
             } else if (this.settings.particleShape === "molecularDance" && window.MolecularDance) {
@@ -2546,7 +2622,7 @@ class FlowSimulation {
             } else if (this.settings.particleShape === "stellarNursery" && window.StellarNursery) {
                 window.StellarNursery.draw(this.ctx, this.width, this.height, this.globalTime / 60, this.settings, this.palette, sceneScale);
             } else if (this.settings.particleShape === "cymaticResonance" && window.CymaticResonance) {
-                window.CymaticResonance.draw(this.ctx, this.width, this.height, this.globalTime / 60, this.settings, this.palette, sceneScale);
+                this.drawKaleidoscoped(ctx => window.CymaticResonance.draw(ctx, this.width, this.height, this.globalTime / 60, this.settings, this.palette, sceneScale));
             } else if (this.settings.particleShape === "painterlyVortex") {
                 for (let i = 0; i < this.particles.length; i++) {
                     this.particles[i].update(this.settings, this.globalTime, this.mouse, this.customForces, this.shockwaves, this.vortices, dt);
@@ -2556,21 +2632,25 @@ class FlowSimulation {
                     depthOrderedParticles[i].draw(this.ctx, this.settings);
                 }
             } else {
-                const overlay = [];
                 const shape = this.settings.particleShape;
-                for (let i = 0; i < this.particles.length; i++) {
-                    const p = this.particles[i];
-                    p.update(this.settings, this.globalTime, this.mouse, this.customForces, this.shockwaves, this.vortices, dt, this.compositionTime);
-                    if ((shape === "solarFlare" && p.isEclipsedSun(this.settings))
-                        || (shape === "lotus" && p.isDedicatedHero(shape))) {
-                        overlay.push(p);
-                    } else {
-                        p.draw(this.ctx, this.settings);
+                const drawParticles = ctx => {
+                    const overlay = [];
+                    for (let i = 0; i < this.particles.length; i++) {
+                        const p = this.particles[i];
+                        p.update(this.settings, this.globalTime, this.mouse, this.customForces, this.shockwaves, this.vortices, dt, this.compositionTime);
+                        if ((shape === "solarFlare" && p.isEclipsedSun(this.settings))
+                            || (shape === "lotus" && p.isDedicatedHero(shape))) {
+                            overlay.push(p);
+                        } else {
+                            p.draw(ctx, this.settings);
+                        }
                     }
-                }
-                for (let i = 0; i < overlay.length; i++) {
-                    overlay[i].draw(this.ctx, this.settings);
-                }
+                    for (let i = 0; i < overlay.length; i++) {
+                        overlay[i].draw(ctx, this.settings);
+                    }
+                };
+                if (WEDGE_KALEIDOSCOPE_SHAPES.has(shape)) this.drawKaleidoscoped(drawParticles, { wedge: true });
+                else drawParticles(this.ctx);
             }
 
             // Update & Draw sparkles
@@ -2606,7 +2686,7 @@ class FlowSimulation {
             // Mandelbrot Dive mirrors inside its own shader and Molecular Dance
             // and Stellar Nursery mirror their own layer; the particle mirror pass would only redraw
             // those presets' idle particle pool.
-            if (this.settings.kaleidoscopeEnabled && this.settings.particleShape !== "mandelbrotDive" && this.settings.particleShape !== "molecularDance" && this.settings.particleShape !== "stellarNursery") {
+            if (this.settings.kaleidoscopeEnabled && !LAYER_KALEIDOSCOPE_SHAPES.has(this.settings.particleShape)) {
                 const cx = this.width / 2;
                 const cy = this.height / 2;
                 const segments = Math.max(3, Math.floor(this.settings.kaleidoscopeSegments));

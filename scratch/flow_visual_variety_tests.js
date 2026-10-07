@@ -12,9 +12,13 @@ const elements = { particleShapeSelect: { value: 'ellipse' } };
 let shapeUnlocked = true;
 const excludedPresetKeys = new Set();
 const getPresetByShape = shape => shape === 'zenMandala' ? 'mandalaZen' : shape;
-const choose = new Function('sim', 'elements', 'isFlowEnabled', 'excludedPresetKeys', 'getPresetByShape',
-    `let lastFlowPatternShape = null;\n${source.slice(start, end)}\nreturn chooseNextFlowPattern;`
-)(sim, elements, key => key === 'particleShape' && shapeUnlocked, excludedPresetKeys, getPresetByShape);
+const patternsStart = source.indexOf('    const FLOW_PRESET_PATTERNS = ');
+const patternsDef = source.slice(patternsStart, source.indexOf('\n', patternsStart));
+assert(patternsStart >= 0, 'Flow preset patterns found');
+const choose = new Function('sim', 'elements', 'isFlowEnabled', 'excludedPresetKeys', 'getPresetByShape', 'recordFlowPick',
+    `let lastFlowPatternShape = null;\n${patternsDef}\n${source.slice(start, end)}\nreturn chooseNextFlowPattern;`
+)(sim, elements, key => key === 'particleShape' && shapeUnlocked, excludedPresetKeys, getPresetByShape, () => {});
+const drawnShape = next => next === 'cosmicStrings' ? 'ellipse' : next;
 
 for (const personality of ['serene', 'alive', 'wild']) {
     const counts = new Map();
@@ -22,7 +26,7 @@ for (const personality of ['serene', 'alive', 'wild']) {
     for (let i = 0; i < 10000; i++) {
         const next = choose(personality);
         assert.notEqual(next, previous, 'consecutive Flow geometry differs');
-        assert.equal(elements.particleShapeSelect.value, next);
+        assert.equal(elements.particleShapeSelect.value, drawnShape(next));
         counts.set(next, (counts.get(next) || 0) + 1);
         previous = next;
     }
@@ -31,7 +35,8 @@ for (const personality of ['serene', 'alive', 'wild']) {
     assert(mandalaRate < 0.32, `${personality}: mandala crowds out variety`);
     assert(counts.size >= (personality === 'serene' ? 12 : 22), `${personality}: other patterns still appear`);
     const newShapes = ['jadeCurrents', 'celticCurrent', 'celticKnotwork', 'cymaticResonance', 'mandelbrotDive', 'molecularDance', 'stellarNursery', 'prismDrift', 'violetUndertow'];
-    if (personality !== 'serene') newShapes.push('quantumDrift', 'nebulaSpark', 'solarFlare');
+    newShapes.push('cosmicStrings');
+    if (personality !== 'serene') newShapes.push('quantumDrift', 'nebulaSpark', 'solarFlare', 'acid');
     for (const shape of newShapes) assert(counts.get(shape) > 0, `${shape} must actually occur in ${personality} Flow`);
 }
 
@@ -40,11 +45,14 @@ assert.equal(choose('alive'), null, 'manual shape lock prevents Flow selection')
 shapeUnlocked = true;
 excludedPresetKeys.add('mandalaZen');
 for (let i = 0; i < 1000; i++) assert.notEqual(choose('alive'), 'zenMandala', 'excluded Mandala remains excluded');
-assert(source.includes('kaleidoEligibleShapes.has(activeFlowShape)'), 'Flow symmetry uses curated geometry');
-for (const shape of ['quantumLattice', 'pipesTight', 'pipesCathedral', 'pipesShrine']) {
-    assert(source.includes(`"${shape}"`), `${shape} remains in the Flow symmetry inventory`);
+// Flow kaleidoscope tiers from Clay's per-scene review (2026-10-07).
+const tierSet = name => new Set([...source.match(new RegExp(`const ${name} = new Set\\(\\[([^\\]]*)\\]`))[1].matchAll(/"([A-Za-z]+)"/g)].map(m => m[1]));
+assert.deepEqual([...tierSet('kaleidoExcludedShapes')].sort(), ['acid', 'quantumLattice'], 'never-kaleidoscope scenes');
+assert.deepEqual([...tierSet('kaleidoHalfShapes')].sort(), ['mandelbrotDive', 'nebulaSpark'], 'half-the-time scenes');
+for (const shape of ['pendulumSpiral', 'cluster', 'pipes', 'pipesTight', 'pipesCathedral', 'pipesShrine', 'zenMandala']) {
+    assert(tierSet('kaleidoOftenShapes').has(shape), `${shape} gets the "often" kaleidoscope chance`);
 }
-assert(source.includes('kaleidoGeometricShapes.has(activeFlowShape) ? Math.max(kaleidoChance, 0.58)'), 'grid and circuit geometry get a meaningful symmetry chance');
+assert(source.includes('kaleidoOftenShapes.has(activeFlowShape) ? Math.max(kaleidoChance, 0.58)'), 'often scenes get a meaningful symmetry chance');
 assert(source.includes('!kaleidoGeometricShapes.has(activeFlowShape) && isFlowEnabled("density")'), 'circuit/grid density is not thinned just for kaleidoscope');
-assert(source.includes('currentKaleidoEnabled\n                && kaleidoEligibleShapes.has(activeFlowShape)'), 'spinning needs active compatible kaleidoscope');
+assert(source.includes('currentKaleidoEnabled\n                && !kaleidoExcludedShapes.has(activeFlowShape)'), 'spinning needs an active, allowed kaleidoscope');
 console.log('Flow visual variety: weighted mandala, diverse patterns, lock and coupled kaleidoscope pass.');

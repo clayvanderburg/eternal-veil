@@ -55,6 +55,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!validFlowPersonalities.includes(flowPersonality)) flowPersonality = "serene";
     let isComfortMode = (localStorage.getItem("eternalVoidComfortMode") || localStorage.getItem("eternalVeilComfortMode")) === "true";
     const validExperienceModes = ["flow", "meditation", "solid"];
+    // Meditation is hidden until its overhaul; flip to true to bring it back.
+    const MEDITATION_MODE_AVAILABLE = false;
     // Always open in the approachable general-purpose Flow experience. Modes are
     // intentional session choices; Meditation must never surprise a returning user.
     let experienceMode = "flow";
@@ -545,6 +547,9 @@ document.addEventListener("DOMContentLoaded", () => {
         // Presets & Colors
         presetsGrid: document.getElementById("presets-grid"),
         presetSearch: document.getElementById("preset-search"),
+        flowStats: document.getElementById("flow-stats"),
+        flowStatsList: document.getElementById("flow-stats-list"),
+        flowStatsReset: document.getElementById("flow-stats-reset"),
         customPresetsGrid: document.getElementById("custom-presets-grid"),
         saveSceneFromPresets: document.getElementById("save-scene-from-presets"),
         swatchesPalette: document.getElementById("swatches-palette"),
@@ -871,7 +876,7 @@ document.addEventListener("DOMContentLoaded", () => {
             };
 
             const cyclePreset = delta => {
-                const keys = Object.keys(StylePresets);
+                const keys = getOrderedPresetKeys();
                 if (keys.length === 0) return;
                 let index = lastPresetKey ? keys.indexOf(lastPresetKey) : -1;
                 if (index < 0) index = delta > 0 ? -1 : 0;
@@ -1132,7 +1137,7 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.presetsGrid.innerHTML = "";
         presetControlsSync = null;
         const query = (elements.presetSearch?.value || "").trim().toLowerCase();
-        const keys = Object.keys(StylePresets).filter(key => {
+        const keys = getOrderedPresetKeys().filter(key => {
             const p = StylePresets[key];
             return !query || p.name.toLowerCase().includes(query) || (p.desc || "").toLowerCase().includes(query);
         });
@@ -1176,7 +1181,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 <button class="preset-load" title="${isExcluded ? "Excluded from Flow" : `Load ${name}`}">
                     <span class="preset-swatch" aria-hidden="true">${swatch}</span>
                     <span class="preset-name">${name}</span>
-                    ${p.meditationPreset ? '<span class="meditation-preset-badge">MEDITATE</span>' : ''}
+                    ${isNewPreset(p) ? '<span class="preset-new-badge">New!</span>' : ''}${p.meditationPreset && MEDITATION_MODE_AVAILABLE ? '<span class="meditation-preset-badge">MEDITATE</span>' : ''}
                 </button>
                 <button class="preset-favorite${isFavorite ? " active" : ""}" aria-pressed="${isFavorite}" aria-label="Favorite preset: ${name}" title="Favorite preset">★</button>
                 <button class="preset-ban${isExcluded ? " active" : ""}" aria-pressed="${isExcluded}" aria-label="Exclude preset: ${name}" title="Exclude preset">
@@ -1665,7 +1670,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const optionModes = {};
 
     const FLOWABLE_OPTIONS = [
-        { key: "speed", label: "Flow Speed", selector: "#speed-slider", type: "slider" },
+        { key: "speed", label: "Motion Speed", selector: "#speed-slider", type: "slider" },
         { key: "turbulence", label: "Turbulence", selector: "#turbulence-slider", type: "slider" },
         { key: "density", label: "Particle Density", selector: "#density-slider", type: "slider" },
         { key: "flowOrganic", label: "Fluidity / Curl", selector: "#curl-slider", type: "slider" },
@@ -1773,7 +1778,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function setExperienceMode(mode, { persist = true, announce = true, initial = false } = {}) {
         const previousMode = experienceMode;
-        experienceMode = validExperienceModes.includes(mode) ? mode : "flow";
+        experienceMode = validExperienceModes.includes(mode) && (mode !== "meditation" || MEDITATION_MODE_AVAILABLE) ? mode : "flow";
         if (persist) localStorage.removeItem("eternalVoidExperienceMode");
         document.body.classList.toggle("meditation-mode", experienceMode === "meditation");
         document.body.classList.toggle("show-breathing-guide", experienceMode === "meditation" && elements.breathingGuideToggle.checked);
@@ -2236,25 +2241,81 @@ document.addEventListener("DOMContentLoaded", () => {
         clearInterval(autopilotColorTimer);
     }
 
+    // Presets Flow can visit as a whole although they share another preset's
+    // particle shape: Flow picks the name, draws the shape, and morphs toward
+    // the preset's own settings (see familyPresetKeys).
+    const FLOW_PRESET_PATTERNS = { cosmicStrings: { shape: "ellipse", preset: "strings" } };
+
+    // Flow history: per-browser counts of the scenes Flow moves to.
+    const flowStatsKey = "eternalVoidFlowStats";
+    function readFlowStats() {
+        try {
+            const stats = JSON.parse(localStorage.getItem(flowStatsKey) || "null");
+            if (stats && typeof stats.counts === "object") return stats;
+        } catch (error) { /* storage unavailable or corrupt */ }
+        return { since: Date.now(), counts: {} };
+    }
+    function recordFlowPick(pattern) {
+        try {
+            const stats = readFlowStats();
+            stats.counts[pattern] = (stats.counts[pattern] || 0) + 1;
+            localStorage.setItem(flowStatsKey, JSON.stringify(stats));
+        } catch (error) { /* storage unavailable */ }
+        if (elements.flowStats?.open) renderFlowStats();
+    }
+    function flowPatternName(pattern) {
+        const presetKey = FLOW_PRESET_PATTERNS[pattern]?.preset;
+        if (presetKey) return StylePresets[presetKey]?.name || pattern;
+        const names = Object.values(StylePresets).filter(p => p.particleShape === pattern).map(p => p.name);
+        return names.length ? names.join(" / ") : pattern;
+    }
+    function renderFlowStats() {
+        const stats = readFlowStats();
+        const entries = Object.entries(stats.counts).sort((a, b) => b[1] - a[1]);
+        const total = entries.reduce((sum, [, count]) => sum + count, 0);
+        elements.flowStatsList.innerHTML = "";
+        if (!total) {
+            const empty = document.createElement("li");
+            empty.className = "flow-stats-empty";
+            empty.textContent = "No Flow changes recorded yet.";
+            elements.flowStatsList.appendChild(empty);
+            return;
+        }
+        for (const [pattern, count] of entries) {
+            const item = document.createElement("li");
+            const name = document.createElement("span");
+            const value = document.createElement("span");
+            name.textContent = flowPatternName(pattern);
+            value.textContent = `${count} · ${Math.round(count / total * 100)}%`;
+            item.append(name, value);
+            elements.flowStatsList.appendChild(item);
+        }
+        const since = document.createElement("li");
+        since.className = "flow-stats-empty";
+        since.textContent = `${total} changes since ${new Date(stats.since).toLocaleDateString()}`;
+        elements.flowStatsList.appendChild(since);
+    }
+
     function chooseNextFlowPattern(effectivePersonality) {
         if (!isFlowEnabled("particleShape")) return null;
 
         const serenePatterns = [
             "ellipse", "drop", "ring", "nebula", "aquatic",
             "aurora", "lotus", "pendulumSpiral", "painterlyVortex", "chromeRibbon",
-            "tightTailVortex", "zenMandala", "gravityWell", "jadeCurrents", "celticCurrent", "celticKnotwork", "cymaticResonance", "mandelbrotDive", "molecularDance", "stellarNursery", "prismDrift", "violetUndertow"
+            "tightTailVortex", "zenMandala", "gravityWell", "jadeCurrents", "celticCurrent", "celticKnotwork", "cymaticResonance", "mandelbrotDive", "molecularDance", "stellarNursery", "prismDrift", "violetUndertow",
+            "cosmicStrings"
         ];
         const alivePatterns = [
             ...serenePatterns, "ocean", "orbitals", "brush", "cluster", "spiral", "pipes",
             "pipesTight", "pipesCathedral", "pipesShrine", "quantumLattice", "fractalBloom",
-            "quantumDrift", "nebulaSpark", "solarFlare"
+            "quantumDrift", "nebulaSpark", "solarFlare", "acid"
         ];
-        const wildPatterns = [...alivePatterns, "acid"];
+        const wildPatterns = [...alivePatterns];
         const pool = effectivePersonality === "serene"
             ? serenePatterns
             : (effectivePersonality === "wild" ? wildPatterns : alivePatterns);
         const availablePool = pool.filter(shape => {
-            const presetKey = getPresetByShape(shape);
+            const presetKey = FLOW_PRESET_PATTERNS[shape]?.preset || getPresetByShape(shape);
             return !presetKey || !excludedPresetKeys.has(presetKey);
         });
         if (!availablePool.length) return null;
@@ -2266,14 +2327,18 @@ document.addEventListener("DOMContentLoaded", () => {
         const weightedPool = availablePool.flatMap(shape => shape === "zenMandala"
             ? Array(mandalaWeight).fill(shape)
             : [shape]);
+        // Never repeat the current drawing or the last Flow choice (Cosmic Strings
+        // draws ellipses, so it is tracked by its own name).
         const currentShape = sim.settings.particleShape || lastFlowPatternShape || "ellipse";
-        const alternatives = weightedPool.filter(shape => shape !== currentShape);
+        const alternatives = weightedPool.filter(shape => shape !== currentShape && shape !== lastFlowPatternShape);
         const candidates = alternatives.length ? alternatives : weightedPool;
         const nextShape = candidates[Math.floor(Math.random() * candidates.length)];
 
-        sim.settings.particleShape = nextShape;
-        elements.particleShapeSelect.value = nextShape;
+        const drawnShape = FLOW_PRESET_PATTERNS[nextShape]?.shape || nextShape;
+        sim.settings.particleShape = drawnShape;
+        elements.particleShapeSelect.value = drawnShape;
         lastFlowPatternShape = nextShape;
+        recordFlowPick(nextShape);
         return nextShape;
     }
 
@@ -2443,12 +2508,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 dissipation: rnd(0.02, 0.032), zoom: rnd(0.92, 1.08), baseSize: rnd(4.0, 5.0), sizeVariation: rnd(0.5, 0.95),
                 stretch: rnd(1.2, 1.65), interaction: 0, rotationSpeed: 0, wobble: 0.02, drag: 0.93
             } : nextPatternShape === "zenMandala" ? {
-                speed: rnd(0.78, 1.12), turbulence: 0, density: Math.round(rnd(2600, 3400)), flowOrganic: rnd(0.9, 1.02),
+                speed: rnd(0.12, 0.18), turbulence: 0, density: Math.round(rnd(2600, 3400)), flowOrganic: rnd(0.9, 1.02),
                 dissipation: rnd(0.02, 0.032), zoom: rnd(0.94, 1.07), baseSize: rnd(4.1, 4.9), sizeVariation: rnd(0.35, 0.7),
                 stretch: 1, interaction: 0, rotationSpeed: 0, wobble: 0, drag: 0.93
             } : nextPatternShape === "quantumLattice" ? {
                 speed: rnd(3.0, 4.1), turbulence: 0, density: Math.round(rnd(2000, 2700)), flowOrganic: rnd(0.82, 1.0),
-                dissipation: rnd(0.055, 0.08), zoom: rnd(0.92, 1.1), baseSize: rnd(4.8, 6.1), sizeVariation: rnd(0.42, 0.82),
+                dissipation: rnd(0.055, 0.08), zoom: rnd(0.92, 1.1), baseSize: rnd(2.6, 3.4), sizeVariation: rnd(0.42, 0.82),
                 stretch: 1, interaction: 0, rotationSpeed: 0, wobble: 0, drag: 0.93
             } : nextPatternShape === "gravityWell" ? {
                 speed: rnd(0.38, 0.68), turbulence: 0, density: Math.round(rnd(1250, 1800)), flowOrganic: rnd(0.86, 1.02),
@@ -2456,7 +2521,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 stretch: rnd(1.5, 2.2), interaction: 0, rotationSpeed: 0, wobble: 0, drag: 0.93
             } : nextPatternShape === "fractalBloom" ? {
                 speed: rnd(0.95, 1.38), turbulence: 0, density: Math.round(rnd(3000, 4200)), flowOrganic: rnd(0.9, 1.05),
-                dissipation: rnd(0.028, 0.043), zoom: rnd(0.9, 1.1), baseSize: rnd(2.7, 3.8), sizeVariation: rnd(0.55, 1.0),
+                dissipation: rnd(0.028, 0.043), zoom: rnd(0.9, 1.1), baseSize: rnd(1.3, 1.7), sizeVariation: rnd(0.55, 1.0),
                 stretch: 1, interaction: 0, rotationSpeed: 0, wobble: 0, drag: 0.93
             } : {
                 speed: 0.42,
@@ -2500,7 +2565,8 @@ document.addEventListener("DOMContentLoaded", () => {
         // preset's extreme size/speed. Manual controls are never overwritten.
         const familyPresetKeys = {
             jadeCurrents: "liquid", quantumDrift: "quantum", prismDrift: "mandala",
-            nebulaSpark: "cosmic", solarFlare: "supernova", violetUndertow: "vortex"
+            nebulaSpark: "cosmic", solarFlare: "supernova", violetUndertow: "vortex",
+            cosmicStrings: "strings"
         };
         const familyPreset = StylePresets[familyPresetKeys[nextPatternShape]];
         if (familyPreset) {
@@ -2517,7 +2583,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         const activeFlowShape = nextPatternShape || sim.settings.particleShape;
         const isProtectedAuthoredFlow = ["pendulumSpiral", "painterlyVortex", "chromeRibbon", "celticCurrent", "celticKnotwork", "cymaticResonance", "mandelbrotDive", "molecularDance", "stellarNursery", "tightTailVortex", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"].includes(activeFlowShape);
-        const kaleidoEligibleShapes = new Set(["ellipse", "drop", "ring", "nebula", "brush", "cluster", "spiral", "lotus", "orbitals", "quantumLattice", "pipesTight", "pipesCathedral", "pipesShrine", "mandelbrotDive", "molecularDance", "stellarNursery"]);
+        // Flow kaleidoscope odds per scene, from Clay's review (2026-10-07).
+        // Unlisted scenes get "sometimes" (the personality chance below).
+        const kaleidoExcludedShapes = new Set(["acid", "quantumLattice"]);
+        const kaleidoHalfShapes = new Set(["mandelbrotDive", "nebulaSpark"]);
+        const kaleidoOftenShapes = new Set(["pendulumSpiral", "cluster", "pipes", "pipesTight", "pipesCathedral", "pipesShrine", "zenMandala"]);
+        const kaleidoMaxSegments = { tightTailVortex: 4 };
+        // Scenes that always keep their own kaleidoscope (outside comfort mode).
+        const kaleidoFixedSegments = { cosmicStrings: 8 };
         const kaleidoGeometricShapes = new Set(["quantumLattice", "pipesTight", "pipesCathedral", "pipesShrine"]);
         const nextKaleidoEnabledFlow = isFlowEnabled("kaleidoscopeEnabled");
         const nextKaleidoSegmentsFlow = isFlowEnabled("kaleidoscopeSegments");
@@ -2526,8 +2599,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (nextKaleidoEnabledFlow) {
             const kaleidoChance = { serene: 0.24, alive: 0.38, wild: 0.46 }[effectivePersonality];
             currentKaleidoEnabled = !isComfortMode
-                && kaleidoEligibleShapes.has(activeFlowShape)
-                && Math.random() < (kaleidoGeometricShapes.has(activeFlowShape) ? Math.max(kaleidoChance, 0.58) : kaleidoChance);
+                && !kaleidoExcludedShapes.has(activeFlowShape)
+                && (kaleidoFixedSegments[activeFlowShape] != null
+                    || Math.random() < (kaleidoOftenShapes.has(activeFlowShape) ? Math.max(kaleidoChance, 0.58)
+                        : kaleidoHalfShapes.has(activeFlowShape) ? 0.5 : kaleidoChance));
             elements.kaleidoscopeToggle.checked = currentKaleidoEnabled;
             sim.settings.kaleidoscopeEnabled = currentKaleidoEnabled;
         }
@@ -2535,10 +2610,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (currentKaleidoEnabled) {
             elements.kaleidoscopeSettings.classList.remove("hidden");
             if (nextKaleidoSegmentsFlow) {
-                const folds = kaleidoGeometricShapes.has(activeFlowShape)
+                const folds = (kaleidoGeometricShapes.has(activeFlowShape)
                     ? [4, 5, 6, 8]
-                    : [4, 5, 6, 7, 8, 10];
-                startMorph("kaleidoscopeSegments", folds[Math.floor(Math.random() * folds.length)], baseDuration);
+                    : [4, 5, 6, 7, 8, 10]).filter(n => n <= (kaleidoMaxSegments[activeFlowShape] ?? Infinity));
+                startMorph("kaleidoscopeSegments", kaleidoFixedSegments[activeFlowShape] ?? folds[Math.floor(Math.random() * folds.length)], baseDuration);
             }
             // Reflections fill the frame with fewer particles; keep the extra
             // compositing work from overwhelming slower devices in Flow.
@@ -2552,7 +2627,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (isFlowEnabled("spinningKaleido")) {
             const spinChance = { serene: 0.55, alive: 0.72, wild: 0.8 }[effectivePersonality];
             sim.settings.spinningKaleido = !isComfortMode && currentKaleidoEnabled
-                && kaleidoEligibleShapes.has(activeFlowShape)
+                && !kaleidoExcludedShapes.has(activeFlowShape)
                 && Math.random() < spinChance;
             elements.spinningKaleidoToggle.checked = sim.settings.spinningKaleido;
         }
@@ -2958,6 +3033,11 @@ document.addEventListener("DOMContentLoaded", () => {
     // Setup input slider events and map them directly to simulation settings
     function setupEventListeners() {
         elements.presetSearch?.addEventListener("input", buildPresetCards);
+        elements.flowStats?.addEventListener("toggle", () => { if (elements.flowStats.open) renderFlowStats(); });
+        if (elements.flowStatsReset) elements.flowStatsReset.onclick = () => {
+            try { localStorage.removeItem(flowStatsKey); } catch (error) { /* storage unavailable */ }
+            renderFlowStats();
+        };
         // Flow and morphs move the original sliders without input events.
         setInterval(() => { if (presetControlsSync && elements.presetsGrid.offsetParent) presetControlsSync(); }, 500);
 
@@ -3112,6 +3192,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         elements.comfortModeToggle.onchange = () => setComfortMode(elements.comfortModeToggle.checked);
         elements.experienceModeButtons.forEach(button => {
+            if (button.dataset.experienceMode === "meditation" && !MEDITATION_MODE_AVAILABLE) button.hidden = true;
             button.onclick = () => setExperienceMode(button.dataset.experienceMode);
         });
         elements.breathingRhythmSelect.value = breathingRhythm;

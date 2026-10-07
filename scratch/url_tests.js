@@ -153,13 +153,13 @@ try {
     // Test Case 6: Palette validation & length constraints
     const corruptPaletteState = {
         v: 1,
-        palette: ["#fff", "invalid-color", "#00ff00", "rgba(0,0,0,0)", "#ff33a1", "#f00", "#000", "#111"],
+        palette: ["#fff", "invalid-color", "#00ff00", "rgba(0,0,0,0)", "#ff33a1", "#f00", "#000", "#111", "#222", "#333"],
         backgroundColor: "invalid-bg"
     };
 
     const outPalette = StateSchema.sanitize(corruptPaletteState);
-    // Max 6 colors from input list, invalid elements replaced with fallback #6366f1
-    assert.strictEqual(outPalette.palette.length, 6, "Palette length must be clamped to 6 max");
+    // Max 8 colors from input list (Chakra Alignment uses 7), invalid elements replaced with fallback #6366f1
+    assert.strictEqual(outPalette.palette.length, 8, "Palette length must be clamped to 8 max");
     assert.strictEqual(outPalette.palette[0], "#fff", "First color should be valid hex");
     assert.strictEqual(outPalette.palette[1], "#6366f1", "Invalid color element should fall back to default hex");
     assert.strictEqual(outPalette.backgroundColor, "#000000", "Invalid background color should fall back to default");

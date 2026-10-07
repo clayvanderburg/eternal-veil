@@ -47,6 +47,8 @@ instead of many "make it 10% faster" round trips.
 - [ ] Preserve old identifiers for retained effects; new effects get new identifiers.
 - [ ] Check favorites, exclusions, custom saves, shared links, history, and old-state loads.
 - [ ] Preserve the user's accepted look; seek approval for a substantial creative rewrite.
+- [ ] Add the new preset key at the **top** of `PresetOrder` in `js/presets.js` and give it `addedOn: "YYYY-MM-DD"` so it shows **New!** for 30 days (Clay, 2026-10-07).
+- [ ] Decide its Flow kaleidoscope tier in `randomizeAllParameters` (`kaleidoExcludedShapes` / `kaleidoHalfShapes` / `kaleidoOftenShapes`; unlisted = sometimes). Module-drawn scenes need `drawKaleidoscoped` (or their own mirror) for the kaleidoscope to show.
 
 ## 2. Control and Flow contract
 

@@ -2929,3 +2929,8 @@ body:not(.autopilot-active) .control-panel .flow-toggle-group {
 .preset-load-hint { margin: 8px 0 0; color: var(--text-muted); font-size: 10px; font-style: italic; }
 .preset-empty { color: var(--text-muted); font-size: 11px; padding: 8px 4px; }
 @media (pointer: coarse) { .preset-row-main { min-height: 44px; } .preset-expand { width: 36px; height: 44px; } .preset-row .preset-favorite, .preset-row .preset-ban { padding: 10px; } }
+.preset-new-badge { flex: none; padding: 2px 6px; border-radius: 999px; background: rgba(251, 191, 36, 0.16); border: 1px solid rgba(251, 191, 36, 0.4); color: #fcd34d; font: 600 8px/1 var(--font-mono); letter-spacing: 0.08em; }
+.flow-stats summary { cursor: pointer; }
+.flow-stats-list { list-style: none; margin: 8px 0; padding: 0; font-size: 11px; }
+.flow-stats-list li { display: flex; justify-content: space-between; gap: 8px; padding: 3px 2px; border-bottom: 1px solid var(--border-glass); color: var(--text-secondary); }
+.flow-stats-list li.flow-stats-empty { border: 0; color: var(--text-muted); font-style: italic; }
