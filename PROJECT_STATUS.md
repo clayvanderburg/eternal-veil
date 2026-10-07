@@ -170,3 +170,8 @@ Follow hub `STATUS.md` for what’s hot; coordinate via agents-hub.
   A later zoom-detail pass increased curve sampling and adaptively
   raised paint resolution during close-ups; its regression check and 2D gate pass.
   See `PRESET_IMPLEMENTATION_REVIEW.md` for the exact state and limits.
+
+
+## October7 marketing preparation
+
+Six separate recent-feature posts with original art and platform copy are ready in docs/marketing/updates-2026-10-07. Nothing uploaded, published or scheduled; browser access blocked before page interaction. Public-posting work is authorized, existing draft/account/private-setup boundaries remain. No application source, production or budget change. See handoffs/CURRENT.md.

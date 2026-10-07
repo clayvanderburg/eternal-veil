@@ -1,0 +1,5 @@
+A separate panel for headphone sound: binaural tones, left/right movement, and controls for their levels and timing.
+
+Music sources → Spatial Audio → Play. Use stereo headphones and a comfortable volume.
+
+Try it free: https://eternalvoid.io/

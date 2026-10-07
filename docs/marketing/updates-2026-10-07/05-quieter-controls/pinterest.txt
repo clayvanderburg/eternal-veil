@@ -1,0 +1,8 @@
+More scene. Less interface.
+
+The controls fade after four seconds without input. Automatic scene updates no longer bring them back.
+
+For an immediate clear view, choose Hide controls in the console. Tap or move the pointer to return.
+
+Free browser-based generative art. Visit eternalvoid.io to try it.
+Destination: https://eternalvoid.io/

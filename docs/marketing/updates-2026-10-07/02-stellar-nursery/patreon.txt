@@ -1,0 +1,9 @@
+# Stellar Nursery
+
+Purple gas clouds, dark dust lanes and points of starlight drift past one another. Stellar Nursery brings a deeper, cloudier scene to Eternal Void.
+
+Open the console → Presets → Stellar Nursery. Keep the purple, or choose another palette under Colors.
+
+For sound, open Music sources → Play a playlist and pick a track from Nocturnal Drift. The scene reacts to the music.
+
+Explore it free at https://eternalvoid.io/.
