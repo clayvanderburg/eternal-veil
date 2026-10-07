@@ -1,3 +1,7 @@
+## 2026-10-07 native marketing schedules saved
+
+Six Instagram and six YouTube update Posts saved for October8/11/15/18/22/25 at selected6pmAmerica/Chicago. Captions and native queues verified. See docs/agent-log/2026-10-07-codex-update-schedules.md; future posts are not public yet. No deployment from this documentation branch. Older prepared/unscheduled notes below are historical. Current shared product status reports32a802b compact preset list live separately.
+
 ## 2026-10-06 Spatial Audio player candidate
 
 Prepared from origin/main 6e1fbd5. Removes the floating speaker button and moves generated
@@ -175,3 +179,4 @@ Follow hub `STATUS.md` for what’s hot; coordinate via agents-hub.
 ## October7 marketing preparation
 
 Six separate recent-feature posts with original art and platform copy are ready in docs/marketing/updates-2026-10-07. Nothing uploaded, published or scheduled; browser access blocked before page interaction. Public-posting work is authorized, existing draft/account/private-setup boundaries remain. No application source, production or budget change. See handoffs/CURRENT.md.
+
