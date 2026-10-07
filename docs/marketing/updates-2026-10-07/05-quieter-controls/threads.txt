@@ -1,0 +1,5 @@
+The controls fade after four seconds without input. Automatic scene updates no longer bring them back.
+
+For an immediate clear view, choose Hide controls in the console. Tap or move the pointer to return.
+
+https://eternalvoid.io/

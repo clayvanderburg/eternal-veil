@@ -1,0 +1,9 @@
+# Hide the controls
+
+The controls now fade after four seconds without input, so the scene has room to fill the screen. The console-close behavior was also fixed, and automatic updates no longer bring the controls back.
+
+Want to hide them straight away? Open the console and choose Hide controls. Tap the scene or move the pointer when you want them back.
+
+This is a small change, but it makes it easier to watch a configuration without the interface sitting over it.
+
+Explore at https://eternalvoid.io/.

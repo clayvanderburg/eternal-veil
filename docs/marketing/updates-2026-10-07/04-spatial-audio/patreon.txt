@@ -1,0 +1,9 @@
+# Spatial Audio
+
+Spatial Audio has its own panel in Eternal Void. Blend binaural tones with sound that moves between the left and right channels.
+
+Open Music sources → Spatial Audio, then press Play. Change the sound, movement, levels and timing independently. Binaural tones and bilateral movement each have their own switch.
+
+Use stereo headphones for the intended effect and keep the volume comfortable. Audio is optional.
+
+Try it at https://eternalvoid.io/.

@@ -1,0 +1,9 @@
+# Keep a configuration you like
+
+Found a configuration you want to come back to? Use Save this scene to keep it in Custom Scenes. Give it a name, then find it again from Presets. Saved scenes stay in this browser.
+
+Share Scene makes a link for the configuration. Send it to a friend, or leave it in the comments so others can try it.
+
+For suggestions or bugs, the Feedback button beside the Eternal Void title opens the private feedback form. It is not a public gallery or voting system.
+
+The browser app is free at https://eternalvoid.io/.

@@ -1,3 +1,11 @@
+## 2026-10-07 Flow video prepared
+
+30-second original app clip ready in portrait and landscape:7-second pattern shifts,10-second colors,only end URL,music30%. Full decode/sample-frame QA passed. Unpublished/unscheduled; existing release queue preserved. See docs/agent-log/2026-10-07-codex-flow-transitions-clip.md. No deployment.
+
+## 2026-10-07 native marketing schedules saved
+
+Six Instagram and six YouTube update Posts saved for October8/11/15/18/22/25 at selected6pmAmerica/Chicago. Captions and native queues verified. See docs/agent-log/2026-10-07-codex-update-schedules.md; future posts are not public yet. No deployment from this documentation branch. Older prepared/unscheduled notes below are historical. Current shared product status reports32a802b compact preset list live separately.
+
 ## 2026-10-06 Spatial Audio player candidate
 
 Prepared from origin/main 6e1fbd5. Removes the floating speaker button and moves generated
@@ -170,3 +178,13 @@ Follow hub `STATUS.md` for what’s hot; coordinate via agents-hub.
   A later zoom-detail pass increased curve sampling and adaptively
   raised paint resolution during close-ups; its regression check and 2D gate pass.
   See `PRESET_IMPLEMENTATION_REVIEW.md` for the exact state and limits.
+
+
+## October7 marketing preparation
+
+Six separate recent-feature posts with original art and platform copy are ready in docs/marketing/updates-2026-10-07. Nothing uploaded, published or scheduled; browser access blocked before page interaction. Public-posting work is authorized, existing draft/account/private-setup boundaries remain. No application source, production or budget change. See handoffs/CURRENT.md.
+
+
+## October7 growth evidence refresh
+Public social counters and first non-test feedback checked; see docs/agent-log/2026-10-07-codex-stats-refresh.md.0qualifiedsupport/1productionfeedback;siteattribution and buyingintent unestablished. No deployment or new schedules from this review.
+
