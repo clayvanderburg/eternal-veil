@@ -2519,7 +2519,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         const activeFlowShape = nextPatternShape || sim.settings.particleShape;
         const isProtectedAuthoredFlow = ["pendulumSpiral", "painterlyVortex", "chromeRibbon", "celticCurrent", "celticKnotwork", "cymaticResonance", "mandelbrotDive", "molecularDance", "stellarNursery", "tightTailVortex", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"].includes(activeFlowShape);
-        const kaleidoEligibleShapes = new Set(["ellipse", "drop", "ring", "nebula", "brush", "cluster", "spiral", "lotus", "orbitals", "quantumLattice", "pipesTight", "pipesCathedral", "pipesShrine", "mandelbrotDive", "molecularDance", "stellarNursery", "nebulaSpark"]);
+        // Every scene can receive the kaleidoscope while Clay reviews them one by one;
+        // add a shape here to keep Flow from mirroring it.
+        const kaleidoExcludedShapes = new Set([]);
         const kaleidoGeometricShapes = new Set(["quantumLattice", "pipesTight", "pipesCathedral", "pipesShrine"]);
         const nextKaleidoEnabledFlow = isFlowEnabled("kaleidoscopeEnabled");
         const nextKaleidoSegmentsFlow = isFlowEnabled("kaleidoscopeSegments");
@@ -2528,7 +2530,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (nextKaleidoEnabledFlow) {
             const kaleidoChance = { serene: 0.24, alive: 0.38, wild: 0.46 }[effectivePersonality];
             currentKaleidoEnabled = !isComfortMode
-                && kaleidoEligibleShapes.has(activeFlowShape)
+                && !kaleidoExcludedShapes.has(activeFlowShape)
                 && Math.random() < (kaleidoGeometricShapes.has(activeFlowShape) ? Math.max(kaleidoChance, 0.58) : kaleidoChance);
             elements.kaleidoscopeToggle.checked = currentKaleidoEnabled;
             sim.settings.kaleidoscopeEnabled = currentKaleidoEnabled;
@@ -2554,7 +2556,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (isFlowEnabled("spinningKaleido")) {
             const spinChance = { serene: 0.55, alive: 0.72, wild: 0.8 }[effectivePersonality];
             sim.settings.spinningKaleido = !isComfortMode && currentKaleidoEnabled
-                && kaleidoEligibleShapes.has(activeFlowShape)
+                && !kaleidoExcludedShapes.has(activeFlowShape)
                 && Math.random() < spinChance;
             elements.spinningKaleidoToggle.checked = sim.settings.spinningKaleido;
         }
