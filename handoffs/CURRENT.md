@@ -5,3 +5,5 @@ October7:12 native update schedules verified (6Instagram/6YouTube Posts), firstO
 
 Evidence refresh:read ../docs/agent-log/2026-10-07-codex-stats-refresh.md. Firstproductionfeedback1/screensaver suggestion;qualifiedsupport0. Existing12native schedules remain; nextreleaseOct8. No revenue/siteattribution claim.
 
+
+New 30-second Flow asset prepared, inspected, unpublished and unscheduled. Read ../docs/agent-log/2026-10-07-codex-flow-transitions-clip.md. Preserve the existing native publishing queue.

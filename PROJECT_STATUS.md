@@ -1,3 +1,7 @@
+## 2026-10-07 Flow video prepared
+
+30-second original app clip ready in portrait and landscape:7-second pattern shifts,10-second colors,only end URL,music30%. Full decode/sample-frame QA passed. Unpublished/unscheduled; existing release queue preserved. See docs/agent-log/2026-10-07-codex-flow-transitions-clip.md. No deployment.
+
 ## 2026-10-07 native marketing schedules saved
 
 Six Instagram and six YouTube update Posts saved for October8/11/15/18/22/25 at selected6pmAmerica/Chicago. Captions and native queues verified. See docs/agent-log/2026-10-07-codex-update-schedules.md; future posts are not public yet. No deployment from this documentation branch. Older prepared/unscheduled notes below are historical. Current shared product status reports32a802b compact preset list live separately.
