@@ -1521,6 +1521,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (p.wanderMix != null) startMorph("wanderMix", p.wanderMix);
         if (p.eclipseCount != null) startMorph("eclipseCount", p.eclipseCount);
         if (p.eclipseSize != null) startMorph("eclipseSize", p.eclipseSize);
+        if (p.vortexHole != null) startMorph("vortexHole", p.vortexHole);
+        if (p.blackHoleSize != null) startMorph("blackHoleSize", p.blackHoleSize);
         
         // Colors travel the same gentle path instead of snapping to the preset.
         startPaletteMorph([...p.colors], 7000);
@@ -2566,13 +2568,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const familyPresetKeys = {
             jadeCurrents: "liquid", quantumDrift: "quantum", prismDrift: "mandala",
             nebulaSpark: "cosmic", solarFlare: "supernova", violetUndertow: "vortex",
-            cosmicStrings: "strings"
+            cosmicStrings: "strings", lotus: "lotusPulse"
         };
-        const familyPreset = StylePresets[familyPresetKeys[nextPatternShape]];
+        // Every scene follows its own tuned preset (Studio edits are what Flow shows);
+        // plain ellipses stay a free-roaming generic family.
+        const familyPresetKey = familyPresetKeys[nextPatternShape]
+            || (nextPatternShape && nextPatternShape !== "ellipse" ? getPresetByShape(nextPatternShape) : null);
+        const familyPreset = StylePresets[familyPresetKey];
         if (familyPreset) {
             const spread = effectivePersonality === "serene" ? 0.12 : effectivePersonality === "wild" ? 0.28 : 0.20;
             const aliases = { size: "baseSize", sizeVar: "sizeVariation", curl: "flowOrganic" };
-            for (const field of ["speed", "turbulence", "density", "dissipation", "zoom", "size", "sizeVar", "stretch", "curl", "rotationSpeed", "wobble", "interaction", "drag"]) {
+            for (const field of ["speed", "turbulence", "density", "dissipation", "zoom", "size", "sizeVar", "stretch", "curl", "rotationSpeed", "wobble", "interaction", "drag", "vortexHole", "blackHoleSize"]) {
                 const key = aliases[field] || field;
                 if (!Number.isFinite(familyPreset[field]) || !isFlowEnabled(key)) continue;
                 let value = familyPreset[field] * rnd(1 - spread, 1 + spread);

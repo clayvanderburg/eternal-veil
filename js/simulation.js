@@ -565,7 +565,7 @@ class Particle {
     update(settings, globalTime, mouse, customForces, shockwaves, vortices, dt = 1.0, compositionTime = 0) {
         if (window.PresetCompositions?.supports(settings.particleShape)) {
             const time = compositionTime;
-            const sample = window.PresetCompositions.point(settings.particleShape, this.effectLane, this.effectRole, this.effectPhase, time);
+            const sample = window.PresetCompositions.point(settings.particleShape, this.effectLane, this.effectRole, this.effectPhase, time, settings);
             this.compositionTime = time;
             this.compositionAge = sample.age;
             this.compositionBranch = sample.branch;
@@ -869,7 +869,8 @@ class Particle {
             // Soft boundaries keep the field framed and prevent a clump at the
             // singularity, while still allowing the deep in/out tunnel motion.
             if (normalizedRadius > 0.93) radial -= (normalizedRadius - 0.93) * 3.2 * speed * scaleRef;
-            if (normalizedRadius < 0.045) radial += (0.045 - normalizedRadius) * 6.0 * speed * scaleRef;
+            const hole = Math.min(0.2, Math.max(0.005, settings.vortexHole ?? 0.045));
+            if (normalizedRadius < hole) radial += (hole - normalizedRadius) * 6.0 * speed * scaleRef;
 
             const organicWobble = getCurlNoise(
                 this.x / scaleRef,
@@ -1326,7 +1327,7 @@ class Particle {
             } else if (shape === 'quantumLattice') {
                 const span = Math.min(1 / 0.15, this.compositionAge || 0);
                 for (let i = 0; i <= 5; i++) {
-                    const tail = window.PresetCompositions.point(shape, this.effectLane, this.effectRole, this.effectPhase, this.compositionTime - span * (1 - i / 5));
+                    const tail = window.PresetCompositions.point(shape, this.effectLane, this.effectRole, this.effectPhase, this.compositionTime - span * (1 - i / 5), settings);
                     const extent = Math.min(this.w, this.h) * (COMPOSITION_SCALE[shape] ?? 1);
                     const x = this.w * 0.5 + tail.x * extent;
                     const y = this.h * 0.5 + tail.y * extent;
@@ -2077,7 +2078,9 @@ class FlowSimulation {
             wanderMix: 0.18,
             eclipseCount: 66,
             eclipseSize: 1,
-            
+            vortexHole: 0.045,      // Tight Tail Vortex centre opening (share of the screen)
+            blackHoleSize: 0.075,   // Black Hole Vortex centre opening
+
             // Psychedelic Mode additions
             psychedelicMode: false,
             morphingBg: false,

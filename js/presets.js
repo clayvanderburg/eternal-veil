@@ -384,6 +384,7 @@ const StylePresets = {
         speed: 0.58,
         turbulence: 0.04,
         curl: 0.98,
+        vortexHole: 0.045,
         density: 2200,
         dissipation: 0.018,
         zoom: 0.86,
@@ -826,7 +827,8 @@ StylePresets.blackHoleVortex = {
     particleShape: "gravityWell", particleLighting: "glow",
     speed: 0.5, turbulence: 0, density: 1500, dissipation: 0.018,
     size: 3.4, sizeVar: 0.7, stretch: 1.8, rotationSpeed: 0, wobble: 0,
-    interaction: 0, kaleidoscopeEnabled: false
+    interaction: 0, kaleidoscopeEnabled: false,
+    blackHoleSize: 0.075
 };
 
 StylePresets.fractalNebula = {
