@@ -210,13 +210,14 @@ for (const [key, value] of Object.entries(N.DEFAULT_TUNING)) assert(Number.isFin
     assert(urlSync.includes('"mandelbrotDive", "molecularDance", "stellarNursery"]'), "share-link wire table is append-only: new shape last");
     const sim = fs.readFileSync("js/simulation.js", "utf8");
     assert(sim.includes('particleShape === "stellarNursery" && window.StellarNursery'), "simulation draws it");
-    assert(sim.includes('particleShape !== "stellarNursery"'), "particle mirror pass skipped");
+    assert(/LAYER_KALEIDOSCOPE_SHAPES = new Set\(\[[^\]]*"stellarNursery"/.test(sim), "particle mirror pass skipped");
     const index = fs.readFileSync("index.html", "utf8");
     assert(index.includes('value="stellarNursery"') && index.includes("js/stellar-nursery.js"), "page lists and loads it");
     assert(index.indexOf("js/stellar-nursery.js") < index.indexOf("js/simulation.js"), "module loads before the simulation");
     const app = fs.readFileSync("js/app.js", "utf8");
     assert(/nextShape === "stellarNursery"/.test(app) && /nextPatternShape === "stellarNursery"/.test(app), "Random Config and authored Flow branches");
-    assert((app.match(/"stellarNursery"/g) || []).length >= 7, "registered in the Flow pool and protected lists");
+    // (One fewer mention since 2026-10-07: every scene is kaleidoscope-eligible, so there is no allow-list.)
+    assert((app.match(/"stellarNursery"/g) || []).length >= 6, "registered in the Flow pool and protected lists");
     const gate = fs.readFileSync("tools/work-gate.js", "utf8");
     assert(gate.includes("stellar_nursery_tests.js"), "work gate runs this test");
 }

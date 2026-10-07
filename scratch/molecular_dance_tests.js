@@ -216,11 +216,11 @@ assert(byKey.carbonDioxide.bonds.every(b => b[2] === 2) && byKey.acetylene.bonds
     assert(html.includes('value="molecularDance"') && html.includes("js/molecular-dance.js"), "menu option and script tag");
     const sim = fs.readFileSync("js/simulation.js", "utf8");
     assert(sim.includes("window.MolecularDance.draw("), "simulation draws it");
-    assert(/particleShape !== "molecularDance"/.test(sim), "app particle mirror skips it (it mirrors itself)");
+    assert(/LAYER_KALEIDOSCOPE_SHAPES = new Set\(\[[^\]]*"molecularDance"/.test(sim), "app particle mirror skips it (it mirrors itself)");
     const app = fs.readFileSync("js/app.js", "utf8");
     assert(app.includes('nextShape === "molecularDance"'), "Random Config branch");
     assert(app.includes('nextPatternShape === "molecularDance"'), "authored Flow targets");
-    assert(/kaleidoEligibleShapes = new Set\([^)]*"molecularDance"/.test(app), "Flow kaleidoscope eligible");
+    assert(!/kaleidoExcludedShapes = new Set\(\[[^\]]*"molecularDance"/.test(app), "Flow kaleidoscope eligible");
 }
 
 console.log("Molecular Dance: templates, lifecycle, music response, palettes, zoom compensation and integration pass.");
