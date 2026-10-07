@@ -544,6 +544,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // Presets & Colors
         presetsGrid: document.getElementById("presets-grid"),
+        presetSearch: document.getElementById("preset-search"),
         customPresetsGrid: document.getElementById("custom-presets-grid"),
         saveSceneFromPresets: document.getElementById("save-scene-from-presets"),
         swatchesPalette: document.getElementById("swatches-palette"),
@@ -1069,56 +1070,160 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // --- PRESETS MANAGEMENT ---
+    // Compact, searchable preset list. Rows keep the .preset-card class and
+    // data-preset so loadPreset/releaseActivePreset highlighting still applies.
+    let expandedPresetKey = null;
+    let presetControlsSync = null;
+    const escapeHtml = text => String(text).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+
+    // A preset's own controls: its Signature Effects sliders, plus Mandala
+    // Segments for kaleidoscope presets. The list mirrors those originals.
+    function getPresetLiveControls(p) {
+        const items = [...elements.signatureEffectsGroup.querySelectorAll("[data-signature-shape]")]
+            .filter(item => item.dataset.signatureShape === p.particleShape);
+        if (p.kaleidoscopeEnabled) items.push(document.getElementById("kaleidoscope-settings"));
+        return items.filter(Boolean);
+    }
+
+    function buildPresetLiveControls(container, p) {
+        const proxies = getPresetLiveControls(p).map(item => {
+            const source = item.querySelector("input[type=range]");
+            const sourceValue = item.querySelector(".slider-value");
+            const row = document.createElement("div");
+            row.className = "preset-live-control";
+            const label = document.createElement("label");
+            const name = document.createElement("span");
+            const value = document.createElement("span");
+            const input = document.createElement("input");
+            name.textContent = item.querySelector(".setting-label")?.textContent || "";
+            value.className = "slider-value";
+            input.type = "range";
+            input.className = "range-slider";
+            for (const attr of ["min", "max", "step"]) if (source.hasAttribute(attr)) input.setAttribute(attr, source.getAttribute(attr));
+            input.setAttribute("aria-label", `${p.name}: ${name.textContent}`);
+            input.oninput = () => {
+                source.value = input.value;
+                source.dispatchEvent(new Event("input", { bubbles: true }));
+                value.textContent = sourceValue?.textContent ?? input.value;
+            };
+            label.append(name, value);
+            row.append(label, input);
+            container.appendChild(row);
+            return () => {
+                if (document.activeElement !== input) input.value = source.value;
+                value.textContent = sourceValue?.textContent ?? source.value;
+            };
+        });
+        return proxies.length ? () => proxies.forEach(sync => sync()) : null;
+    }
+
+    // Live controls only drive the scene while their preset is the loaded one.
+    function syncPresetRowState() {
+        elements.presetsGrid.querySelectorAll(".preset-card.expanded").forEach(row => {
+            const active = row.dataset.preset === lastPresetKey;
+            row.querySelectorAll(".preset-live-control input").forEach(input => { input.disabled = !active; });
+            const hint = row.querySelector(".preset-load-hint");
+            if (hint) hint.hidden = active;
+        });
+        presetControlsSync?.();
+    }
+
     function buildPresetCards() {
         elements.presetsGrid.innerHTML = "";
-        const keys = Object.keys(StylePresets).sort((a, b) => {
-            const aEx = excludedPresetKeys.has(a) ? 1 : 0;
-            const bEx = excludedPresetKeys.has(b) ? 1 : 0;
-            if (aEx !== bEx) return aEx - bEx;
-            const aFav = favoritePresetKeys.has(a) ? 1 : 0;
-            const bFav = favoritePresetKeys.has(b) ? 1 : 0;
-            return bFav - aFav;
-        });
-        keys.forEach(key => {
+        presetControlsSync = null;
+        const query = (elements.presetSearch?.value || "").trim().toLowerCase();
+        const keys = Object.keys(StylePresets).filter(key => {
             const p = StylePresets[key];
-            const isExcluded = excludedPresetKeys.has(key);
-            const card = document.createElement("div");
-            card.className = `preset-card${lastPresetKey === key ? " active" : ""}${isExcluded ? " excluded" : ""}`;
-            card.setAttribute("data-preset", key);
-            card.innerHTML = `
-                <div class="preset-card-heading">
-                    <div class="preset-name">${p.name}</div>
-                    ${p.meditationPreset ? '<span class="meditation-preset-badge">MEDITATE</span>' : ''}
-                    <div style="display:flex; gap:4px;">
-                        <button class="preset-ban${isExcluded ? " active" : ""}" aria-label="Exclude preset" title="Exclude preset">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
-                        </button>
-                        <button class="preset-favorite${favoritePresetKeys.has(key) ? " active" : ""}" aria-label="Favorite preset" title="Favorite preset">★</button>
-                    </div>
-                </div>
-                <div class="preset-desc">${p.desc}</div>
-            `;
-            const favoriteButton = card.querySelector(".preset-favorite");
-            favoriteButton.onclick = event => {
-                event.stopPropagation();
-                if (favoritePresetKeys.has(key)) favoritePresetKeys.delete(key);
-                else favoritePresetKeys.add(key);
-                localStorage.setItem("eternalVoidFavoritePresets", JSON.stringify([...favoritePresetKeys]));
-                buildPresetCards();
-            };
-            const banButton = card.querySelector(".preset-ban");
-            banButton.onclick = event => {
-                event.stopPropagation();
-                if (excludedPresetKeys.has(key)) excludedPresetKeys.delete(key);
-                else excludedPresetKeys.add(key);
-                localStorage.setItem("eternalVoidExcludedPresets", JSON.stringify([...excludedPresetKeys]));
-                buildPresetCards();
-            };
-            card.onclick = () => {
-                if (!excludedPresetKeys.has(key)) loadPreset(key);
-            };
-            elements.presetsGrid.appendChild(card);
+            return !query || p.name.toLowerCase().includes(query) || (p.desc || "").toLowerCase().includes(query);
         });
+        const groups = [
+            ["Favorites", keys.filter(key => favoritePresetKeys.has(key) && !excludedPresetKeys.has(key))],
+            [favoritePresetKeys.size ? "All presets" : "", keys.filter(key => !favoritePresetKeys.has(key) && !excludedPresetKeys.has(key))],
+            ["Excluded from Flow", keys.filter(key => excludedPresetKeys.has(key))]
+        ];
+        groups.forEach(([title, groupKeys]) => {
+            if (!groupKeys.length) return;
+            if (title) {
+                const heading = document.createElement("div");
+                heading.className = "preset-group-heading";
+                heading.textContent = title;
+                elements.presetsGrid.appendChild(heading);
+            }
+            groupKeys.forEach(key => elements.presetsGrid.appendChild(buildPresetRow(key)));
+        });
+        if (!elements.presetsGrid.children.length) {
+            const empty = document.createElement("p");
+            empty.className = "preset-empty";
+            empty.textContent = "No presets match your search.";
+            elements.presetsGrid.appendChild(empty);
+        }
+        syncPresetRowState();
+    }
+
+    function buildPresetRow(key) {
+        const p = StylePresets[key];
+        const isExcluded = excludedPresetKeys.has(key);
+        const isFavorite = favoritePresetKeys.has(key);
+        const isExpanded = expandedPresetKey === key;
+        const name = escapeHtml(p.name);
+        const card = document.createElement("div");
+        card.className = `preset-card preset-row${lastPresetKey === key ? " active" : ""}${isExcluded ? " excluded" : ""}${isExpanded ? " expanded" : ""}`;
+        card.setAttribute("data-preset", key);
+        const swatch = (p.colors || []).slice(0, 5).map(color => `<i style="background:${escapeHtml(color)}"></i>`).join("");
+        card.innerHTML = `
+            <div class="preset-row-main">
+                <button class="preset-expand" aria-expanded="${isExpanded}" aria-label="${isExpanded ? "Hide" : "Show"} details: ${name}" title="Details">›</button>
+                <button class="preset-load" title="${isExcluded ? "Excluded from Flow" : `Load ${name}`}">
+                    <span class="preset-swatch" aria-hidden="true">${swatch}</span>
+                    <span class="preset-name">${name}</span>
+                    ${p.meditationPreset ? '<span class="meditation-preset-badge">MEDITATE</span>' : ''}
+                </button>
+                <button class="preset-favorite${isFavorite ? " active" : ""}" aria-pressed="${isFavorite}" aria-label="Favorite preset: ${name}" title="Favorite preset">★</button>
+                <button class="preset-ban${isExcluded ? " active" : ""}" aria-pressed="${isExcluded}" aria-label="Exclude preset: ${name}" title="Exclude preset">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
+                </button>
+            </div>
+        `;
+        if (isExpanded) {
+            const details = document.createElement("div");
+            details.className = "preset-details";
+            const desc = document.createElement("p");
+            desc.className = "preset-desc";
+            desc.textContent = p.desc || "";
+            details.appendChild(desc);
+            const controls = document.createElement("div");
+            controls.className = "preset-live-controls";
+            presetControlsSync = buildPresetLiveControls(controls, p);
+            if (presetControlsSync) {
+                details.appendChild(controls);
+                const hint = document.createElement("p");
+                hint.className = "preset-load-hint";
+                hint.textContent = "Load this preset to adjust its signature controls.";
+                details.appendChild(hint);
+            }
+            card.appendChild(details);
+        }
+        card.querySelector(".preset-expand").onclick = () => {
+            expandedPresetKey = isExpanded ? null : key;
+            buildPresetCards();
+            elements.presetsGrid.querySelector(`[data-preset="${key}"] .preset-expand`)?.focus();
+        };
+        card.querySelector(".preset-load").onclick = () => {
+            if (!excludedPresetKeys.has(key)) loadPreset(key);
+        };
+        card.querySelector(".preset-favorite").onclick = () => {
+            if (favoritePresetKeys.has(key)) favoritePresetKeys.delete(key);
+            else favoritePresetKeys.add(key);
+            localStorage.setItem("eternalVoidFavoritePresets", JSON.stringify([...favoritePresetKeys]));
+            buildPresetCards();
+        };
+        card.querySelector(".preset-ban").onclick = () => {
+            if (excludedPresetKeys.has(key)) excludedPresetKeys.delete(key);
+            else excludedPresetKeys.add(key);
+            localStorage.setItem("eternalVoidExcludedPresets", JSON.stringify([...excludedPresetKeys]));
+            buildPresetCards();
+        };
+        return card;
     }
 
     function getCustomPresets() {
@@ -1362,6 +1467,7 @@ document.addEventListener("DOMContentLoaded", () => {
         lastPresetKey = null;
         updateHudPresetName(null);
         document.querySelectorAll(".preset-card").forEach(card => card.classList.remove("active"));
+        syncPresetRowState();
         if (announce) showToast("Preset released. Flow is free again.");
     }
 
@@ -1386,6 +1492,7 @@ document.addEventListener("DOMContentLoaded", () => {
             c.classList.remove("active");
             if (c.getAttribute("data-preset") === key) c.classList.add("active");
         });
+        syncPresetRowState();
 
         // Trigger smooth parameter morph transitions
         const comfortCaps = { speed: 1.35, turbulence: 0.85, density: 2200, baseSize: 7, stretch: 3, rotationSpeed: 0.18, wobble: 0.38 };
@@ -2850,6 +2957,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Setup input slider events and map them directly to simulation settings
     function setupEventListeners() {
+        elements.presetSearch?.addEventListener("input", buildPresetCards);
+        // Flow and morphs move the original sliders without input events.
+        setInterval(() => { if (presetControlsSync && elements.presetsGrid.offsetParent) presetControlsSync(); }, 500);
+
         // Config History Navigation
         const prevBtn = document.getElementById("history-prev-btn");
         const nextBtn = document.getElementById("history-next-btn");
