@@ -25,7 +25,8 @@ const StylePresets = {
         psychedelicMode: false,
         morphingBg: false,
         spinningKaleido: false,
-        kaleidoscopeEnabled: false,
+        kaleidoscopeEnabled: true,
+        kaleidoscopeSegments: 8,
         bilateralEnabled: false,
         asmrEnabled: false
     },
@@ -465,7 +466,8 @@ const StylePresets = {
         interaction: 2.2,
         rotationSpeed: 0.04,
         wobble: 0.35,
-        colors: ["#10b981", "#059669", "#4f46e5", "#6366f1", "#eab308", "#fef08a"],
+        // The seven chakras, root to crown.
+        colors: ["#ef4444", "#f97316", "#facc15", "#22c55e", "#3b82f6", "#4f46e5", "#ffffff"],
         particleShape: "ellipse",
         psychedelicMode: false,
         morphingBg: false,
@@ -581,7 +583,7 @@ const StylePresets = {
         density: 1200,
         dissipation: 0.012,
         zoom: 0.85,
-        size: 7.5,
+        size: 4,
         sizeVar: 3.0,
         stretch: 1.0,
         interaction: 1.5,
@@ -805,7 +807,7 @@ StylePresets.quantumGrid = {
     desc: "Streams of light travel through a rippling lattice, weaving across one another like a living energy fabric.",
     particleShape: "quantumLattice", particleLighting: "glow",
     speed: 3.5, turbulence: 0, density: 2200, dissipation: 0.07,
-    size: 5.5, sizeVar: 0.6, stretch: 1, rotationSpeed: 0, wobble: 0,
+    size: 3, sizeVar: 0.6, stretch: 1, rotationSpeed: 0, wobble: 0,
     interaction: 0, kaleidoscopeEnabled: false
 };
 StylePresets.mandalaZen = {
@@ -813,7 +815,7 @@ StylePresets.mandalaZen = {
     name: "Mandala Zen",
     desc: "Eleven twelve-petal rosettes counter-rotate and swell, from delicate inner blooms to vast painted ribbons sweeping beyond the screen.",
     particleShape: "zenMandala", particleLighting: "glow",
-    speed: 0.5, turbulence: 0, density: 3000, dissipation: 0.026,
+    speed: 0.15, turbulence: 0, density: 3000, dissipation: 0.026,
     size: 4.5, sizeVar: 0.5, stretch: 1, rotationSpeed: 0, wobble: 0,
     interaction: 0, kaleidoscopeEnabled: false
 };
@@ -833,7 +835,7 @@ StylePresets.fractalNebula = {
     desc: "Eight layered fractal blooms counter-rotate, with oversized outer branches sweeping beyond the screen and colored currents splitting into smaller forks.",
     particleShape: "fractalBloom", particleLighting: "glow",
     speed: 1.17, density: 3600, dissipation: 0.035,
-    size: 3.2, sizeVar: 0.75, zoom: 1, stretch: 1,
+    size: 1.5, sizeVar: 0.75, zoom: 1, stretch: 1,
     colors: ["#6366f1", "#a855f7", "#d946ef", "#22d3ee", "#818cf8", "#c084fc"],
     psychedelicMode: false, morphingBg: false, spinningKaleido: false,
     bilateralEnabled: false, asmrEnabled: false

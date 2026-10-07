@@ -1667,7 +1667,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const optionModes = {};
 
     const FLOWABLE_OPTIONS = [
-        { key: "speed", label: "Flow Speed", selector: "#speed-slider", type: "slider" },
+        { key: "speed", label: "Motion Speed", selector: "#speed-slider", type: "slider" },
         { key: "turbulence", label: "Turbulence", selector: "#turbulence-slider", type: "slider" },
         { key: "density", label: "Particle Density", selector: "#density-slider", type: "slider" },
         { key: "flowOrganic", label: "Fluidity / Curl", selector: "#curl-slider", type: "slider" },
@@ -2519,9 +2519,12 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         const activeFlowShape = nextPatternShape || sim.settings.particleShape;
         const isProtectedAuthoredFlow = ["pendulumSpiral", "painterlyVortex", "chromeRibbon", "celticCurrent", "celticKnotwork", "cymaticResonance", "mandelbrotDive", "molecularDance", "stellarNursery", "tightTailVortex", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"].includes(activeFlowShape);
-        // Every scene can receive the kaleidoscope while Clay reviews them one by one;
-        // add a shape here to keep Flow from mirroring it.
-        const kaleidoExcludedShapes = new Set([]);
+        // Flow kaleidoscope odds per scene, from Clay's review (2026-10-07).
+        // Unlisted scenes get "sometimes" (the personality chance below).
+        const kaleidoExcludedShapes = new Set(["acid", "quantumLattice"]);
+        const kaleidoHalfShapes = new Set(["mandelbrotDive", "nebulaSpark"]);
+        const kaleidoOftenShapes = new Set(["pendulumSpiral", "cluster", "pipes", "pipesTight", "pipesCathedral", "pipesShrine", "zenMandala"]);
+        const kaleidoMaxSegments = { tightTailVortex: 4 };
         const kaleidoGeometricShapes = new Set(["quantumLattice", "pipesTight", "pipesCathedral", "pipesShrine"]);
         const nextKaleidoEnabledFlow = isFlowEnabled("kaleidoscopeEnabled");
         const nextKaleidoSegmentsFlow = isFlowEnabled("kaleidoscopeSegments");
@@ -2531,7 +2534,8 @@ document.addEventListener("DOMContentLoaded", () => {
             const kaleidoChance = { serene: 0.24, alive: 0.38, wild: 0.46 }[effectivePersonality];
             currentKaleidoEnabled = !isComfortMode
                 && !kaleidoExcludedShapes.has(activeFlowShape)
-                && Math.random() < (kaleidoGeometricShapes.has(activeFlowShape) ? Math.max(kaleidoChance, 0.58) : kaleidoChance);
+                && Math.random() < (kaleidoOftenShapes.has(activeFlowShape) ? Math.max(kaleidoChance, 0.58)
+                    : kaleidoHalfShapes.has(activeFlowShape) ? 0.5 : kaleidoChance);
             elements.kaleidoscopeToggle.checked = currentKaleidoEnabled;
             sim.settings.kaleidoscopeEnabled = currentKaleidoEnabled;
         }
@@ -2539,9 +2543,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (currentKaleidoEnabled) {
             elements.kaleidoscopeSettings.classList.remove("hidden");
             if (nextKaleidoSegmentsFlow) {
-                const folds = kaleidoGeometricShapes.has(activeFlowShape)
+                const folds = (kaleidoGeometricShapes.has(activeFlowShape)
                     ? [4, 5, 6, 8]
-                    : [4, 5, 6, 7, 8, 10];
+                    : [4, 5, 6, 7, 8, 10]).filter(n => n <= (kaleidoMaxSegments[activeFlowShape] ?? Infinity));
                 startMorph("kaleidoscopeSegments", folds[Math.floor(Math.random() * folds.length)], baseDuration);
             }
             // Reflections fill the frame with fewer particles; keep the extra

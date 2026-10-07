@@ -49,9 +49,9 @@ const StateSchema = {
         if (!Array.isArray(paletteArray) || paletteArray.length === 0) {
             return [...fallback];
         }
-        // Limit palette size to 6 colors max to prevent performance degradation
+        // Limit palette size to 8 colors max to prevent performance degradation
         const cleanPalette = [];
-        const limit = Math.min(6, paletteArray.length);
+        const limit = Math.min(8, paletteArray.length);
         
         for (let i = 0; i < limit; i++) {
             const color = paletteArray[i];
