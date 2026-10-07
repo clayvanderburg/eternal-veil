@@ -180,3 +180,7 @@ Follow hub `STATUS.md` for what’s hot; coordinate via agents-hub.
 
 Six separate recent-feature posts with original art and platform copy are ready in docs/marketing/updates-2026-10-07. Nothing uploaded, published or scheduled; browser access blocked before page interaction. Public-posting work is authorized, existing draft/account/private-setup boundaries remain. No application source, production or budget change. See handoffs/CURRENT.md.
 
+
+## October7 growth evidence refresh
+Public social counters and first non-test feedback checked; see docs/agent-log/2026-10-07-codex-stats-refresh.md.0qualifiedsupport/1productionfeedback;siteattribution and buyingintent unestablished. No deployment or new schedules from this review.
+
