@@ -2327,8 +2327,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const weightedPool = availablePool.flatMap(shape => shape === "zenMandala"
             ? Array(mandalaWeight).fill(shape)
             : [shape]);
+        // Never repeat the current drawing or the last Flow choice (Cosmic Strings
+        // draws ellipses, so it is tracked by its own name).
         const currentShape = sim.settings.particleShape || lastFlowPatternShape || "ellipse";
-        const alternatives = weightedPool.filter(shape => shape !== currentShape);
+        const alternatives = weightedPool.filter(shape => shape !== currentShape && shape !== lastFlowPatternShape);
         const candidates = alternatives.length ? alternatives : weightedPool;
         const nextShape = candidates[Math.floor(Math.random() * candidates.length)];
 
