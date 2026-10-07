@@ -55,6 +55,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!validFlowPersonalities.includes(flowPersonality)) flowPersonality = "serene";
     let isComfortMode = (localStorage.getItem("eternalVoidComfortMode") || localStorage.getItem("eternalVeilComfortMode")) === "true";
     const validExperienceModes = ["flow", "meditation", "solid"];
+    // Meditation is hidden until its overhaul; flip to true to bring it back.
+    const MEDITATION_MODE_AVAILABLE = false;
     // Always open in the approachable general-purpose Flow experience. Modes are
     // intentional session choices; Meditation must never surprise a returning user.
     let experienceMode = "flow";
@@ -871,7 +873,7 @@ document.addEventListener("DOMContentLoaded", () => {
             };
 
             const cyclePreset = delta => {
-                const keys = Object.keys(StylePresets);
+                const keys = getOrderedPresetKeys();
                 if (keys.length === 0) return;
                 let index = lastPresetKey ? keys.indexOf(lastPresetKey) : -1;
                 if (index < 0) index = delta > 0 ? -1 : 0;
@@ -1132,7 +1134,7 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.presetsGrid.innerHTML = "";
         presetControlsSync = null;
         const query = (elements.presetSearch?.value || "").trim().toLowerCase();
-        const keys = Object.keys(StylePresets).filter(key => {
+        const keys = getOrderedPresetKeys().filter(key => {
             const p = StylePresets[key];
             return !query || p.name.toLowerCase().includes(query) || (p.desc || "").toLowerCase().includes(query);
         });
@@ -1176,7 +1178,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 <button class="preset-load" title="${isExcluded ? "Excluded from Flow" : `Load ${name}`}">
                     <span class="preset-swatch" aria-hidden="true">${swatch}</span>
                     <span class="preset-name">${name}</span>
-                    ${p.meditationPreset ? '<span class="meditation-preset-badge">MEDITATE</span>' : ''}
+                    ${isNewPreset(p) ? '<span class="preset-new-badge">New!</span>' : ''}${p.meditationPreset && MEDITATION_MODE_AVAILABLE ? '<span class="meditation-preset-badge">MEDITATE</span>' : ''}
                 </button>
                 <button class="preset-favorite${isFavorite ? " active" : ""}" aria-pressed="${isFavorite}" aria-label="Favorite preset: ${name}" title="Favorite preset">★</button>
                 <button class="preset-ban${isExcluded ? " active" : ""}" aria-pressed="${isExcluded}" aria-label="Exclude preset: ${name}" title="Exclude preset">
@@ -1773,7 +1775,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function setExperienceMode(mode, { persist = true, announce = true, initial = false } = {}) {
         const previousMode = experienceMode;
-        experienceMode = validExperienceModes.includes(mode) ? mode : "flow";
+        experienceMode = validExperienceModes.includes(mode) && (mode !== "meditation" || MEDITATION_MODE_AVAILABLE) ? mode : "flow";
         if (persist) localStorage.removeItem("eternalVoidExperienceMode");
         document.body.classList.toggle("meditation-mode", experienceMode === "meditation");
         document.body.classList.toggle("show-breathing-guide", experienceMode === "meditation" && elements.breathingGuideToggle.checked);
@@ -2247,9 +2249,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const alivePatterns = [
             ...serenePatterns, "ocean", "orbitals", "brush", "cluster", "spiral", "pipes",
             "pipesTight", "pipesCathedral", "pipesShrine", "quantumLattice", "fractalBloom",
-            "quantumDrift", "nebulaSpark", "solarFlare"
+            "quantumDrift", "nebulaSpark", "solarFlare", "acid"
         ];
-        const wildPatterns = [...alivePatterns, "acid"];
+        const wildPatterns = [...alivePatterns];
         const pool = effectivePersonality === "serene"
             ? serenePatterns
             : (effectivePersonality === "wild" ? wildPatterns : alivePatterns);
@@ -2517,7 +2519,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         const activeFlowShape = nextPatternShape || sim.settings.particleShape;
         const isProtectedAuthoredFlow = ["pendulumSpiral", "painterlyVortex", "chromeRibbon", "celticCurrent", "celticKnotwork", "cymaticResonance", "mandelbrotDive", "molecularDance", "stellarNursery", "tightTailVortex", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"].includes(activeFlowShape);
-        const kaleidoEligibleShapes = new Set(["ellipse", "drop", "ring", "nebula", "brush", "cluster", "spiral", "lotus", "orbitals", "quantumLattice", "pipesTight", "pipesCathedral", "pipesShrine", "mandelbrotDive", "molecularDance", "stellarNursery"]);
+        const kaleidoEligibleShapes = new Set(["ellipse", "drop", "ring", "nebula", "brush", "cluster", "spiral", "lotus", "orbitals", "quantumLattice", "pipesTight", "pipesCathedral", "pipesShrine", "mandelbrotDive", "molecularDance", "stellarNursery", "nebulaSpark"]);
         const kaleidoGeometricShapes = new Set(["quantumLattice", "pipesTight", "pipesCathedral", "pipesShrine"]);
         const nextKaleidoEnabledFlow = isFlowEnabled("kaleidoscopeEnabled");
         const nextKaleidoSegmentsFlow = isFlowEnabled("kaleidoscopeSegments");
@@ -3112,6 +3114,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         elements.comfortModeToggle.onchange = () => setComfortMode(elements.comfortModeToggle.checked);
         elements.experienceModeButtons.forEach(button => {
+            if (button.dataset.experienceMode === "meditation" && !MEDITATION_MODE_AVAILABLE) button.hidden = true;
             button.onclick = () => setExperienceMode(button.dataset.experienceMode);
         });
         elements.breathingRhythmSelect.value = breathingRhythm;

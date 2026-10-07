@@ -130,6 +130,7 @@ const StylePresets = {
         asmrEnabled: false
     },
     celticKnotwork: {
+        addedOn: "2026-09-24",
         name: "Celtic Knotwork",
         desc: "Three tapered paint currents braid through each tight knot ring and the woven three-lobed center, traveling in opposing directions.",
         speed: 0.52,
@@ -153,6 +154,7 @@ const StylePresets = {
         spinningKaleido: false
     },
     cymaticResonance: {
+        addedOn: "2026-09-24",
         name: "Cymatic Resonance",
         desc: "Glowing sand gathers on the still lines of an unseen singing plate, then streams across the screen to form each new resonant figure.",
         speed: 0.5,
@@ -176,6 +178,7 @@ const StylePresets = {
         spinningKaleido: false
     },
     mandelbrotDive: {
+        addedOn: "2026-09-29",
         name: "Mandelbrot Dive",
         desc: "An endless dive through glowing fractal spirals toward a hidden mini-Mandelbrot, which becomes the whole set again for the next dive.",
         speed: 0.4,
@@ -199,6 +202,7 @@ const StylePresets = {
         spinningKaleido: false
     },
     molecularDance: {
+        addedOn: "2026-10-04",
         name: "Molecular Dance",
         desc: "Glowing molecules and shell-model atoms tumble in depth: bonds shimmer, electrons race their orbits, and each structure bursts apart as the next one assembles.",
         speed: 0.66,
@@ -222,6 +226,7 @@ const StylePresets = {
         spinningKaleido: false
     },
     stellarNursery: {
+        addedOn: "2026-10-04",
         name: "Stellar Nursery",
         desc: "Glowing gas filaments and dark dust lanes drift in layered depth while newborn stars ignite inside the clouds; bass sends a shockwave rolling through the gas and treble makes the stars flare.",
         speed: 2,
@@ -843,6 +848,29 @@ StylePresets.liquidChrome = {
     size: 6, sizeVar: 0.3, zoom: 1, stretch: 1,
     colors: ["#64748b", "#a5b4fc", "#0891b2", "#94a3b8", "#7c3aed", "#cbd5e1"]
 };
+
+// Preset list order (also used by VR next/previous). Add every NEW preset at
+// the TOP of this list and give it `addedOn: "YYYY-MM-DD"`; it shows a "New!"
+// badge for PRESET_NEW_DAYS. Presets missing from this list are appended.
+const PresetOrder = [
+    "cymaticResonance", "molecularDance", "stellarNursery", "mandelbrotDive", "celticKnotwork", "liquidChrome",
+    "cosmic", "supernova", "liquid", "celticCurrent", "quantum", "vortex", "mandala", "strings",
+    "hypno", "astralTangle", "tightTailVortex", "paintedDepthSpiral", "aquatic", "chakra", "acid",
+    "fractal", "nebula", "oil", "cluster", "oceanRain", "auroraCathedral", "celestialOrrery",
+    "lotusPulse", "breathSanctuary", "ethereal", "neonConduits", "circuitCity", "conduitCathedral",
+    "circuitShrine", "quantumGrid", "mandalaZen", "blackHoleVortex", "fractalNebula"
+];
+const PRESET_NEW_DAYS = 30;
+
+function getOrderedPresetKeys() {
+    const listed = PresetOrder.filter(key => StylePresets[key]);
+    return [...listed, ...Object.keys(StylePresets).filter(key => !listed.includes(key))];
+}
+
+function isNewPreset(preset, now = Date.now()) {
+    const added = Date.parse(preset?.addedOn || "");
+    return Number.isFinite(added) && now - added < PRESET_NEW_DAYS * 86400000;
+}
 
 // Curated Palettes for Autopilot changes & Randomizer
 const CuratedPalettes = [
