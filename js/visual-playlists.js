@@ -28,7 +28,8 @@
 
     const COLOR_PLAYLIST_NAMES = {
         cyberpunk: "Cyberpunk", seasons: "Seasons", candy: "Candy Pop", goth: "Goth/Shadow",
-        ocean: "Ocean Calm", chakra: "Chakra/Aura", psychedelic: "Psychedelic", custom: "My Library"
+        ocean: "Ocean Calm", chakra: "Chakra/Aura", wildwood: "Wildwood", stardream: "Stardream",
+        psychedelic: "Psychedelic", custom: "My Library"
     };
 
     // Preset field -> simulation setting. Fields not listed here are still
@@ -67,11 +68,11 @@
     function defaultSettings() {
         return {
             mode: "flow",               // "flow" | "sequence"
-            stay: 45,                   // seconds each preset holds after arriving
-            transition: 8,              // seconds each glide into the next preset takes
+            stay: 10,                   // seconds each preset holds after arriving
+            transition: 6,              // seconds each glide into the next preset takes
             repeat: "all",              // "all" | "one" | "off"
-            shuffle: false,
-            colors: { mode: "preset", a: "ocean", b: "", combine: "alternate", every: 30, fade: 10 }
+            shuffle: true,
+            colors: { mode: "playlists", a: "ocean", b: "", combine: "alternate", every: 15, fade: 3 }
         };
     }
 
@@ -92,14 +93,11 @@
     // opens back into the cloud when the loop closes. See VISUAL_PLAYLISTS.md.
     const DEMO_PRESETS = ["nebula", "cosmic", "stellarNursery", "auroraCathedral", "celticCurrent", "mandalaZen", "hypno", "lotusPulse"];
     function createDemoPlaylist() {
+        // Uses the default settings Clay chose (10 s hold, 6 s glide, shuffle,
+        // Ocean Calm every 15 s with a 3 s fade): colours change on their own
+        // 15 s clock against a 16 s preset cycle, so the two drift apart.
         const playlist = createPlaylist("Night Voyage (demo)", DEMO_PRESETS);
         playlist.demo = true;
-        playlist.mode = "flow";
-        playlist.stay = 45;
-        playlist.transition = 10;
-        // Colors change every 40 s against a 55 s preset cycle, so palette
-        // fades drift across the scenes instead of landing on every switch.
-        playlist.colors = { mode: "playlists", a: "ocean", b: "", combine: "alternate", every: 40, fade: 15 };
         return playlist;
     }
 

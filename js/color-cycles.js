@@ -48,6 +48,27 @@
             ['#0c0a3d', '#1c1877', '#3430b8', '#625cf0', '#c3c0ff'], // Third eye — deep indigo
             ['#260430', '#4f0968', '#8211a5', '#b83ce0', '#f0b8ff']  // Crown — violet
         ],
+        // Wildwood: forest floor to canopy. Each colour slot keeps its role
+        // (deep shade, foliage, leaf, sunlit growth, earth/sun) and fades only
+        // through greens, golds and browns, never blue or purple.
+        wildwood: [
+            ['#1a3324', '#2d5a34', '#4d8b3f', '#93b34a', '#c8a165'], // Old Growth
+            ['#0d3b2a', '#16704a', '#2fa65a', '#9ad14b', '#e3c75a'], // Jungle Canopy
+            ['#123d3a', '#1f6f5f', '#3e9e7c', '#7ccf8a', '#b8d88a'], // Rainforest River
+            ['#26382a', '#4a6b3f', '#7d9a4f', '#a08f62', '#c2b07a'], // Moss and Stone
+            ['#3a2618', '#6b4426', '#9a6a3a', '#6f8a3a', '#d1a35c']  // Rich Earth
+        ],
+        // Stardream: a slow orbit from deep-space blue through violet nebulae
+        // to a rose-gold stellar dawn and back. Slots keep their roles (void,
+        // depth, nebula, accent, glow) and fades never pass through green.
+        stardream: [
+            ['#0c1445', '#3730a3', '#6d28d9', '#0ea5e9', '#7dd3fc'], // Event Horizon
+            ['#172554', '#1d4ed8', '#7c3aed', '#06b6d4', '#c084fc'], // Aurora Drift
+            ['#1e1b4b', '#4338ca', '#8b5cf6', '#3b82f6', '#a5b4fc'], // Starlight Veil
+            ['#2e1065', '#6b21a8', '#a21caf', '#ec4899', '#f0abfc'], // Nebula Cradle
+            ['#581c87', '#be185d', '#db2777', '#f97316', '#fbbf24'], // Stellar Ember
+            ['#1e1b4b', '#7e22ce', '#c026d3', '#fb7185', '#f472b6']  // Dawn Nebula
+        ],
         psychedelic: [
             ['#ff00ff', '#00ffff', '#ffff00', '#ff0000', '#00ff00'], // High Contrast RGBY
             ['#ff00aa', '#5500ff', '#00ffcc', '#bbff00', '#ff6600'], // Acid Trip

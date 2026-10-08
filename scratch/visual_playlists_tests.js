@@ -36,9 +36,40 @@ test("first load seeds the demo playlist with real, non-excluded-by-default pres
     demo.entries.forEach(entry => assert.ok(StylePresets[entry.preset], `demo preset ${entry.preset} exists`));
     assert.strictEqual(demo.colors.mode, "playlists");
     assert.ok(ColorCycles.playlists[demo.colors.a]);
-    assert.strictEqual(VP.passSeconds(demo), 8 * 55);
+    assert.strictEqual(VP.passSeconds(demo), 8 * 16);
     // Every demo preset is a calm, non-flashing scene.
     demo.entries.forEach(entry => assert.ok(!StylePresets[entry.preset].psychedelicMode, entry.preset));
+});
+
+test("new playlists start with Clay's chosen defaults", () => {
+    const p = VP.createPlaylist("x", ["nebula"]);
+    assert.deepStrictEqual([p.mode, p.stay, p.transition, p.repeat, p.shuffle], ["flow", 10, 6, "all", true]);
+    assert.deepStrictEqual(p.colors, { mode: "playlists", a: "ocean", b: "", combine: "alternate", every: 15, fade: 3 });
+    const demo = VP.createDemoPlaylist();
+    assert.deepStrictEqual([demo.stay, demo.transition, demo.shuffle, demo.colors.every, demo.colors.fade], [10, 6, true, 15, 3]);
+});
+
+test("Wildwood and Stardream fade only through their own colour families", () => {
+    const hue = hex => { const n = parseInt(hex.slice(1), 16); const r = (n >> 16 & 255) / 255, g = (n >> 8 & 255) / 255, b = (n & 255) / 255;
+        const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn, l = (mx + mn) / 2;
+        if (!d) return { h: 0, s: 0 };
+        const s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+        const h = mx === r ? ((g - b) / d + (g < b ? 6 : 0)) : mx === g ? ((b - r) / d + 2) : ((r - g) / d + 4);
+        return { h: h * 60, s: s * 100 }; };
+    const forbidden = { wildwood: h => h > 190 && h < 330, stardream: h => h > 70 && h < 170 };
+    for (const [name, isForbidden] of Object.entries(forbidden)) {
+        const list = ColorCycles.playlists[name];
+        assert.ok(list.length >= 5 && VP.COLOR_PLAYLIST_NAMES[name], name);
+        list.forEach((palette, i) => {
+            const next = list[(i + 1) % list.length];
+            palette.forEach((color, slot) => {
+                const a = hue(color), b = hue(next[slot]);
+                if (a.s < 12 || b.s < 12) return;
+                const delta = ((b.h - a.h + 540) % 360) - 180; // the app's palette morph takes the short way round
+                for (let t = 0; t <= 1; t += 0.05) assert.ok(!isForbidden((a.h + delta * t + 360) % 360), `${name} ${i}->${i + 1} slot ${slot}`);
+            });
+        });
+    }
 });
 
 test("playlists persist and reload unchanged (order, repeats, overrides, settings)", () => {
@@ -93,11 +124,13 @@ test("reordering moves exactly one entry", () => {
 
 test("in-order playback keeps the list order and intentional repeats", () => {
     const p = VP.createPlaylist("x", ["nebula", "nebula", "cosmic", "mandala"]);
+    p.shuffle = false;
     assert.deepStrictEqual(VP.buildOrder(p), [0, 1, 2, 3]);
 });
 
 test("excluded presets are skipped", () => {
     const p = VP.createPlaylist("x", ["nebula", "acid", "cosmic"]);
+    p.shuffle = false;
     const excluded = new Set(["acid"]);
     assert.deepStrictEqual(VP.buildOrder(p, { isPlayable: key => !excluded.has(key) }), [0, 2]);
     assert.strictEqual(VP.passSeconds(p, key => !excluded.has(key)), 2 * (p.transition + p.stay));

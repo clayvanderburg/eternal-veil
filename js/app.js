@@ -4858,6 +4858,8 @@ document.addEventListener("DOMContentLoaded", () => {
             goth: "Velvet obsidian shadows, crimson red, and deep burgundy.",
             ocean: "Swaying seafoam greens, deep sapphire, and sandy reefs.",
             chakra: "Chakra energies, crown amethyst violet, throat blue, solar yellow.",
+            wildwood: "Old-growth forest, jungle canopy, river moss, stone and rich earth.",
+            stardream: "Deep-space blues, violet nebulae and a rose-gold stellar dawn.",
             psychedelic: "High contrast neon melts, acid trips, and retro psychedelic hues.",
             custom: "Loops sequentially through custom themes saved in your library."
         };

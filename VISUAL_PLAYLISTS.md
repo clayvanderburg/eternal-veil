@@ -27,6 +27,9 @@ bridge in `js/app.js` (`applyPlaylistScene`, the `VisualPlaylists.init` host, an
 | **Flow within playlist** | Moves only through the playlist. Each preset arrives near its own values; while it holds, its settings re-roll every `clamp(hold/2, 10 s, 40 s)` around those values. The spread follows the Flow personality (Serene ±12 %, Alive ±20 %, Wild ±28 %, weighted per setting: zoom ×0.3, dissipation ×0.4, density ≤ +10 %). Zero stays zero; shape, lighting and kaleidoscope segments never change. |
 | **Preset sequence** | Each preset's exact saved values, held steady until the next transition. |
 
+**Defaults** (chosen by Clay, 2026-10-07): Flow within playlist, 10 s hold, 6 s
+transition, Loop, Shuffle on, colors from **Ocean Calm** every 15 s with a 3 s fade.
+
 Timing is two sliders: **Each preset stays** (10 s–10 min) and **Transition takes**
 (2–60 s), with a plain summary ("holds 45 s, then glides 10 s… One pass: 7 min 20 s").
 Advanced → per-preset hold overrides. Repeat: Loop / Repeat one / Play once (ends and
@@ -37,7 +40,8 @@ re-opening a pass with the preset that just ended.
 
 - **Preset colors**: each preset's original palette fades in with its transition.
 - **Color playlists**: one or two of the existing color playlists (Cyberpunk, Seasons,
-  Candy Pop, Goth/Shadow, Ocean Calm, Chakra/Aura, Psychedelic, My Library). With two:
+  Candy Pop, Goth/Shadow, Ocean Calm, Chakra/Aura, Wildwood, Stardream, Psychedelic,
+  My Library). With two:
   **Alternate** (one palette from each in turn) or **Combine** (all palettes pooled and
   shuffled into one rotation). Own clock: **Change colors every** and **Color fade**,
   independent of preset timing. An empty source (e.g. an empty My Library) falls back to
@@ -87,8 +91,10 @@ went from 109 to a settled 62, never below 51.
 ## Demo: "Night Voyage"
 
 Cosmic Nebula → Nebula Spark → Stellar Nursery → Aurora Cathedral → Celtic Current →
-Mandala Zen → Chaotic Spiral → Lotus Pulse, then loop. Flow within playlist, 45 s hold,
-10 s glide (7 min 20 s per pass), **Ocean Calm** colors every 40 s with a 15 s fade.
+Mandala Zen → Chaotic Spiral → Lotus Pulse, using the defaults above: 10 s hold, 6 s
+glide (2 min 8 s per pass), shuffled, with **Ocean Calm** colors every 15 s (3 s fade).
+In order, the sequence reads as described below; shuffle keeps its scenes and colors
+but varies the route.
 
 Why it works:
 - **Structure alternates field and centre**, so each glide hands one structure to a
@@ -99,7 +105,7 @@ Why it works:
 - **Calm scenes only**: no color inversion and no flashing.
 - **One color world**: Ocean Calm's four palettes (aqua, seafoam, deep blue, coastal
   breeze) read well on every scene.
-- **Offset clocks**: colors change every 40 s against a 55 s preset cycle, so palette
+- **Offset clocks**: colors change every 15 s against a 16 s preset cycle, so palette
   fades drift across scenes instead of landing on every geometry switch.
 
 Second color playlists tested against this sequence and rejected:
@@ -108,6 +114,28 @@ Second color playlists tested against this sequence and rejected:
 - **Candy Pop**: its pastels accumulate to grey on low-dissipation nebula scenes.
 
 Prism Drift was replaced by Chaotic Spiral, which is stronger at that point.
+
+## New color playlists: Wildwood and Stardream
+
+Both are added to `js/color-cycles.js`, so they also appear in the Colors tab.
+- **Each slot keeps its role** across palettes: deep base, depth, main, accent, glow.
+  The app fades colors slot by slot.
+- **Clean fade paths:** each hue takes the shortest way round the color wheel, and a
+  test checks that Wildwood never passes through blue or purple and Stardream never
+  through green.
+- **Rendered check:** every palette was rendered on Cosmic Nebula, Mandala Zen and
+  Celtic Current or Stellar Nursery. Muddy or washed-out palettes were tuned.
+
+**Wildwood** (forest floor to canopy, 5 palettes): Old Growth (pine, moss, sunlit
+leaf, bark) → Jungle Canopy (bright foliage, dappled gold) → Rainforest River (teal
+water through ferns) → Moss and Stone (lichen and sandstone) → Rich Earth (soil, clay,
+ochre with green shoots) → back to Old Growth.
+
+**Stardream** (a slow orbit through deep space, 6 palettes): Event Horizon (void blue,
+cyan rim light) → Aurora Drift (cobalt, violet, cyan) → Starlight Veil (indigo and
+starlit blue) → Nebula Cradle (violet into magenta) → Stellar Ember (magenta into
+rose-gold and amber) → Dawn Nebula (rose and violet, turning back to blue) → loop. The
+warm-to-cool return goes through rose and violet, never green.
 
 ## Known limitations
 
