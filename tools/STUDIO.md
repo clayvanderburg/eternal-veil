@@ -26,6 +26,20 @@ Open http://127.0.0.1:8820/tools/studio.html (local only; the server refuses oth
    on a `studio/…` branch). Ask Claude to merge it; merging publishes. Published-but-not-
    merged changes stay visible as "waiting to be merged" until the live site has them.
 
+## Music playlists tab
+
+The site's built-in music: every visitor sees these playlists in the music player.
+
+- Drop songs on the Songs box (or click it). MP3s are kept as they are; WAV, FLAC, OGG, M4A,
+  AIFF and Opus are converted to 192 kbps MP3 with ffmpeg. New songs join the selected playlist.
+- Rename a song by editing its title. ▶ previews it. ✕ removes it from the site (and every playlist).
+- Playlists: New, Rename, Make first (the music button plays the first playlist), Delete,
+  ▲/▼ to reorder songs, Add song to put an existing song in.
+- Edits save as a draft automatically ("Music playlists" chip). Publish sends them with any
+  scene drafts in the same pull request; songs go to `audio/library/`, the list to
+  `js/music-catalog.js`. Uploads wait in `.studio/uploads/` (git-ignored) until then.
+- Needs ffmpeg/ffprobe on PATH (or `FFMPEG_PATH` / `FFPROBE_PATH`).
+
 Flow centres each scene on its preset values (with the personality's small variation), so
 what you tune is what Flow shows. `STUDIO_DRY_RUN=1` exercises Save without pushing.
 Requires the GitHub CLI signed in as the repository owner.
