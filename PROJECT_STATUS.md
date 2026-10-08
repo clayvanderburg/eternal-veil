@@ -1,3 +1,6 @@
+## 2026-10-07 Video1/Stardream published to Instagram and shared on Patreon
+
+Owner-approved minute Reel DeN6bNVFLiE is live; free Patreon update 171754072 published. YouTube upload terms approval remains pending; no new YouTube video uploaded yet. Read docs/agent-log/2026-10-07-codex-video1-publication.md. Existing queues preserved, USD 50 intact, no deployment.
 ## 2026-10-07 native Video1/Stardream minute prepared
 
 Owner rejected the earlier 30-second portrait. Replacement: native 1080×1920, 60 seconds, the six chosen presets, Stardream colors every 13 seconds against a 10-second preset cycle, Slow Orbit at 30%, and only the website URL at the end. Actual source cadence averaged 27.8 fps; decoding, sampled-frame inspection and compression checks passed. Unpublished; owner review pending. See docs/agent-log/2026-10-07-codex-video1-stardream-minute.md. No deployment.
@@ -191,4 +194,3 @@ Six separate recent-feature posts with original art and platform copy are ready 
 
 ## October7 growth evidence refresh
 Public social counters and first non-test feedback checked; see docs/agent-log/2026-10-07-codex-stats-refresh.md.0qualifiedsupport/1productionfeedback;siteattribution and buyingintent unestablished. No deployment or new schedules from this review.
-
