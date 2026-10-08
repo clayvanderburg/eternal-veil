@@ -1,3 +1,7 @@
+## 2026-10-07 native Video1/Stardream minute prepared
+
+Owner rejected the earlier 30-second portrait. Replacement: native 1080×1920, 60 seconds, the six chosen presets, Stardream colors every 13 seconds against a 10-second preset cycle, Slow Orbit at 30%, and only the website URL at the end. Actual source cadence averaged 27.8 fps; decoding, sampled-frame inspection and compression checks passed. Unpublished; owner review pending. See docs/agent-log/2026-10-07-codex-video1-stardream-minute.md. No deployment.
+
 ## 2026-10-07 Flow video prepared
 
 30-second original app clip ready in portrait and landscape:7-second pattern shifts,10-second colors,only end URL,music30%. Full decode/sample-frame QA passed. Unpublished/unscheduled; existing release queue preserved. See docs/agent-log/2026-10-07-codex-flow-transitions-clip.md. No deployment.
