@@ -221,11 +221,9 @@
                     <input type="range" id="hud-color-slider" min="5" max="90" value="18" aria-label="Color shift interval in seconds">
                 </label>
             </div>
-            <div class="hud-scene-row">
-                <button class="hud-scene-save" id="hud-save-scene" title="Save this exact scene to Custom Scenes">SAVE THIS SCENE</button>
-            </div>
-            <div class="hud-share-row" aria-label="Send this scene">
-                <button class="hud-share-btn hud-share-primary" id="hud-share-native" type="button" title="Share this exact scene">SHARE SCENE</button>
+            <div class="hud-scene-actions" role="group" aria-label="Save or share this scene">
+                <button class="hud-action-btn" id="hud-save-scene" type="button" title="Save this exact scene to Custom Scenes">SAVE SCENE</button>
+                <button class="hud-action-btn" id="hud-share-native" type="button" title="Share this exact scene">SHARE SCENE</button>
             </div>
         </div>
     </header>
