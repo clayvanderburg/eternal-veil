@@ -33,6 +33,7 @@
     <!-- Custom Style Sheet -->
     <link rel="stylesheet" href="styles.css?v=community-buttons-1">
     <link rel="stylesheet" href="music-player.css?v=spatial-2">
+    <link rel="stylesheet" href="playlists.css?v=playlists-1">
 </head>
 <body>
     <!-- Entry Splash Screen Overlay -->
@@ -322,6 +323,7 @@
         <!-- Panel Tabs Navigation -->
         <nav class="panel-tabs">
             <button class="tab-btn active" data-tab="tab-presets">Presets</button>
+            <button class="tab-btn" data-tab="tab-playlists">Playlists</button>
             <button class="tab-btn" data-tab="tab-colors">Colors</button>
             <button class="tab-btn" data-tab="tab-physics">Physics</button>
             <button class="tab-btn" data-tab="tab-dynamics">Dynamics</button>
@@ -463,6 +465,9 @@
                 </details>
 
             </section>
+
+            <!-- TAB: VISUAL PLAYLISTS (built by js/visual-playlists.js) -->
+            <section class="tab-content" id="tab-playlists"></section>
 
             <!-- TAB 2: COLORS & HARMONIES -->
             <section class="tab-content" id="tab-colors">
@@ -1194,6 +1199,7 @@
     <script src="js/simulation3d-native.js?v=mandala-layers-1"></script>
     <section id="spatial-player" class="void-music music-player spatial-player" aria-label="Spatial audio player" hidden></section>
     <section id="music-player" class="void-music music-player" aria-label="Music player" hidden></section>
+    <section id="playlist-bar" class="playlist-bar vp-transport" aria-label="Visual playlist" hidden></section>
     <dialog id="music-source-dialog" class="void-music music-source" aria-labelledby="music-source-title">
         <button id="music-close-source" class="music-source-close" aria-label="Close music sources">✕</button>
         <h2 id="music-source-title">Sound for the Void</h2>
@@ -1206,6 +1212,7 @@
     <script src="js/music-library.js?v=1"></script>
     <script src="js/music-player.js?v=spatial-1"></script>
     <script src="js/spatial-audio.js?v=2"></script>
-    <script src="js/app.js?v=spatial-player-1"></script>
+    <script src="js/visual-playlists.js?v=playlists-1"></script>
+    <script src="js/app.js?v=playlists-1"></script>
 </body>
 </html>
