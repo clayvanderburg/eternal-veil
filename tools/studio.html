@@ -60,6 +60,20 @@ button:disabled { opacity: .45; cursor: default; }
 .bar { display: flex; gap: 8px; }
 .bar > * { flex: 1; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tabs { display: flex; gap: 6px; margin: 0 0 12px; }
+.tabs button { flex: 1; }
+.tabs button[aria-selected=true] { border-color: var(--accent); color: var(--accent); background: #8b9cff14; }
+.row { display: flex; align-items: center; gap: 6px; padding: 5px 0; border-bottom: 1px solid #ffffff0a; }
+.row .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row input[type=text] { flex: 1; min-width: 0; padding: 4px 6px; }
+.row .dur { color: var(--muted); font: 11px var(--mono); flex: none; }
+.row button { flex: none; padding: 2px 7px; font-size: 11px; }
+.badge { flex: none; font: 600 9px/1 var(--mono); letter-spacing: .08em; color: var(--good); border: 1px solid #6ee7b755; border-radius: 4px; padding: 3px 4px; }
+.drop { display: block; border: 1px dashed var(--line); border-radius: 9px; padding: 14px; text-align: center; color: var(--muted); cursor: pointer; margin-bottom: 8px; }
+.drop.over { border-color: var(--accent); color: var(--ink); background: #8b9cff10; }
+.drop input { display: none; }
+#song-audio { width: 100%; margin-top: 8px; }
+.empty { color: var(--muted); font-size: 11px; padding: 6px 0; }
 </style>
 </head>
 <body>
@@ -68,6 +82,11 @@ button:disabled { opacity: .45; cursor: default; }
 <aside id="drawer" aria-label="Studio controls">
   <h1>ETERNAL VOID STUDIO</h1>
   <p class="sub" id="branch">Loading…</p>
+  <div class="tabs" role="tablist">
+    <button id="tab-scenes" role="tab" aria-selected="true" aria-controls="scenes-tab">Scenes</button>
+    <button id="tab-music" role="tab" aria-selected="false" aria-controls="music-tab">Music playlists</button>
+  </div>
+  <div id="scenes-tab" role="tabpanel">
   <label for="preset">Preset</label>
   <select id="preset"></select>
   <p class="hint">Values apply to the preview instantly. Amber = different from the live site (↺ resets one). Save keeps a preset as a draft; Publish sends every draft in one pull request.
@@ -80,9 +99,30 @@ button:disabled { opacity: .45; cursor: default; }
     <div id="music"></div>
     <div class="bar"><select id="music-add" aria-label="Add a music voice"></select><button id="music-add-btn" class="small">Add</button></div>
   </section>
+  </div>
+  <div id="music-tab" role="tabpanel" hidden>
+    <p class="hint">The site's built-in music: every visitor sees these playlists in the music player. Changes save as a draft
+      automatically; Publish sends them (with any scene drafts) as one pull request. <span id="music-live"></span></p>
+    <section>
+      <h2>Playlists</h2>
+      <select id="pl-select" aria-label="Playlist"></select>
+      <div class="bar" style="margin-top:6px"><button id="pl-new" class="small">New</button><button id="pl-rename" class="small">Rename</button><button id="pl-first" class="small">Make first</button><button id="pl-delete" class="small">Delete</button></div>
+      <p class="hint">The first playlist is what the music button plays by default.</p>
+      <div id="pl-tracks"></div>
+      <div class="bar" style="margin-top:6px"><select id="pl-add" aria-label="Song to add"></select><button id="pl-add-btn" class="small" style="flex:none">Add song</button></div>
+    </section>
+    <section>
+      <h2>Songs</h2>
+      <label class="drop" id="song-drop">Drop songs here or click to choose<br><span class="hint">MP3, WAV, FLAC, OGG, M4A, AIFF or Opus. Anything that isn't MP3 is converted (192 kbps). New songs join the selected playlist.</span>
+        <input id="song-files" type="file" multiple accept="audio/*,.flac,.aif,.aiff,.opus"></label>
+      <div id="song-progress" class="hint"></div>
+      <div id="songs"></div>
+      <audio id="song-audio" controls hidden></audio>
+    </section>
+  </div>
 </aside>
 <div id="footer">
-  <div class="bar"><button id="reset">Reset preset</button><button id="save" disabled>Save</button></div>
+  <div class="bar" id="scene-actions"><button id="reset">Reset preset</button><button id="save" disabled>Save</button></div>
   <div id="drafts" aria-label="Saved drafts"></div>
   <label for="note" class="hint" style="margin:0">Note for the pull request (optional)</label>
   <input id="note" type="text" maxlength="300" autocomplete="off">
@@ -578,10 +618,11 @@ function prunePublished() {
     if (!state.presets[k] || Object.entries(changes).every(([f, v]) => same(state.presets[k][f], v))) delete published.presets[k];
   }
   for (const [shape, prof] of Object.entries(published.music)) if (same(state.music.profiles[shape], prof)) delete published.music[shape];
-  if (!Object.keys(published.presets).length && !Object.keys(published.music).length) published.prs = [];
+  if (published.catalog && state.catalog && same(liveShape(published.catalog), state.catalog)) delete published.catalog;
+  if (!Object.keys(published.presets).length && !Object.keys(published.music).length && !published.catalog) published.prs = [];
   persist('evStudioPublished', published);
 }
-function draftCount() { return Object.keys(drafts.presets).length + Object.keys(drafts.music).length; }
+function draftCount() { return Object.keys(drafts.presets).length + Object.keys(drafts.music).length + (drafts.catalog ? 1 : 0); }
 function renderDrafts() {
   const host = $('drafts');
   host.replaceChildren();
@@ -602,16 +643,23 @@ function renderDrafts() {
     const k = state.order.find(o => (state.presets[o].particleShape || 'ellipse') === shape);
     if (k) switchTo(k);
   }, () => discardDraft('music', shape), shape === musicShape);
+  if (drafts.catalog) add('Music playlists', () => showTab('music'), () => discardDraft('catalog'), activeTab === 'music');
   const n = draftCount();
   $('publish').disabled = n === 0;
   $('publish').textContent = n ? `Publish ${n} draft${n === 1 ? '' : 's'} as one pull request` : 'Publish';
-  const pending = [...Object.keys(published.presets).map(k => state.presets[k]?.name || k), ...Object.keys(published.music).map(s => `${s} music`)];
+  const pending = [...Object.keys(published.presets).map(k => state.presets[k]?.name || k), ...Object.keys(published.music).map(s => `${s} music`), ...(published.catalog ? ['music playlists'] : [])];
   $('pending').innerHTML = pending.length
     ? `Waiting to be merged (not live yet): ${pending.join(', ')} · ${published.prs.map(u => `<a href="${u}" target="_blank" rel="noopener">${u.split('/').pop() === u ? u : '#' + u.split('/').pop()}</a>`).join(' ')}`
     : '';
 }
 function discardDraft(kind, id) {
   if (!confirm('Discard this saved draft?')) return;
+  if (kind === 'catalog') {
+    delete drafts.catalog;
+    persist('evStudioDrafts', drafts);
+    loadCatalogDraft(); renderSongs(); renderDrafts();
+    return;
+  }
   delete drafts[kind][id];
   persist('evStudioDrafts', drafts);
   if ((kind === 'presets' && id === key) || (kind === 'music' && id === musicShape)) { current = null; loadKey(key); }
@@ -673,15 +721,17 @@ $('publish').onclick = async () => {
   $('publish').disabled = true;
   status('Creating one branch and pull request for all drafts…');
   try {
-    const result = await api('/api/studio/publish', { presets: drafts.presets, music: drafts.music, note: $('note').value });
+    const result = await api('/api/studio/publish', { presets: drafts.presets, music: drafts.music, catalog: drafts.catalog || null, note: $('note').value });
     if (result.url !== 'dry-run') {
       Object.assign(published.presets, drafts.presets);
       Object.assign(published.music, drafts.music);
+      if (drafts.catalog) published.catalog = drafts.catalog;
       published.prs.push(result.url);
       persist('evStudioPublished', published);
     }
     drafts = { presets: {}, music: {} };
     persist('evStudioDrafts', drafts);
+    loadCatalogDraft(); renderSongs();
     $('note').value = '';
     current = null;
     loadKey(key);
@@ -691,6 +741,160 @@ $('publish').onclick = async () => {
     renderDrafts();
   }
 };
+// ---------- music playlists tab ----------
+let activeTab = 'scenes', songs = null, plId = null;
+function showTab(name) {
+  activeTab = name;
+  $('scenes-tab').hidden = name !== 'scenes';
+  $('music-tab').hidden = name !== 'music';
+  $('scene-actions').hidden = name !== 'scenes';
+  $('tab-scenes').setAttribute('aria-selected', name === 'scenes');
+  $('tab-music').setAttribute('aria-selected', name === 'music');
+  if (name !== 'music') { $('song-audio').pause(); }
+  renderDrafts();
+}
+$('tab-scenes').onclick = () => showTab('scenes');
+$('tab-music').onclick = () => showTab('music');
+// What a catalog will look like on the site (uploads become audio/library files).
+const liveShape = c => ({
+  tracks: c.tracks.map(({ upload, ...t }) => ({ ...t, url: upload ? `audio/library/${t.id}.mp3` : t.url })),
+  playlists: c.playlists.map(p => ({ id: p.id, name: p.name, tracks: [...p.tracks] }))
+});
+const liveCatalog = () => state.catalog || state.catalogLocal || { tracks: [], playlists: [] };
+function loadCatalogDraft() {
+  songs = copy(drafts.catalog || published.catalog || liveCatalog());
+  if (!songs.playlists.some(p => p.id === plId)) plId = songs.playlists[0]?.id || null;
+  const live = liveCatalog();
+  $('music-live').textContent = state.catalog
+    ? `Live site: ${live.tracks.length} songs in ${live.playlists.length} playlist${live.playlists.length === 1 ? '' : 's'}.`
+    : 'The live site doesn\'t have the music catalog yet (merge the Studio music update first); showing this checkout\'s.';
+}
+function songsChanged() {
+  if (same(liveShape(songs), liveShape(published.catalog || liveCatalog()))) delete drafts.catalog;
+  else drafts.catalog = copy(songs);
+  persist('evStudioDrafts', drafts);
+  renderSongs(); renderDrafts();
+}
+const slug = text => String(text).toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/['’]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50) || 'song';
+function uniqueId(base, taken) { let id = base, n = 2; while (taken.has(id)) id = `${base}-${n++}`; return id; }
+const mmss = sec => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}`;
+const songById = id => songs.tracks.find(t => t.id === id);
+function songButton(label, title, onclick) {
+  const b = document.createElement('button'); b.textContent = label; b.title = title; b.setAttribute('aria-label', title); b.onclick = onclick; return b;
+}
+function play(track) {
+  const a = $('song-audio');
+  a.hidden = false;
+  a.src = track.upload ? `/.studio/uploads/${track.upload}.mp3` : `/${track.url}`;
+  a.play().catch(() => {});
+}
+function renderSongs() {
+  if (!songs) return;
+  const sel = $('pl-select');
+  sel.replaceChildren(...songs.playlists.map((p, i) => new Option(`${p.name} (${p.tracks.length})${i === 0 ? ' · default' : ''}`, p.id)));
+  sel.value = plId || '';
+  const pl = songs.playlists.find(p => p.id === plId);
+  $('pl-rename').disabled = $('pl-delete').disabled = !pl;
+  $('pl-first').disabled = !pl || songs.playlists[0] === pl;
+  const list = $('pl-tracks');
+  list.replaceChildren();
+  if (pl && !pl.tracks.length) list.innerHTML = '<div class="empty">No songs in this playlist yet. Add one below or drop new songs in.</div>';
+  pl?.tracks.forEach((id, i) => {
+    const t = songById(id); if (!t) return;
+    const row = document.createElement('div'); row.className = 'row';
+    const name = document.createElement('span'); name.className = 'title'; name.textContent = `${i + 1}. ${t.title}`;
+    const dur = document.createElement('span'); dur.className = 'dur'; dur.textContent = mmss(t.duration);
+    const up = songButton('▲', `Move ${t.title} up`, () => { [pl.tracks[i - 1], pl.tracks[i]] = [pl.tracks[i], pl.tracks[i - 1]]; songsChanged(); });
+    const down = songButton('▼', `Move ${t.title} down`, () => { [pl.tracks[i + 1], pl.tracks[i]] = [pl.tracks[i], pl.tracks[i + 1]]; songsChanged(); });
+    up.disabled = i === 0; down.disabled = i === pl.tracks.length - 1;
+    row.append(songButton('▶', `Play ${t.title}`, () => play(t)), name, dur, up, down,
+      songButton('✕', `Take ${t.title} out of ${pl.name}`, () => { pl.tracks.splice(i, 1); songsChanged(); }));
+    list.append(row);
+  });
+  const add = $('pl-add');
+  const missing = pl ? songs.tracks.filter(t => !pl.tracks.includes(t.id)) : [];
+  add.replaceChildren(...(missing.length ? missing.map(t => new Option(t.title, t.id)) : [new Option(pl ? 'Every song is already in it' : 'Make a playlist first', '')]));
+  add.disabled = $('pl-add-btn').disabled = !missing.length;
+
+  const host = $('songs');
+  host.replaceChildren();
+  if (!songs.tracks.length) host.innerHTML = '<div class="empty">No songs yet.</div>';
+  const live = new Set(liveCatalog().tracks.map(t => t.id));
+  for (const t of songs.tracks) {
+    const row = document.createElement('div'); row.className = 'row';
+    const title = document.createElement('input'); title.type = 'text'; title.value = t.title; title.maxLength = 80; title.setAttribute('aria-label', 'Song title');
+    title.onchange = () => { const v = title.value.trim(); if (v) { t.title = v; songsChanged(); } else title.value = t.title; };
+    const dur = document.createElement('span'); dur.className = 'dur'; dur.textContent = mmss(t.duration);
+    row.append(songButton('▶', `Play ${t.title}`, () => play(t)), title);
+    if (!live.has(t.id)) { const b = document.createElement('span'); b.className = 'badge'; b.textContent = 'NEW'; row.append(b); }
+    const used = songs.playlists.filter(p => p.tracks.includes(t.id)).length;
+    row.append(dur, songButton('✕', `Remove ${t.title} from the site`, () => {
+      if (!confirm(`Remove "${t.title}" from the site${used ? ` and from ${used} playlist${used === 1 ? '' : 's'}` : ''}?`)) return;
+      songs.tracks = songs.tracks.filter(x => x !== t);
+      songs.playlists.forEach(p => { p.tracks = p.tracks.filter(id => id !== t.id); });
+      songsChanged();
+    }));
+    host.append(row);
+  }
+}
+$('pl-select').onchange = () => { plId = $('pl-select').value; renderSongs(); };
+$('pl-new').onclick = () => {
+  const name = (prompt('Name for the new playlist') || '').trim().slice(0, 60);
+  if (!name) return;
+  const id = uniqueId(slug(name), new Set(['favorites', ...songs.playlists.map(p => p.id)]));
+  songs.playlists.push({ id: id.startsWith('custom-') ? `list-${id}` : id, name, tracks: [] });
+  plId = songs.playlists.at(-1).id;
+  songsChanged();
+};
+$('pl-rename').onclick = () => {
+  const pl = songs.playlists.find(p => p.id === plId); if (!pl) return;
+  const name = (prompt('New name', pl.name) || '').trim().slice(0, 60);
+  if (name && name !== pl.name) { pl.name = name; songsChanged(); }
+};
+$('pl-first').onclick = () => {
+  const i = songs.playlists.findIndex(p => p.id === plId); if (i <= 0) return;
+  songs.playlists.unshift(...songs.playlists.splice(i, 1));
+  songsChanged();
+};
+$('pl-delete').onclick = () => {
+  const pl = songs.playlists.find(p => p.id === plId); if (!pl) return;
+  if (songs.playlists.length === 1) return alert('Keep at least one playlist.');
+  if (!confirm(`Delete the playlist "${pl.name}"? Its songs stay in the library.`)) return;
+  songs.playlists = songs.playlists.filter(p => p !== pl);
+  plId = songs.playlists[0].id;
+  songsChanged();
+};
+$('pl-add-btn').onclick = () => {
+  const pl = songs.playlists.find(p => p.id === plId), id = $('pl-add').value;
+  if (pl && id && !pl.tracks.includes(id)) { pl.tracks.push(id); songsChanged(); }
+};
+async function uploadSongs(files) {
+  const list = [...files];
+  for (let i = 0; i < list.length; i++) {
+    const f = list[i];
+    $('song-progress').textContent = `Adding ${f.name} (${i + 1} of ${list.length})${/\.mp3$/i.test(f.name) ? '' : ', converting to MP3'}…`;
+    try {
+      const res = await fetch(`/api/studio/upload?name=${encodeURIComponent(f.name)}`, { method: 'POST', body: f });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || res.statusText);
+      const title = f.name.replace(/\.[^.]+$/, '').replace(/[_]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Untitled';
+      const id = uniqueId(slug(title), new Set(songs.tracks.map(t => t.id)));
+      songs.tracks.push({ id, title, duration: data.duration, upload: data.upload });
+      songs.playlists.find(p => p.id === plId)?.tracks.push(id);
+      songsChanged();
+    } catch (error) {
+      $('song-progress').textContent = `Couldn't add ${f.name}: ${error.message}`;
+      return;
+    }
+  }
+  $('song-progress').textContent = `Added ${list.length} song${list.length === 1 ? '' : 's'}. Rename them below if you like, then Publish.`;
+}
+$('song-files').onchange = e => { uploadSongs(e.target.files); e.target.value = ''; };
+const drop = $('song-drop');
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); if (e.dataTransfer.files.length) uploadSongs(e.dataTransfer.files); };
+
 addEventListener('beforeunload', e => { if (unsaved()) { e.preventDefault(); e.returnValue = ''; } });
 
 (async () => {
@@ -699,6 +903,7 @@ addEventListener('beforeunload', e => { if (unsaved()) { e.preventDefault(); e.r
   $('branch').textContent = `"was" = live site (${state.live}) · preview runs local branch ${state.branch}`;
   for (const k of state.order) $('preset').add(new Option(state.presets[k].name, k));
   loadKey(state.order[0]);
+  loadCatalogDraft(); renderSongs();
   requestAnimationFrame(pinValues);
 })().catch(error => status(`Studio failed to load: ${error.message}`));
 </script>

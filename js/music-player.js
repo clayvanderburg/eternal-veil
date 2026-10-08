@@ -16,7 +16,7 @@
             let storage; try { storage = window.localStorage; } catch (_) { storage = null; }
             this.library = new MusicLibrary(storage);
             this.audio = new Audio(); this.audio.preload = 'metadata';
-            this.playlist = 'nocturnal'; this.current = null; this.generation = 0; this.expanded = false;
+            this.playlist = this.library.defaultPlaylist; this.current = null; this.generation = 0; this.expanded = false;
             this.audio.volume = this.library.settings.volume;
             this.panel = document.getElementById('music-player');
             this.dialog = document.getElementById('music-source-dialog');
@@ -165,7 +165,7 @@
             if (action === 'delete') {
                 const p = this.library.custom.find(p => p.id === this.playlist); if (!p) return;
                 if (!window.confirm(`Delete “${p.name}”? The songs stay in your library.`)) return;
-                this.library.custom = this.library.custom.filter(p => p.id !== this.playlist); this.playlist = 'nocturnal';
+                this.library.custom = this.library.custom.filter(p => p.id !== this.playlist); this.playlist = this.library.defaultPlaylist;
             }
             if (action === 'shuffle') this.library.settings.shuffle = !this.library.settings.shuffle;
             if (action === 'repeat') this.library.settings.repeat = ({ all: 'one', one: 'off', off: 'all' })[this.library.settings.repeat];
