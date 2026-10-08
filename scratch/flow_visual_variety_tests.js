@@ -46,13 +46,21 @@ shapeUnlocked = true;
 excludedPresetKeys.add('mandalaZen');
 for (let i = 0; i < 1000; i++) assert.notEqual(choose('alive'), 'zenMandala', 'excluded Mandala remains excluded');
 // Flow kaleidoscope tiers from Clay's per-scene review (2026-10-07).
-const tierSet = name => new Set([...source.match(new RegExp(`const ${name} = new Set\\(\\[([^\\]]*)\\]`))[1].matchAll(/"([A-Za-z]+)"/g)].map(m => m[1]));
-assert.deepEqual([...tierSet('kaleidoExcludedShapes')].sort(), ['acid', 'quantumLattice'], 'never-kaleidoscope scenes');
-assert.deepEqual([...tierSet('kaleidoHalfShapes')].sort(), ['mandelbrotDive', 'nebulaSpark'], 'half-the-time scenes');
-for (const shape of ['pendulumSpiral', 'cluster', 'pipes', 'pipesTight', 'pipesCathedral', 'pipesShrine', 'zenMandala']) {
-    assert(tierSet('kaleidoOftenShapes').has(shape), `${shape} gets the "often" kaleidoscope chance`);
+// Flow kaleidoscope odds live in the presets (Clay's review 2026-10-07, tunable in the Studio).
+const vm = require('node:vm');
+const presetContext = vm.createContext({});
+vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/presets.js'), 'utf8') + ';globalThis.P = StylePresets;', presetContext);
+const P = presetContext.P;
+for (const key of ['acid', 'quantumGrid']) assert.equal(P[key].flowKaleidoChance, 0, `${key} never mirrored in Flow`);
+for (const key of ['mandelbrotDive', 'cosmic']) assert.equal(P[key].flowKaleidoChance, 0.5, `${key} mirrored half the time`);
+for (const key of ['hypno', 'cluster', 'neonConduits', 'circuitCity', 'conduitCathedral', 'circuitShrine', 'mandalaZen']) {
+    assert.equal(P[key].flowKaleidoChance, 0.58, `${key} gets the "often" kaleidoscope chance`);
 }
-assert(source.includes('kaleidoOftenShapes.has(activeFlowShape) ? Math.max(kaleidoChance, 0.58)'), 'often scenes get a meaningful symmetry chance');
+for (const key of ['fractalNebula', 'liquidChrome']) assert(!Number.isFinite(P[key].flowKaleidoChance), `${key} uses the Flow personality chance`);
+assert.equal(P.tightTailVortex.flowKaleidoMax, 4, 'Tight Tail Vortex mirrors with at most 4 segments');
+assert.deepEqual([P.strings.flowKaleidoChance, P.strings.flowKaleidoMin, P.strings.flowKaleidoMax], [1, 8, 8], 'Cosmic Strings always keeps 8 segments');
+assert(source.includes('Math.random() < (presetKaleidoChance ?? kaleidoChance)'), 'Flow reads the preset chance, else the personality chance');
+assert(source.includes('rndInt(kaleidoMinSegments, kaleidoMaxSegments)'), 'Flow segments come from the preset range');
 assert(source.includes('!kaleidoGeometricShapes.has(activeFlowShape) && isFlowEnabled("density")'), 'circuit/grid density is not thinned just for kaleidoscope');
-assert(source.includes('currentKaleidoEnabled\n                && !kaleidoExcludedShapes.has(activeFlowShape)'), 'spinning needs an active, allowed kaleidoscope');
+assert(source.includes('sim.settings.spinningKaleido = !isComfortMode && currentKaleidoEnabled'), 'spinning needs an active kaleidoscope');
 console.log('Flow visual variety: weighted mandala, diverse patterns, lock and coupled kaleidoscope pass.');

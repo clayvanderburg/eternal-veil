@@ -24,6 +24,19 @@ assert.equal(after.blackHoleVortex.curl, 0.7);
 assert.deepEqual(after.mandalaZen, before.mandalaZen, 'base preset untouched');
 assert.deepEqual(after.fractalNebula, before.fractalNebula, 'sibling preset untouched');
 
+// Flow fields: ranges object, chance and auto (null), including editing an existing range.
+out = applyPresetChanges(presetsText, 'mandalaZen', { flowRanges: { speed: [0.3, 0.1], size: [3, 5] }, flowKaleidoChance: 0.7, flowKaleidoMin: 5 });
+after = loadPresets(out).presets;
+assert.deepEqual(after.mandalaZen.flowRanges, { speed: [0.1, 0.3], size: [3, 5] });
+assert.equal(after.mandalaZen.flowKaleidoChance, 0.7);
+assert.equal(after.mandalaZen.flowKaleidoMin, 5);
+out = applyPresetChanges(out, 'mandalaZen', { flowRanges: { speed: [0.12, 0.2] }, flowKaleidoChance: null });
+after = loadPresets(out).presets;
+assert.deepEqual(after.mandalaZen.flowRanges, { speed: [0.12, 0.2] });
+assert.equal(after.mandalaZen.flowKaleidoChance, null);
+assert.throws(() => applyPresetChanges(presetsText, 'mandalaZen', { flowRanges: { speed: [0.1] } }));
+assert.throws(() => applyPresetChanges(presetsText, 'mandalaZen', { speed: null }));
+
 // Unsafe input is refused.
 assert.throws(() => applyPresetChanges(presetsText, 'tightTailVortex', { speed: '1; alert(1)' }));
 assert.throws(() => applyPresetChanges(presetsText, 'tightTailVortex', { colors: ['red'] }));

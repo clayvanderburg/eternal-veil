@@ -7,7 +7,7 @@
 <style>
 :root {
   --void: #05060a; --panel: rgba(12, 14, 24, 0.94); --line: rgba(148, 163, 214, 0.18);
-  --ink: #e6e9f5; --muted: #8d95b3; --accent: #8b9cff; --accent-ink: #0b0e1a; --warn: #f6b35c; --good: #6ee7b7;
+  --ink: #e6e9f5; --muted: #8d95b3; --accent: #8b9cff; --accent-ink: #0b0e1a; --warn: #f6b35c; --good: #6ee7b7; --flow: #67e8f9;
   --mono: ui-monospace, "Cascadia Mono", Consolas, monospace; color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -15,31 +15,39 @@ html, body { height: 100%; margin: 0; }
 body { background: var(--void); color: var(--ink); font: 13px/1.4 "Segoe UI", system-ui, sans-serif; display: flex; overflow: hidden; }
 [hidden] { display: none !important; }
 #stage { flex: 1; min-width: 0; border: 0; background: #000; }
-#drawer { width: 380px; flex: none; background: var(--panel); border-left: 1px solid var(--line); overflow-y: auto; padding: 14px 16px 90px; }
+#side { width: 400px; flex: none; display: flex; flex-direction: column; background: var(--panel); border-left: 1px solid var(--line); }
+#drawer { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 16px 24px; }
+#footer { flex: none; background: #0b0d16; border-top: 1px solid var(--line); padding: 10px 16px; display: grid; gap: 6px; }
 h1 { font-size: 15px; letter-spacing: .12em; margin: 0 0 2px; }
 .sub { color: var(--muted); font-size: 11px; margin: 0 0 12px; }
-select, input[type=number], input[type=text], textarea { width: 100%; background: #10121c; color: var(--ink); border: 1px solid var(--line); border-radius: 7px; padding: 7px 8px; font: inherit; }
-textarea { resize: vertical; min-height: 44px; }
+select, input[type=number], input[type=text] { width: 100%; background: #10121c; color: var(--ink); border: 1px solid var(--line); border-radius: 7px; padding: 7px 8px; font: inherit; }
 section { border-top: 1px solid var(--line); padding: 10px 0 4px; }
 section > h2 { font: 600 10px/1 var(--mono); letter-spacing: .14em; color: var(--muted); text-transform: uppercase; margin: 2px 0 8px; }
-.row { display: grid; grid-template-columns: 1fr 74px; gap: 4px 8px; align-items: center; margin-bottom: 8px; }
-.row label { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; }
-.row label .was { color: var(--muted); font: 10px var(--mono); }
-.row.changed label { color: var(--warn); }
-.row input[type=range] { grid-column: 1; width: 100%; accent-color: var(--accent); }
-.row input[type=number] { grid-column: 2; grid-row: 1 / span 2; padding: 5px 6px; font: 12px var(--mono); }
-.check { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; }
-.check.changed { color: var(--warn); }
+.item { margin-bottom: 10px; }
+.head { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.head .name { flex: 1; }
+.head .was { color: var(--muted); font: 10px var(--mono); }
+.item.changed > .head .name, .item.changed > .head > label { color: var(--warn); }
+.ctl { display: grid; grid-template-columns: 1fr 76px; gap: 8px; align-items: center; }
+.ctl input[type=range] { width: 100%; accent-color: var(--accent); }
+.ctl input[type=number] { padding: 5px 6px; font: 12px var(--mono); }
+.reset { visibility: hidden; padding: 0 6px; font-size: 13px; line-height: 20px; border: 1px solid var(--line); background: none; color: var(--warn); border-radius: 6px; cursor: pointer; }
+.item.changed .reset, .reset.show { visibility: visible; }
+.flow { display: flex; align-items: center; gap: 6px; margin-top: 4px; font: 11px var(--mono); color: var(--flow); }
+.flow .label { flex: none; }
+.flow input[type=number] { width: 64px; padding: 3px 5px; font: 11px var(--mono); border-color: rgba(103, 232, 249, .35); }
+.flow .auto { color: var(--muted); flex: 1; }
+.flow button { font: 11px var(--mono); padding: 2px 7px; color: var(--flow); background: none; border: 1px solid rgba(103, 232, 249, .35); border-radius: 6px; cursor: pointer; }
+.flow.changed { color: var(--warn); }
+label.check { display: flex; align-items: center; gap: 8px; }
 .colors { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .colors input[type=color] { width: 34px; height: 28px; border: 1px solid var(--line); border-radius: 6px; background: none; padding: 0; }
-.colors.changed { outline: 1px solid var(--warn); outline-offset: 3px; border-radius: 6px; }
 button { background: #ffffff0d; color: var(--ink); border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px; font: inherit; cursor: pointer; }
 button:hover { background: #ffffff18; }
 button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
 button:disabled { opacity: .45; cursor: default; }
 .small { font-size: 11px; padding: 4px 8px; }
 .hint { color: var(--muted); font-size: 11px; margin: 4px 0 8px; }
-#footer { position: fixed; right: 0; bottom: 0; width: 380px; background: #0b0d16; border-top: 1px solid var(--line); border-left: 1px solid var(--line); padding: 10px 16px; display: grid; gap: 6px; }
 #status { font-size: 11px; color: var(--muted); min-height: 15px; word-break: break-word; }
 #status a { color: var(--good); }
 .bar { display: flex; gap: 8px; }
@@ -49,17 +57,19 @@ button:disabled { opacity: .45; cursor: default; }
 </head>
 <body>
 <iframe id="stage" src="/index.html?studio=1" title="Live preview of the site"></iframe>
+<div id="side">
 <aside id="drawer" aria-label="Studio controls">
   <h1>ETERNAL VOID STUDIO</h1>
   <p class="sub" id="branch">Loading…</p>
   <label for="preset">Preset</label>
   <select id="preset"></select>
-  <p class="hint">Values apply to the preview instantly. Changed values turn amber; Save opens a pull request with only those.</p>
+  <p class="hint">Values apply to the preview instantly. Changed values turn amber (↺ resets one); Save opens a pull request with only those.
+    <span style="color:var(--flow)">Flow</span> lines set what Flow picks when it visits this scene.</p>
   <div class="bar"><button id="site-ui" class="small">Show site controls</button><button id="reload" class="small">Reload preview</button></div>
   <div id="fields"></div>
   <section id="music-section">
     <h2>Music reaction</h2>
-    <p class="hint">Start music in the preview (♫ in the site controls) to see these. Shared by every preset with this scene's shape.</p>
+    <p class="hint">Start music in the preview (Show site controls → ♫) to see these. Shared by every preset with this scene's shape.</p>
     <div id="music"></div>
     <div class="bar"><select id="music-add" aria-label="Add a music voice"></select><button id="music-add-btn" class="small">Add</button></div>
   </section>
@@ -69,6 +79,7 @@ button:disabled { opacity: .45; cursor: default; }
   <input id="note" type="text" maxlength="300" autocomplete="off">
   <div class="bar"><button id="reset">Reset preset</button><button id="save" class="primary" disabled>Save as pull request</button></div>
   <div id="status" role="status" aria-live="polite"></div>
+</div>
 </div>
 <script>
 const $ = id => document.getElementById(id);
@@ -86,19 +97,24 @@ const RANGES = {
   spiralExtent: [0.45, 0.98, 0.01], wanderMix: [0.05, 0.4, 0.01], eclipseCount: [12, 90, 1], eclipseSize: [0.45, 1.6, 0.01],
   vortexHole: [0.005, 0.2, 0.001], blackHoleSize: [0.01, 0.25, 0.001]
 };
+// Values Flow varies when it visits a scene (auto = preset value ± personality variation).
+const FLOW_FIELDS = new Set(['speed', 'turbulence', 'density', 'dissipation', 'zoom', 'size', 'sizeVar', 'stretch', 'curl', 'rotationSpeed', 'wobble', 'interaction', 'drag', 'vortexHole', 'blackHoleSize']);
 const GROUPS = [
   ['Motion', ['speed', 'turbulence', 'curl', 'rotationSpeed', 'wobble', 'drag']],
   ['Particles', ['size', 'sizeVar', 'stretch', 'density', 'dissipation', 'zoom', 'interaction', 'mouseInfluence']],
-  ['Kaleidoscope', ['kaleidoscopeEnabled', 'kaleidoscopeSegments', 'spinningKaleido']],
   ['Effects', ['psychedelicMode', 'morphingBg', 'particleLighting']],
 ];
-const SKIP = new Set(['name', 'desc', 'addedOn', 'colors', 'particleShape', 'meditationPreset', 'bilateralEnabled', 'asmrEnabled', 'binauralMode']);
+const SKIP = new Set(['name', 'desc', 'addedOn', 'colors', 'particleShape', 'meditationPreset', 'bilateralEnabled', 'asmrEnabled', 'binauralMode',
+  'kaleidoscopeEnabled', 'kaleidoscopeSegments', 'spinningKaleido']);
 const LIGHTING = ['glow', 'reactive', 'pearl', 'metal'];
+const isFlowField = f => /^flow[A-Z]/.test(f);
 
 const win = () => stage.contentWindow;
 const sim = () => win()?.simInstance;
-const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 const status = (html) => { $('status').innerHTML = html; };
+const clean = n => Math.round(n * 10000) / 10000;
+const copy = v => v === undefined ? undefined : JSON.parse(JSON.stringify(v));
 
 async function api(path, body) {
   const res = await fetch(path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
@@ -123,8 +139,7 @@ function prepareStage() {
   setTimeout(() => selectInStage(key), 600);
 }
 function selectInStage(presetKey) {
-  const doc = stage.contentDocument;
-  const row = doc?.querySelector(`[data-preset="${presetKey}"]`);
+  const row = stage.contentDocument?.querySelector(`[data-preset="${presetKey}"]`);
   if (row && !row.classList.contains('active')) row.querySelector('.preset-load')?.click();
 }
 // Keep the preview on the Studio's values even while the site morphs or Flow runs.
@@ -132,11 +147,11 @@ function pinValues() {
   const s = sim();
   if (s && current) {
     for (const [field, value] of Object.entries(current)) {
-      if (field === 'colors' || SKIP.has(field)) continue;
+      if (field === 'colors' || isFlowField(field) || value === null || value === undefined || typeof value === 'object') continue;
+      if (['name', 'desc', 'addedOn', 'meditationPreset', 'bilateralEnabled', 'asmrEnabled', 'binauralMode'].includes(field)) continue;
       s.settings[ALIAS[field] || field] = value;
     }
     if (current.colors && !same(s.palette, current.colors)) s.updatePalette([...current.colors]);
-    if (current.particleShape) s.settings.particleShape = current.particleShape;
   }
   requestAnimationFrame(pinValues);
 }
@@ -147,74 +162,230 @@ $('site-ui').onclick = () => {
   if (sheet) sheet.disabled = siteUiVisible;
   $('site-ui').textContent = siteUiVisible ? 'Hide site controls' : 'Show site controls';
 };
-$('reload').onclick = () => { stage.contentWindow.location.reload(); };
+$('reload').onclick = () => stage.contentWindow.location.reload();
 
-// ---------- controls ----------
-const toSlider = (v, [min, max, , log]) => log ? Math.log(v / min) / Math.log(max / min) * 1000 : v;
+// ---------- building blocks ----------
+const toSlider = (v, [min, max, , log]) => log ? Math.log(Math.max(v, min) / min) / Math.log(max / min) * 1000 : v;
 const fromSlider = (t, [min, max, step, log]) => {
   const v = log ? min * Math.pow(max / min, t / 1000) : t;
   return Math.round(v / step) * step;
 };
-const clean = n => Math.round(n * 10000) / 10000;
-
-function numberRow(field) {
-  const value = current[field];
-  const range = RANGES[field] || [0, Math.max(1, Math.abs(value) * 3), 0.01];
-  const row = document.createElement('div');
-  row.className = 'row';
-  const label = document.createElement('label');
+function item(title, field, refresh) {
+  const el = document.createElement('div');
+  el.className = 'item';
+  const head = document.createElement('div');
+  head.className = 'head';
   const name = document.createElement('span');
+  name.className = 'name';
+  name.textContent = title;
   const was = document.createElement('span');
-  name.textContent = field;
   was.className = 'was';
-  label.append(name, was);
-  const slider = document.createElement('input');
-  slider.type = 'range';
-  slider.setAttribute('aria-label', field);
-  if (range[3]) { slider.min = 0; slider.max = 1000; slider.step = 1; }
-  else { slider.min = range[0]; slider.max = range[1]; slider.step = range[2]; }
+  const reset = document.createElement('button');
+  reset.className = 'reset';
+  reset.textContent = '↺';
+  reset.title = 'Reset to the original value';
+  reset.setAttribute('aria-label', `Reset ${title}`);
+  reset.onclick = () => { current[field] = copy(original[field]); if (current[field] === undefined) delete current[field]; refresh(); changedState(); };
+  head.append(name, was, reset);
+  el.append(head);
+  const mark = (wasText) => {
+    const changed = !same(current[field], original[field]);
+    el.classList.toggle('changed', changed);
+    was.textContent = changed ? `was ${wasText ?? fmt(original[field])}` : '';
+  };
+  return { el, head, mark };
+}
+const fmt = v => v === undefined || v === null ? 'auto' : typeof v === 'number' ? clean(v) : String(v);
+
+function slider(range, onValue) {
+  const wrap = document.createElement('div');
+  wrap.className = 'ctl';
+  const s = document.createElement('input');
+  s.type = 'range';
+  if (range[3]) { s.min = 0; s.max = 1000; s.step = 1; } else { s.min = range[0]; s.max = range[1]; s.step = range[2]; }
   const box = document.createElement('input');
   box.type = 'number';
   box.step = range[2];
-  box.setAttribute('aria-label', `${field} value`);
-  const show = () => {
-    slider.value = toSlider(current[field], range);
-    box.value = clean(current[field]);
-    const changed = current[field] !== original[field];
-    row.classList.toggle('changed', changed);
-    was.textContent = changed ? `was ${clean(original[field])}` : '';
-  };
-  slider.oninput = () => { current[field] = clean(fromSlider(Number(slider.value), range)); show(); changedState(); };
-  box.onchange = () => { const n = Number(box.value); if (Number.isFinite(n)) current[field] = clean(n); show(); changedState(); };
-  row.append(label, slider, box);
-  show();
-  return row;
+  s.oninput = () => onValue(clean(fromSlider(Number(s.value), range)));
+  box.onchange = () => { const n = Number(box.value); if (Number.isFinite(n)) onValue(clean(n)); };
+  wrap.append(s, box);
+  return { wrap, set: v => { s.value = toSlider(v, range); box.value = clean(v); }, slider: s, box };
 }
-function checkRow(field) {
-  const label = document.createElement('label');
-  label.className = 'check';
+
+function numberItem(field) {
+  const range = RANGES[field] || [0, Math.max(1, Math.abs(current[field]) * 3), 0.01];
+  const it = item(field, field, () => show());
+  const ctl = slider(range, v => { current[field] = v; show(); changedState(); });
+  ctl.slider.setAttribute('aria-label', field);
+  ctl.box.setAttribute('aria-label', `${field} value`);
+  it.el.append(ctl.wrap);
+  let flow;
+  if (FLOW_FIELDS.has(field)) { flow = flowRangeLine(field); it.el.append(flow.el); }
+  const show = () => { ctl.set(current[field]); it.mark(); flow?.show(); };
+  show();
+  return it.el;
+}
+
+// Flow range for one value: auto (preset ± variation) or an exact min..max.
+function flowRangeLine(field) {
+  const el = document.createElement('div');
+  el.className = 'flow';
+  const range = RANGES[field] || [0, 100, 0.01];
+  const ranges = () => current.flowRanges || {};
+  const setRange = r => {
+    const next = { ...ranges() };
+    if (r) next[field] = r; else delete next[field];
+    if (Object.keys(next).length) current.flowRanges = next;
+    else if (original.flowRanges) current.flowRanges = {};
+    else delete current.flowRanges;
+    show(); changedState();
+  };
+  const show = () => {
+    el.replaceChildren();
+    const r = ranges()[field];
+    const was = original.flowRanges?.[field];
+    el.classList.toggle('changed', !same(r, was));
+    const label = document.createElement('span');
+    label.className = 'label';
+    label.textContent = 'Flow';
+    el.append(label);
+    if (!r) {
+      const auto = document.createElement('span');
+      auto.className = 'auto';
+      auto.textContent = `auto: ${clean(current[field])} ±12–28% by personality`;
+      const set = document.createElement('button');
+      set.textContent = 'set range';
+      set.onclick = () => setRange([clean(current[field] * 0.8), clean(current[field] * 1.2)]);
+      el.append(auto, set);
+    } else {
+      const lo = document.createElement('input'), hi = document.createElement('input');
+      for (const [input, i] of [[lo, 0], [hi, 1]]) {
+        input.type = 'number'; input.step = range[2]; input.value = r[i];
+        input.setAttribute('aria-label', `${field} Flow ${i ? 'maximum' : 'minimum'}`);
+        input.onchange = () => { const n = Number(input.value); if (!Number.isFinite(n)) return; const nr = [...r]; nr[i] = clean(n); setRange(nr); };
+      }
+      const dash = document.createElement('span'); dash.textContent = '–';
+      const auto = document.createElement('button');
+      auto.textContent = 'auto';
+      auto.onclick = () => setRange(null);
+      el.append(lo, dash, hi, auto);
+      if (!same(r, was)) {
+        const undo = document.createElement('button');
+        undo.textContent = '↺';
+        undo.setAttribute('aria-label', `Reset ${field} Flow range`);
+        undo.onclick = () => setRange(was ? [...was] : null);
+        el.append(undo);
+      }
+    }
+  };
+  show();
+  return { el, show };
+}
+
+function checkItem(field, title = field) {
+  const it = item(title, field, () => show());
   const box = document.createElement('input');
   box.type = 'checkbox';
-  box.checked = !!current[field];
-  box.onchange = () => { current[field] = box.checked; label.classList.toggle('changed', current[field] !== original[field]); changedState(); };
-  label.append(box, document.createTextNode(field));
-  label.classList.toggle('changed', current[field] !== original[field]);
-  return label;
+  box.setAttribute('aria-label', title);
+  box.onchange = () => { current[field] = box.checked; show(); changedState(); };
+  it.head.prepend(box);
+  it.head.querySelector('.name').textContent = title;
+  const show = () => { box.checked = !!current[field]; it.mark(); };
+  show();
+  return it.el;
 }
-function selectRow(field, options) {
-  const row = document.createElement('div');
-  row.className = 'check';
+function selectItem(field, options) {
+  const it = item(field, field, () => show());
   const sel = document.createElement('select');
   sel.setAttribute('aria-label', field);
   for (const o of options) sel.add(new Option(o, o));
-  sel.value = current[field];
-  sel.onchange = () => { current[field] = sel.value; row.classList.toggle('changed', current[field] !== original[field]); changedState(); };
-  row.append(document.createTextNode(field), sel);
-  return row;
+  sel.onchange = () => { current[field] = sel.value; show(); changedState(); };
+  it.el.append(sel);
+  const show = () => { sel.value = current[field]; it.mark(); };
+  show();
+  return it.el;
 }
-function colorsRow() {
+
+// Kaleidoscope: the preset's own setting plus Flow's chance and segment range.
+function kaleidoSection() {
+  const sec = document.createElement('section');
+  sec.innerHTML = '<h2>Kaleidoscope</h2>';
+  if (!('kaleidoscopeEnabled' in current)) { current.kaleidoscopeEnabled = false; original.kaleidoscopeEnabled = false; }
+  if (!('kaleidoscopeSegments' in current)) { current.kaleidoscopeSegments = 6; original.kaleidoscopeSegments = 6; }
+  sec.append(checkItem('kaleidoscopeEnabled', 'On when this preset is loaded'));
+  sec.append(numberItem('kaleidoscopeSegments'));
+  if ('spinningKaleido' in current) sec.append(checkItem('spinningKaleido', 'Spinning'));
+
+  // Flow chance
+  const chance = item('Flow chance', 'flowKaleidoChance', () => showChance());
+  const chanceCtl = slider([0, 100, 1], v => { current.flowKaleidoChance = clean(v / 100); showChance(); changedState(); });
+  chanceCtl.slider.setAttribute('aria-label', 'Flow kaleidoscope chance percent');
+  chanceCtl.box.setAttribute('aria-label', 'Flow kaleidoscope chance percent value');
+  const autoLine = document.createElement('div');
+  autoLine.className = 'flow';
+  chance.el.append(chanceCtl.wrap, autoLine);
+  const showChance = () => {
+    const v = current.flowKaleidoChance;
+    const isAuto = !Number.isFinite(v);
+    chanceCtl.set(isAuto ? 0 : v * 100);
+    chanceCtl.wrap.style.opacity = isAuto ? 0.45 : 1;
+    chance.mark(Number.isFinite(original.flowKaleidoChance) ? `${Math.round(original.flowKaleidoChance * 100)}%` : 'auto');
+    autoLine.replaceChildren();
+    const text = document.createElement('span');
+    text.className = 'auto';
+    text.textContent = isAuto ? 'auto: Serene 24% · Alive 38% · Wild 46%' : `${Math.round(v * 100)}% in every Flow personality`;
+    const btn = document.createElement('button');
+    btn.textContent = isAuto ? 'set %' : 'auto';
+    btn.onclick = () => {
+      if (isAuto) current.flowKaleidoChance = 0.38;
+      else if (Number.isFinite(original.flowKaleidoChance) || original.flowKaleidoChance === null) current.flowKaleidoChance = null;
+      else delete current.flowKaleidoChance;
+      showChance(); changedState();
+    };
+    autoLine.append(text, btn);
+  };
+  showChance();
+  sec.append(chance.el);
+
+  // Flow segment range
+  const segs = item('Flow segments', 'flowKaleidoMin', () => {});
+  const segLine = document.createElement('div');
+  segLine.className = 'flow';
+  segs.el.append(segLine);
+  const showSegs = () => {
+    segLine.replaceChildren();
+    const lo = current.flowKaleidoMin ?? 4, hi = current.flowKaleidoMax ?? 10;
+    const changed = !same(current.flowKaleidoMin, original.flowKaleidoMin) || !same(current.flowKaleidoMax, original.flowKaleidoMax);
+    segs.el.classList.toggle('changed', changed);
+    segs.head.querySelector('.was').textContent = changed ? `was ${original.flowKaleidoMin ?? 4}–${original.flowKaleidoMax ?? 10}` : '';
+    const label = document.createElement('span');
+    label.className = 'label'; label.textContent = 'from';
+    const inputs = [['flowKaleidoMin', lo], ['flowKaleidoMax', hi]].map(([f, v]) => {
+      const input = document.createElement('input');
+      input.type = 'number'; input.min = 3; input.max = 12; input.step = 1; input.value = v;
+      input.setAttribute('aria-label', f === 'flowKaleidoMin' ? 'Fewest Flow segments' : 'Most Flow segments');
+      input.onchange = () => { const n = Math.round(Number(input.value)); if (n >= 3 && n <= 12) { current[f] = n; showSegs(); changedState(); } };
+      return input;
+    });
+    const to = document.createElement('span'); to.textContent = 'to';
+    segLine.append(label, inputs[0], to, inputs[1]);
+  };
+  segs.head.querySelector('.reset').onclick = () => {
+    for (const f of ['flowKaleidoMin', 'flowKaleidoMax']) { if (original[f] === undefined) delete current[f]; else current[f] = original[f]; }
+    showSegs(); changedState();
+  };
+  showSegs();
+  sec.append(segs.el);
+  return sec;
+}
+
+function colorsSection() {
+  const sec = document.createElement('section');
+  sec.innerHTML = '<h2>Colors</h2>';
+  const it = item('Palette', 'colors', () => render());
   const wrap = document.createElement('div');
   wrap.className = 'colors';
+  it.el.append(wrap);
   const render = () => {
     wrap.replaceChildren();
     current.colors.forEach((color, i) => {
@@ -222,21 +393,21 @@ function colorsRow() {
       input.type = 'color';
       input.value = toHex(color);
       input.setAttribute('aria-label', `Color ${i + 1}`);
-      input.oninput = () => { current.colors[i] = input.value; mark(); };
+      input.oninput = () => { current.colors[i] = input.value; it.mark(`${original.colors.length} colors`); changedState(); };
       wrap.append(input);
     });
     const add = document.createElement('button');
     add.className = 'small'; add.textContent = '+'; add.disabled = current.colors.length >= 8; add.setAttribute('aria-label', 'Add color');
-    add.onclick = () => { current.colors.push(current.colors.at(-1)); render(); mark(); };
+    add.onclick = () => { current.colors.push(current.colors.at(-1)); render(); changedState(); };
     const remove = document.createElement('button');
     remove.className = 'small'; remove.textContent = '−'; remove.disabled = current.colors.length <= 1; remove.setAttribute('aria-label', 'Remove last color');
-    remove.onclick = () => { current.colors.pop(); render(); mark(); };
+    remove.onclick = () => { current.colors.pop(); render(); changedState(); };
     wrap.append(add, remove);
-    mark();
+    it.mark(`${original.colors.length} colors`);
   };
-  const mark = () => { wrap.classList.toggle('changed', !same(current.colors, original.colors)); changedState(); };
   render();
-  return wrap;
+  sec.append(it.el);
+  return sec;
 }
 function toHex(color) {
   if (/^#[0-9a-f]{6}$/i.test(color)) return color.toLowerCase();
@@ -251,27 +422,27 @@ function renderFields() {
   const used = new Set();
   const section = (title, fields) => {
     const el = document.createElement('section');
-    const h = document.createElement('h2');
-    h.textContent = title;
-    el.append(h);
+    el.innerHTML = `<h2>${title}</h2>`;
     for (const field of fields) {
-      if (!(field in current) && !['kaleidoscopeEnabled', 'kaleidoscopeSegments', 'spinningKaleido'].includes(field)) continue;
-      if (!(field in current)) { current[field] = field === 'kaleidoscopeSegments' ? 6 : false; original[field] = current[field]; }
+      if (!(field in current)) continue;
       used.add(field);
       const v = current[field];
-      if (field === 'particleLighting') el.append(selectRow(field, LIGHTING));
-      else if (typeof v === 'boolean') el.append(checkRow(field));
-      else if (typeof v === 'number') el.append(numberRow(field));
+      if (field === 'particleLighting') el.append(selectItem(field, LIGHTING));
+      else if (typeof v === 'boolean') el.append(checkItem(field));
+      else if (typeof v === 'number') el.append(numberItem(field));
     }
     if (el.children.length > 1) host.append(el);
   };
   for (const [title, fields] of GROUPS) section(title, fields);
-  const extras = Object.keys(current).filter(f => !used.has(f) && !SKIP.has(f) && (typeof current[f] === 'number' || typeof current[f] === 'boolean'));
+  const extras = Object.keys(current).filter(f => !used.has(f) && !SKIP.has(f) && !isFlowField(f) && (typeof current[f] === 'number' || typeof current[f] === 'boolean'));
   section('Scene-specific', extras);
-  const colors = document.createElement('section');
-  colors.innerHTML = '<h2>Colors</h2>';
-  colors.append(colorsRow());
-  host.append(colors);
+  host.append(kaleidoSection(), colorsSection());
+  if (!current.particleShape || current.particleShape === 'ellipse') {
+    const note = document.createElement('p');
+    note.className = 'hint';
+    note.textContent = 'Flow treats plain-ellipse scenes as a free-roaming family, so Flow ranges here only matter when this preset is loaded directly.';
+    host.append(note);
+  }
 }
 
 // ---------- music ----------
@@ -283,46 +454,55 @@ function renderMusic() {
   const flat = flatten(musicCurrent), base = flatten(musicOriginal);
   for (const p of params) {
     if (!(p.key in flat)) continue;
-    const row = document.createElement('div');
-    row.className = 'row';
-    const label = document.createElement('label');
-    label.title = p.hint || '';
-    const name = document.createElement('span');
-    const was = document.createElement('span');
-    name.textContent = p.label;
-    was.className = 'was';
-    label.append(name, was);
-    const slider = document.createElement('input');
-    slider.type = 'range'; slider.min = p.min; slider.max = p.max; slider.step = p.step; slider.setAttribute('aria-label', p.label);
-    const box = document.createElement('input');
-    box.type = 'number'; box.step = p.step; box.setAttribute('aria-label', `${p.label} value`);
+    const el = document.createElement('div');
+    el.className = 'item';
+    const head = document.createElement('div');
+    head.className = 'head';
+    head.title = p.hint || '';
+    const name = document.createElement('span'); name.className = 'name'; name.textContent = p.label;
+    const was = document.createElement('span'); was.className = 'was';
+    const reset = document.createElement('button');
+    reset.className = 'reset'; reset.textContent = '↺'; reset.setAttribute('aria-label', `Reset ${p.label}`);
+    head.append(name, was, reset);
+    const ctl = slider([p.min, p.max, p.step], v => set(v));
+    ctl.slider.setAttribute('aria-label', p.label);
+    ctl.box.setAttribute('aria-label', `${p.label} value`);
+    el.append(head, ctl.wrap);
     const show = () => {
       const v = flatten(musicCurrent)[p.key];
-      slider.value = v; box.value = v;
+      ctl.set(v);
       const changed = v !== base[p.key];
-      row.classList.toggle('changed', changed);
+      el.classList.toggle('changed', changed);
       was.textContent = changed ? `was ${base[p.key] ?? '—'}` : '';
     };
     const set = v => { setFlat(p.key, Math.min(p.max, Math.max(p.min, clean(v)))); show(); musicChanged(); };
-    slider.oninput = () => set(Number(slider.value));
-    box.onchange = () => Number.isFinite(Number(box.value)) && set(Number(box.value));
-    row.append(label, slider, box);
-    host.append(row);
+    reset.onclick = () => {
+      if (p.key in base) set(base[p.key]);
+      else { removeFlat(p.key); renderMusic(); musicChanged(); }
+    };
+    host.append(el);
     show();
   }
   if (musicCurrent.ripple) {
     for (const [k, choices] of Object.entries(state.music.choices)) {
       const sub = k.slice(7);
-      const row = document.createElement('div');
-      row.className = 'check';
+      const el = document.createElement('div');
+      el.className = 'item';
+      const head = document.createElement('div');
+      head.className = 'head';
+      const name = document.createElement('span'); name.className = 'name'; name.textContent = k;
+      const reset = document.createElement('button');
+      reset.className = 'reset'; reset.textContent = '↺'; reset.setAttribute('aria-label', `Reset ${k}`);
+      head.append(name, reset);
       const sel = document.createElement('select');
       sel.setAttribute('aria-label', k);
       for (const c of choices) sel.add(new Option(c, c));
-      sel.value = musicCurrent.ripple[sub];
-      sel.onchange = () => { musicCurrent.ripple[sub] = sel.value; row.classList.toggle('changed', sel.value !== musicOriginal.ripple?.[sub]); musicChanged(); };
-      row.classList.toggle('changed', musicCurrent.ripple[sub] !== musicOriginal.ripple?.[sub]);
-      row.append(document.createTextNode(k), sel);
-      host.append(row);
+      const show = () => { sel.value = musicCurrent.ripple[sub]; el.classList.toggle('changed', sel.value !== musicOriginal.ripple?.[sub]); };
+      sel.onchange = () => { musicCurrent.ripple[sub] = sel.value; show(); musicChanged(); };
+      reset.onclick = () => { if (musicOriginal.ripple?.[sub]) { musicCurrent.ripple[sub] = musicOriginal.ripple[sub]; show(); musicChanged(); } };
+      el.append(head, sel);
+      host.append(el);
+      show();
     }
   }
   const add = $('music-add');
@@ -333,7 +513,7 @@ function renderMusic() {
 function flatten(prof) {
   const out = {};
   for (const [k, v] of Object.entries(prof || {})) {
-    if (k === 'ripple' && v) for (const [rk, rv] of Object.entries(v)) { if (typeof rv === 'number') out['ripple.' + rk] = rv; }
+    if (k === 'ripple' && v) { for (const [rk, rv] of Object.entries(v)) if (typeof rv === 'number') out['ripple.' + rk] = rv; }
     else if (typeof v === 'number') out[k] = v;
   }
   return out;
@@ -341,6 +521,10 @@ function flatten(prof) {
 function setFlat(k, v) {
   if (k.startsWith('ripple.')) { musicCurrent.ripple = musicCurrent.ripple || { amp: 0, dir: 'out', freq: 1, to: 'both' }; musicCurrent.ripple[k.slice(7)] = v; }
   else musicCurrent[k] = v;
+}
+function removeFlat(k) {
+  if (k.startsWith('ripple.')) { if (!musicOriginal.ripple) delete musicCurrent.ripple; }
+  else delete musicCurrent[k];
 }
 $('music-add-btn').onclick = () => {
   const k = $('music-add').value;
@@ -357,7 +541,10 @@ function musicChanged() {
 // ---------- state ----------
 function presetChanges() {
   const out = {};
-  for (const [field, value] of Object.entries(current)) if (!same(value, original[field])) out[field] = value;
+  for (const field of new Set([...Object.keys(current), ...Object.keys(original)])) {
+    if (same(current[field], original[field])) continue;
+    out[field] = current[field] === undefined ? null : current[field];
+  }
   return out;
 }
 function changedState() {
@@ -369,11 +556,11 @@ function loadKey(next) {
   if (current && Object.keys(presetChanges()).length && !confirm('Discard unsaved changes to this preset?')) { $('preset').value = key; return; }
   key = next;
   const p = state.presets[key];
-  original = JSON.parse(JSON.stringify(p));
-  current = JSON.parse(JSON.stringify(p));
+  original = copy(p);
+  current = copy(p);
   musicShape = p.particleShape || 'ellipse';
-  musicOriginal = state.music.profiles[musicShape] ? JSON.parse(JSON.stringify(state.music.profiles[musicShape])) : null;
-  musicCurrent = musicOriginal ? JSON.parse(JSON.stringify(musicOriginal)) : null;
+  musicOriginal = state.music.profiles[musicShape] ? copy(state.music.profiles[musicShape]) : null;
+  musicCurrent = musicOriginal ? copy(musicOriginal) : null;
   renderFields();
   renderMusic();
   changedState();
@@ -383,8 +570,8 @@ function loadKey(next) {
 }
 $('preset').onchange = () => loadKey($('preset').value);
 $('reset').onclick = () => {
-  current = null;
   if (musicOriginal) win()?.MusicMoods?.setProfile?.(musicShape, musicOriginal);
+  current = null;
   loadKey(key);
 };
 $('save').onclick = async () => {
@@ -395,10 +582,10 @@ $('save').onclick = async () => {
     if (musicCurrent && !same(musicCurrent, musicOriginal)) Object.assign(body, { musicShape, musicProfile: musicCurrent });
     const result = await api('/api/studio/save', body);
     status(`Pull request opened: <a href="${result.url}" target="_blank" rel="noopener">${result.url}</a> — merge it to publish.`);
-    state.presets[key] = JSON.parse(JSON.stringify(current));
-    if (body.musicProfile) state.music.profiles[musicShape] = JSON.parse(JSON.stringify(musicCurrent));
-    original = JSON.parse(JSON.stringify(current));
-    musicOriginal = musicCurrent ? JSON.parse(JSON.stringify(musicCurrent)) : null;
+    state.presets[key] = copy(current);
+    if (body.musicProfile) state.music.profiles[musicShape] = copy(musicCurrent);
+    original = copy(current);
+    musicOriginal = musicCurrent ? copy(musicCurrent) : null;
     renderFields(); renderMusic(); changedState();
   } catch (error) {
     status(`Couldn't save: ${error.message}`);

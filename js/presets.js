@@ -2,6 +2,12 @@
 // ETERNAL VOID - PRESET CONFIGURATIONS & COLOR PALETTES (UPGRADED EXTREMES)
 // ==========================================================================
 
+// Presets built from another preset copy its look, not its Flow tuning or New! date.
+function ownLook(preset) {
+    const { flowKaleidoChance, flowKaleidoMin, flowKaleidoMax, flowRanges, addedOn, ...look } = preset;
+    return look;
+}
+
 const StylePresets = {
     breathSanctuary: {
         name: "Breath Sanctuary",
@@ -52,6 +58,7 @@ const StylePresets = {
     cosmic: {
         name: "Nebula Spark",
         desc: "Fine curling sparks drift through clouds that swell, ignite, and fade.",
+        flowKaleidoChance: 0.5,
         speed: 0.70,
         turbulence: 0.45,
         curl: 0.92,
@@ -182,6 +189,7 @@ const StylePresets = {
         addedOn: "2026-09-29",
         name: "Mandelbrot Dive",
         desc: "An endless dive through glowing fractal spirals toward a hidden mini-Mandelbrot, which becomes the whole set again for the next dive.",
+        flowKaleidoChance: 0.5,
         speed: 0.4,
         turbulence: 0.05,
         curl: 0.96,
@@ -307,6 +315,7 @@ const StylePresets = {
     strings: {
         name: "Cosmic Strings",
         desc: "Long, ultra-fine cyan and lilac filaments weave a dense web of curling light.",
+        flowKaleidoChance: 1, flowKaleidoMin: 8, flowKaleidoMax: 8,
         speed: 0.90,
         turbulence: 0.35,
         curl: 0.90,
@@ -326,6 +335,7 @@ const StylePresets = {
     hypno: {
         name: "Chaotic Spiral",
         desc: "A full-screen coil with 4–8 smaller spirals bouncing through it, plus thin zigzag particles.",
+        flowKaleidoChance: 0.58,
         speed: 0.32,
         turbulence: 0.16,
         curl: 0.94,
@@ -381,6 +391,7 @@ const StylePresets = {
     tightTailVortex: {
         name: "Tight Tail Vortex",
         desc: "A flat, living vortex: comet trails naturally fall inward, turn, and stream back out.",
+        flowKaleidoMax: 4,
         speed: 0.58,
         turbulence: 0.04,
         curl: 0.98,
@@ -481,6 +492,7 @@ const StylePresets = {
     acid: {
         name: "Acid Rain",
         desc: "Torrential downpour of melting rainbow droplets shifting and warping dynamically.",
+        flowKaleidoChance: 0,
         speed: 1.80,
         turbulence: 0.95,
         curl: 0.55,
@@ -578,6 +590,7 @@ const StylePresets = {
     cluster: {
         name: "Cosmic Organelles",
         desc: "Rounded pink and cyan capsules drift through trailing light, with tiny dots tucked inside their glowing heads.",
+        flowKaleidoChance: 0.58,
         speed: 0.70,
         turbulence: 0.45,
         curl: 0.88,
@@ -702,6 +715,7 @@ const StylePresets = {
     neonConduits: {
         name: "Neon Conduits",
         desc: "Luminous energy pipes traverse a geometric labyrinth, snapping through deliberate 90° turns and glowing junctions.",
+        flowKaleidoChance: 0.58, flowKaleidoMin: 4, flowKaleidoMax: 8,
         speed: 0.48,
         turbulence: 0.0,
         curl: 1.0,
@@ -727,6 +741,7 @@ const StylePresets = {
     circuitCity: {
         name: "Circuit City",
         desc: "A dense living motherboard of tiny neon routes, rapid data pulses, and tightly packed right-angle streets.",
+        flowKaleidoChance: 0.58, flowKaleidoMin: 4, flowKaleidoMax: 8,
         speed: 0.62,
         turbulence: 0.0,
         curl: 1.0,
@@ -752,6 +767,7 @@ const StylePresets = {
     conduitCathedral: {
         name: "Conduit Cathedral",
         desc: "Monumental luminous frames rise like impossible architecture while slow energy pilgrims cross their vast corners.",
+        flowKaleidoChance: 0.58, flowKaleidoMin: 4, flowKaleidoMax: 8,
         speed: 0.28,
         turbulence: 0.0,
         curl: 1.0,
@@ -777,6 +793,7 @@ const StylePresets = {
     circuitShrine: {
         name: "Circuit Shrine",
         desc: "Nested square circuits breathe around a radiant center—part mandala, part machine-temple, all precise 90° motion.",
+        flowKaleidoChance: 0.58, flowKaleidoMin: 4, flowKaleidoMax: 8,
         speed: 0.38,
         turbulence: 0.0,
         curl: 1.0,
@@ -803,25 +820,27 @@ const StylePresets = {
 
 // New identities use new keys; old favorites and shared scenes retain their visuals.
 StylePresets.quantumGrid = {
-    ...StylePresets.quantum,
+    ...ownLook(StylePresets.quantum),
     name: "Quantum Grid",
     desc: "Streams of light travel through a rippling lattice, weaving across one another like a living energy fabric.",
+    flowKaleidoChance: 0,
     particleShape: "quantumLattice", particleLighting: "glow",
     speed: 3.5, turbulence: 0, density: 2200, dissipation: 0.07,
     size: 3, sizeVar: 0.6, stretch: 1, rotationSpeed: 0, wobble: 0,
     interaction: 0, kaleidoscopeEnabled: false
 };
 StylePresets.mandalaZen = {
-    ...StylePresets.mandala,
+    ...ownLook(StylePresets.mandala),
     name: "Mandala Zen",
     desc: "Eleven twelve-petal rosettes counter-rotate and swell, from delicate inner blooms to vast painted ribbons sweeping beyond the screen.",
+    flowKaleidoChance: 0.58,
     particleShape: "zenMandala", particleLighting: "glow",
     speed: 0.15, turbulence: 0, density: 3000, dissipation: 0.026,
     size: 4.5, sizeVar: 0.5, stretch: 1, rotationSpeed: 0, wobble: 0,
     interaction: 0, kaleidoscopeEnabled: false
 };
 StylePresets.blackHoleVortex = {
-    ...StylePresets.vortex,
+    ...ownLook(StylePresets.vortex),
     name: "Black Hole Vortex",
     desc: "Five sweeping currents curl inward through overlapping ribbons toward a dark central opening.",
     particleShape: "gravityWell", particleLighting: "glow",
@@ -832,7 +851,7 @@ StylePresets.blackHoleVortex = {
 };
 
 StylePresets.fractalNebula = {
-    ...StylePresets.mandalaZen,
+    ...ownLook(StylePresets.mandalaZen),
     name: "Fractal Nebula",
     desc: "Eight layered fractal blooms counter-rotate, with oversized outer branches sweeping beyond the screen and colored currents splitting into smaller forks.",
     particleShape: "fractalBloom", particleLighting: "glow",
@@ -844,7 +863,7 @@ StylePresets.fractalNebula = {
 };
 
 StylePresets.liquidChrome = {
-    ...StylePresets.mandalaZen,
+    ...ownLook(StylePresets.mandalaZen),
     name: "Liquid Chrome",
     desc: "Broad metallic ribbons fold through one another, carrying silver highlights and colored reflections across dark polished surfaces.",
     particleShape: "chromeRibbon", particleLighting: "metal",
@@ -865,6 +884,11 @@ const PresetOrder = [
     "circuitShrine", "quantumGrid", "mandalaZen", "blackHoleVortex", "fractalNebula"
 ];
 const PRESET_NEW_DAYS = 30;
+
+// Flow fields a preset may carry (all optional; tuned in tools/studio.html):
+//   flowKaleidoChance  0..1 chance Flow mirrors this scene (unset = Flow personality's chance)
+//   flowKaleidoMin/Max segment range Flow picks from (unset = 4..10)
+//   flowRanges         { field: [min, max] } exact Flow range per value (unset = preset ± variation)
 
 function getOrderedPresetKeys() {
     const listed = PresetOrder.filter(key => StylePresets[key]);

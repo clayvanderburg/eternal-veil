@@ -38,6 +38,7 @@ export function loadMusic(text) {
 // ---------- writing presets.js ----------
 const COLOR = /^#[0-9a-fA-F]{6}$/;
 function formatValue(value) {
+  if (value === null) return 'null'; // "auto" for optional Flow fields
   if (typeof value === 'boolean') return String(value);
   if (typeof value === 'number') {
     if (!Number.isFinite(value) || Math.abs(value) > 100000) throw new Error('Number out of range');
@@ -48,6 +49,18 @@ function formatValue(value) {
     return '[' + value.map(c => `"${c.toLowerCase()}"`).join(', ') + ']';
   }
   if (typeof value === 'string' && /^[A-Za-z]{1,40}$/.test(value)) return `"${value}"`;
+  if (value && typeof value === 'object') {
+    // flowRanges: { field: [min, max] }
+    const entries = Object.entries(value);
+    if (entries.length > 40) throw new Error('Too many Flow ranges');
+    const parts = entries.map(([field, range]) => {
+      if (!/^[A-Za-z][A-Za-z0-9]{0,40}$/.test(field) || !Array.isArray(range) || range.length !== 2 || !range.every(n => typeof n === 'number' && Number.isFinite(n))) {
+        throw new Error(`Bad Flow range for ${field}`);
+      }
+      return `${field}: [${formatValue(Math.min(...range))}, ${formatValue(Math.max(...range))}]`;
+    });
+    return parts.length ? `{ ${parts.join(', ')} }` : '{}';
+  }
   throw new Error('Unsupported value');
 }
 function presetBlock(text, key) {
@@ -73,9 +86,11 @@ function applyPresetChangesLf(text, key, changes) {
   let block = text.slice(start, end);
   for (const [field, value] of Object.entries(changes)) {
     if (!/^[A-Za-z][A-Za-z0-9]{0,40}$/.test(field) || ['name', 'desc', 'addedOn'].includes(field)) throw new Error(`Field ${field} can't be edited here`);
-    if (!(field in known) && typeof value !== 'number' && typeof value !== 'boolean') throw new Error(`Unknown field ${field}`);
+    const flowField = /^flow[A-Z]/.test(field);
+    if (!(field in known) && !flowField && typeof value !== 'number' && typeof value !== 'boolean') throw new Error(`Unknown field ${field}`);
+    if (!flowField && (value === null || (typeof value === 'object' && !Array.isArray(value)))) throw new Error(`Field ${field} needs a value`);
     const formatted = formatValue(value);
-    const pattern = new RegExp(`(^|[\\s,{])(${field}:\\s*)(\\[[^\\]]*\\]|"[^"]*"|[^,\\n}]+)`, 'm');
+    const pattern = new RegExp(`(^|[\\s,{])(${field}:\\s*)(\\{[^}]*\\}|\\[[^\\]]*\\]|"[^"]*"|[^,\\n}]+)`, 'm');
     if (pattern.test(block)) block = block.replace(pattern, (m, pre, label) => `${pre}${label}${formatted}`);
     else {
       // Inherited or new field: add it as this preset's own line, after name/desc.
@@ -91,6 +106,7 @@ function applyPresetChangesLf(text, key, changes) {
   for (const [field, value] of Object.entries(changes)) {
     const got = check[field];
     const ok = Array.isArray(value) ? JSON.stringify(got) === JSON.stringify(value.map(c => c.toLowerCase()))
+      : value && typeof value === 'object' ? Object.entries(value).every(([f, r]) => Math.abs(got?.[f]?.[0] - Math.min(...r)) < 1e-3 && Math.abs(got?.[f]?.[1] - Math.max(...r)) < 1e-3)
       : typeof value === 'number' ? Math.abs(got - value) < 1e-3 : got === value;
     if (!ok) throw new Error(`Couldn't write ${key}.${field} safely`);
   }
