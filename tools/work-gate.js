@@ -29,7 +29,7 @@ const suites = {
     "node tools/work-gate.js preset-2d", "node --check js/music-player.js", "node --check js/music-library.js", "node scratch/music_library_tests.js", "node scratch/music_source_tests.js", "node scratch/color_cycles_tests.js",
     "node scratch/color_theory_tests.js", "node scratch/meditation_mode_tests.js",
     "node --check js/feedback.js", "node scratch/feedback_tests.js", "node scratch/support_interest_tests.js",
-    "node --check js/visual-playlists.js", "node scratch/visual_playlists_tests.js"
+    "node --check js/visual-playlists.js", "node scratch/visual_playlists_tests.js", "node scratch/social_links_tests.js"
   ]
 };
 if (!suites[lane]) {
