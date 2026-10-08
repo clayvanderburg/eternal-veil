@@ -14,14 +14,17 @@ Open http://127.0.0.1:8820/tools/studio.html (local only; the server refuses oth
 ## Use
 
 1. Pick a preset. The preview switches to it and holds your values while you drag.
-2. Adjust Motion, Particles, Kaleidoscope, scene-specific settings and Colors. Speed and
-   dissipation sliders are logarithmic for fine control at the slow end; type exact values
-   in the boxes. Changed values turn amber and show the old value.
+   "was …" always shows what is live on eternalvoid.io (GitHub `main`).
+2. Adjust Motion, Particles, Kaleidoscope (including Flow chance and segment range),
+   scene-specific settings and Colors. Each value Flow varies has a cyan Flow line: auto
+   (preset ± personality variation) or an exact range. ↺ resets one value to live.
 3. Music reaction edits the shared card for the preset's shape. Start music in the preview
    (Show site controls → ♫) to see it.
-4. Save as pull request: the server writes only the changed values into a fresh copy of
-   `origin/main`, commits on a `studio/…` branch, pushes it and opens a PR. Merge it on
-   GitHub to publish. Your working folder is never edited.
+4. Save keeps the preset as a draft (stored in this browser; survives reloads). Repeat for
+   as many presets as you like; drafts show as chips (click to reopen, × to discard).
+5. Publish sends every draft as ONE pull request (written into a fresh copy of `origin/main`
+   on a `studio/…` branch). Ask Claude to merge it; merging publishes. Published-but-not-
+   merged changes stay visible as "waiting to be merged" until the live site has them.
 
 Flow centres each scene on its preset values (with the personality's small variation), so
 what you tune is what Flow shows. `STUDIO_DRY_RUN=1` exercises Save without pushing.

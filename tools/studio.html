@@ -48,6 +48,13 @@ button.primary { background: var(--accent); color: var(--accent-ink); border-col
 button:disabled { opacity: .45; cursor: default; }
 .small { font-size: 11px; padding: 4px 8px; }
 .hint { color: var(--muted); font-size: 11px; margin: 4px 0 8px; }
+#drafts { display: flex; flex-wrap: wrap; gap: 6px; }
+#drafts:empty::before { content: "No saved drafts yet."; color: var(--muted); font-size: 11px; }
+.chip { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--line); border-radius: 999px; font-size: 11px; background: #ffffff08; }
+.chip button { border: 0; background: none; padding: 3px 8px; font-size: 11px; border-radius: 999px; }
+.chip button.x { padding: 3px 7px 3px 2px; color: var(--muted); }
+.chip.active { border-color: var(--accent); }
+#pending a { color: var(--good); }
 #status { font-size: 11px; color: var(--muted); min-height: 15px; word-break: break-word; }
 #status a { color: var(--good); }
 .bar { display: flex; gap: 8px; }
@@ -63,7 +70,7 @@ button:disabled { opacity: .45; cursor: default; }
   <p class="sub" id="branch">Loading…</p>
   <label for="preset">Preset</label>
   <select id="preset"></select>
-  <p class="hint">Values apply to the preview instantly. Changed values turn amber (↺ resets one); Save opens a pull request with only those.
+  <p class="hint">Values apply to the preview instantly. Amber = different from the live site (↺ resets one). Save keeps a preset as a draft; Publish sends every draft in one pull request.
     <span style="color:var(--flow)">Flow</span> lines set what Flow picks when it visits this scene.</p>
   <div class="bar"><button id="site-ui" class="small">Show site controls</button><button id="reload" class="small">Reload preview</button></div>
   <div id="fields"></div>
@@ -75,9 +82,12 @@ button:disabled { opacity: .45; cursor: default; }
   </section>
 </aside>
 <div id="footer">
+  <div class="bar"><button id="reset">Reset preset</button><button id="save" disabled>Save</button></div>
+  <div id="drafts" aria-label="Saved drafts"></div>
   <label for="note" class="hint" style="margin:0">Note for the pull request (optional)</label>
   <input id="note" type="text" maxlength="300" autocomplete="off">
-  <div class="bar"><button id="reset">Reset preset</button><button id="save" class="primary" disabled>Save as pull request</button></div>
+  <button id="publish" class="primary" disabled>Publish</button>
+  <div id="pending" class="hint" style="margin:0"></div>
   <div id="status" role="status" aria-live="polite"></div>
 </div>
 </div>
@@ -85,6 +95,12 @@ button:disabled { opacity: .45; cursor: default; }
 const $ = id => document.getElementById(id);
 const stage = $('stage');
 let state, key, original, current, musicOriginal, musicCurrent, musicShape;
+// Browser-only stores. drafts/published hold changes relative to the live site.
+const store = name => { try { return JSON.parse(localStorage.getItem(name)) || { presets: {}, music: {} }; } catch { return { presets: {}, music: {} }; } };
+const persist = (name, value) => { try { localStorage.setItem(name, JSON.stringify(value)); } catch { /* storage unavailable */ } };
+let drafts = store('evStudioDrafts');
+let published = store('evStudioPublished');
+published.prs = published.prs || [];
 
 // Preset fields map to these simulation settings.
 const ALIAS = { size: 'baseSize', sizeVar: 'sizeVariation', curl: 'flowOrganic' };
@@ -539,6 +555,73 @@ function musicChanged() {
 }
 
 // ---------- state ----------
+function applyChanges(base, changes) {
+  const out = copy(base);
+  for (const [field, value] of Object.entries(changes || {})) out[field] = copy(value);
+  return out;
+}
+// What this preset looks like once its open PRs and saved draft are applied.
+function savedPreset(k) { return applyChanges(applyChanges(state.presets[k], published.presets[k]), drafts.presets[k]); }
+function savedMusic(shape) { return copy(drafts.music[shape] ?? published.music[shape] ?? state.music.profiles[shape] ?? null); }
+function unsaved() {
+  if (!current) return false;
+  const saved = savedPreset(key);
+  // Defaults the panel fills in (e.g. kaleidoscope segments) exist on current/original only.
+  const value = (obj, f) => f in obj ? obj[f] : original[f];
+  const fields = new Set([...Object.keys(current), ...Object.keys(saved)]);
+  const presetDirty = [...fields].some(f => !same(value(current, f), value(saved, f)));
+  return presetDirty || (musicCurrent && !same(musicCurrent, savedMusic(musicShape)));
+}
+// Drop published changes once the live site has them (the PR was merged).
+function prunePublished() {
+  for (const [k, changes] of Object.entries(published.presets)) {
+    if (!state.presets[k] || Object.entries(changes).every(([f, v]) => same(state.presets[k][f], v))) delete published.presets[k];
+  }
+  for (const [shape, prof] of Object.entries(published.music)) if (same(state.music.profiles[shape], prof)) delete published.music[shape];
+  if (!Object.keys(published.presets).length && !Object.keys(published.music).length) published.prs = [];
+  persist('evStudioPublished', published);
+}
+function draftCount() { return Object.keys(drafts.presets).length + Object.keys(drafts.music).length; }
+function renderDrafts() {
+  const host = $('drafts');
+  host.replaceChildren();
+  const add = (label, open, remove, active) => {
+    const chip = document.createElement('span');
+    chip.className = 'chip' + (active ? ' active' : '');
+    const btn = document.createElement('button');
+    btn.textContent = label;
+    btn.onclick = open;
+    const x = document.createElement('button');
+    x.className = 'x'; x.textContent = '×'; x.setAttribute('aria-label', `Discard draft: ${label}`);
+    x.onclick = remove;
+    chip.append(btn, x);
+    host.append(chip);
+  };
+  for (const k of Object.keys(drafts.presets)) add(state.presets[k]?.name || k, () => switchTo(k), () => discardDraft('presets', k), k === key);
+  for (const shape of Object.keys(drafts.music)) add(`${shape} music`, () => {
+    const k = state.order.find(o => (state.presets[o].particleShape || 'ellipse') === shape);
+    if (k) switchTo(k);
+  }, () => discardDraft('music', shape), shape === musicShape);
+  const n = draftCount();
+  $('publish').disabled = n === 0;
+  $('publish').textContent = n ? `Publish ${n} draft${n === 1 ? '' : 's'} as one pull request` : 'Publish';
+  const pending = [...Object.keys(published.presets).map(k => state.presets[k]?.name || k), ...Object.keys(published.music).map(s => `${s} music`)];
+  $('pending').innerHTML = pending.length
+    ? `Waiting to be merged (not live yet): ${pending.join(', ')} · ${published.prs.map(u => `<a href="${u}" target="_blank" rel="noopener">${u.split('/').pop() === u ? u : '#' + u.split('/').pop()}</a>`).join(' ')}`
+    : '';
+}
+function discardDraft(kind, id) {
+  if (!confirm('Discard this saved draft?')) return;
+  delete drafts[kind][id];
+  persist('evStudioDrafts', drafts);
+  if ((kind === 'presets' && id === key) || (kind === 'music' && id === musicShape)) { current = null; loadKey(key); }
+  else renderDrafts();
+}
+function switchTo(k) {
+  if (k === key) return;
+  $('preset').value = k;
+  loadKey(k);
+}
 function presetChanges() {
   const out = {};
   for (const field of new Set([...Object.keys(current), ...Object.keys(original)])) {
@@ -548,19 +631,20 @@ function presetChanges() {
   return out;
 }
 function changedState() {
-  const n = Object.keys(presetChanges()).length + (musicCurrent && !same(musicCurrent, musicOriginal) ? 1 : 0);
-  $('save').disabled = n === 0;
-  $('save').textContent = n ? `Save ${n} change${n === 1 ? '' : 's'} as pull request` : 'Save as pull request';
+  const dirty = unsaved();
+  $('save').disabled = !dirty;
+  $('save').textContent = dirty ? 'Save draft' : 'Saved';
+  renderDrafts();
 }
 function loadKey(next) {
-  if (current && Object.keys(presetChanges()).length && !confirm('Discard unsaved changes to this preset?')) { $('preset').value = key; return; }
+  if (unsaved() && !confirm('This preset has changes that are not saved as a draft. Discard them?')) { $('preset').value = key; return; }
   key = next;
   const p = state.presets[key];
-  original = copy(p);
-  current = copy(p);
+  original = copy(p);               // "was" = live site
+  current = savedPreset(key);       // live + open PRs + saved draft
   musicShape = p.particleShape || 'ellipse';
   musicOriginal = state.music.profiles[musicShape] ? copy(state.music.profiles[musicShape]) : null;
-  musicCurrent = musicOriginal ? copy(musicOriginal) : null;
+  musicCurrent = musicOriginal ? savedMusic(musicShape) : null;
   renderFields();
   renderMusic();
   changedState();
@@ -569,34 +653,50 @@ function loadKey(next) {
   if (musicCurrent) win()?.MusicMoods?.setProfile?.(musicShape, musicCurrent);
 }
 $('preset').onchange = () => loadKey($('preset').value);
+// Reset returns the preset (and its music card) to what is live, then Save to drop the draft.
 $('reset').onclick = () => {
+  current = copy(original);
+  musicCurrent = musicOriginal ? copy(musicOriginal) : null;
   if (musicOriginal) win()?.MusicMoods?.setProfile?.(musicShape, musicOriginal);
-  current = null;
-  loadKey(key);
+  renderFields(); renderMusic(); changedState();
 };
-$('save').onclick = async () => {
-  $('save').disabled = true;
-  status('Creating a branch and pull request…');
+$('save').onclick = () => {
+  const changes = presetChanges();
+  if (Object.keys(changes).length) drafts.presets[key] = changes; else delete drafts.presets[key];
+  if (musicCurrent && !same(musicCurrent, musicOriginal)) drafts.music[musicShape] = copy(musicCurrent); else delete drafts.music[musicShape];
+  persist('evStudioDrafts', drafts);
+  status(Object.keys(changes).length || drafts.music[musicShape] ? `Saved ${state.presets[key].name} as a draft.` : `${state.presets[key].name} matches the live site; nothing to save.`);
+  changedState();
+};
+$('publish').onclick = async () => {
+  if (unsaved() && !confirm('The current preset has changes that are not saved as a draft. Publish the saved drafts without them?')) return;
+  $('publish').disabled = true;
+  status('Creating one branch and pull request for all drafts…');
   try {
-    const body = { presetKey: key, presetChanges: presetChanges(), note: $('note').value };
-    if (musicCurrent && !same(musicCurrent, musicOriginal)) Object.assign(body, { musicShape, musicProfile: musicCurrent });
-    const result = await api('/api/studio/save', body);
-    status(`Pull request opened: <a href="${result.url}" target="_blank" rel="noopener">${result.url}</a> — merge it to publish.`);
-    state.presets[key] = copy(current);
-    if (body.musicProfile) state.music.profiles[musicShape] = copy(musicCurrent);
-    original = copy(current);
-    musicOriginal = musicCurrent ? copy(musicCurrent) : null;
-    renderFields(); renderMusic(); changedState();
+    const result = await api('/api/studio/publish', { presets: drafts.presets, music: drafts.music, note: $('note').value });
+    if (result.url !== 'dry-run') {
+      Object.assign(published.presets, drafts.presets);
+      Object.assign(published.music, drafts.music);
+      published.prs.push(result.url);
+      persist('evStudioPublished', published);
+    }
+    drafts = { presets: {}, music: {} };
+    persist('evStudioDrafts', drafts);
+    $('note').value = '';
+    current = null;
+    loadKey(key);
+    status(`Pull request opened: <a href="${result.url}" target="_blank" rel="noopener">${result.url}</a>. Ask Claude to merge it to publish.`);
   } catch (error) {
-    status(`Couldn't save: ${error.message}`);
-    changedState();
+    status(`Couldn't publish: ${error.message}`);
+    renderDrafts();
   }
 };
-addEventListener('beforeunload', e => { if (!$('save').disabled) { e.preventDefault(); e.returnValue = ''; } });
+addEventListener('beforeunload', e => { if (unsaved()) { e.preventDefault(); e.returnValue = ''; } });
 
 (async () => {
   state = await api('/api/studio/state');
-  $('branch').textContent = `Previewing branch ${state.branch} · saves go to new pull requests`;
+  prunePublished();
+  $('branch').textContent = `"was" = live site (${state.live}) · preview runs local branch ${state.branch}`;
   for (const k of state.order) $('preset').add(new Option(state.presets[k].name, k));
   loadKey(state.order[0]);
   requestAnimationFrame(pinValues);

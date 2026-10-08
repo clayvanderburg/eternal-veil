@@ -1,11 +1,11 @@
 // Eternal Void Studio server — LOCAL ONLY.
 //   node tools/studio-server.mjs        then open http://127.0.0.1:8820/tools/studio.html
 //
-// Serves this checkout so the Studio can preview the real site, reads presets and
-// music cards, and on Save writes the changes into a fresh git worktree based on
-// origin/main, commits them on a new studio/* branch, pushes it and opens a pull
-// request. The live site only changes when that PR is merged. Your own working
-// folder is never edited.
+// Serves this checkout so the Studio can preview the real site and reads the LIVE
+// presets and music cards (origin/main). Drafts live in the browser. Publish writes
+// every draft into a fresh git worktree based on origin/main, commits them on one
+// studio/* branch, pushes it and opens a single pull request. The live site only
+// changes when that PR is merged. Your own working folder is never edited.
 import http from 'node:http';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -148,30 +148,56 @@ function applyMusicChangeLf(text, shape, profile) {
 
 // ---------- git / PR ----------
 const git = (cwd, ...args) => execFileSync('git', ['-c', 'safe.directory=*', ...args], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
-function openPullRequest({ presetKey, presetChanges, musicShape, musicProfile, note }) {
+// What is live: origin/main, refreshed at most every 20 seconds.
+let liveCache = { at: 0, value: null };
+function readLive() {
+  if (liveCache.value && Date.now() - liveCache.at < 20000) return liveCache.value;
+  try { git(root, 'fetch', '-q', 'origin', 'main'); } catch { /* offline: use the last fetched main */ }
+  const show = file => git(root, 'show', `origin/main:${file}`);
+  const value = {
+    ...loadPresets(show('js/presets.js')),
+    music: loadMusic(show('js/music-moods.js')),
+    live: git(root, 'rev-parse', '--short', 'origin/main'),
+  };
+  liveCache = { at: Date.now(), value };
+  return value;
+}
+
+// One pull request for every drafted preset and music card.
+function openPullRequest({ presets = {}, music = {}, note }) {
+  const presetKeys = Object.keys(presets).filter(k => presets[k] && Object.keys(presets[k]).length);
+  const shapes = Object.keys(music).filter(k => music[k]);
+  if (!presetKeys.length && !shapes.length) throw new Error('Nothing to publish');
+  if (presetKeys.length + shapes.length > 60) throw new Error('Too many drafts in one pull request');
   const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
-  const branch = `studio/${stamp}-${presetKey}`;
+  const branch = `studio/${stamp}-${presetKeys[0] || shapes[0]}${presetKeys.length + shapes.length > 1 ? '-and-more' : ''}`;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-studio-'));
   git(root, 'fetch', '-q', 'origin', 'main');
   git(root, 'worktree', 'add', '-q', '-b', branch, dir, 'origin/main');
   try {
     const files = [];
-    if (presetChanges && Object.keys(presetChanges).length) {
-      const file = path.join(dir, 'js', 'presets.js');
-      fs.writeFileSync(file, applyPresetChanges(fs.readFileSync(file, 'utf8'), presetKey, presetChanges));
-      files.push('js/presets.js');
+    const presetFile = path.join(dir, 'js', 'presets.js');
+    let presetText = fs.readFileSync(presetFile, 'utf8');
+    const names = loadPresets(presetText).presets;
+    const lines = [];
+    for (const key of presetKeys) {
+      presetText = applyPresetChanges(presetText, key, presets[key]);
+      lines.push(`### ${names[key]?.name || key}`, ...Object.entries(presets[key]).map(([k, v]) => `- ${k}: ${JSON.stringify(v)}`), '');
     }
-    if (musicShape && musicProfile) {
-      const file = path.join(dir, 'js', 'music-moods.js');
-      fs.writeFileSync(file, applyMusicChange(fs.readFileSync(file, 'utf8'), musicShape, musicProfile));
+    if (presetKeys.length) { fs.writeFileSync(presetFile, presetText); files.push('js/presets.js'); }
+    if (shapes.length) {
+      const musicFile = path.join(dir, 'js', 'music-moods.js');
+      let musicText = fs.readFileSync(musicFile, 'utf8');
+      for (const shape of shapes) {
+        musicText = applyMusicChange(musicText, shape, music[shape]);
+        lines.push(`### Music card: ${shape}`, `- ${JSON.stringify(music[shape])}`, '');
+      }
+      fs.writeFileSync(musicFile, musicText);
       files.push('js/music-moods.js');
     }
-    if (!files.length) throw new Error('Nothing changed');
-    const name = loadPresets(fs.readFileSync(path.join(dir, 'js', 'presets.js'), 'utf8')).presets[presetKey]?.name || presetKey;
-    const lines = Object.entries(presetChanges || {}).map(([k, v]) => `- ${k}: ${JSON.stringify(v)}`);
-    if (musicShape) lines.push(`- music card (${musicShape}): ${JSON.stringify(musicProfile)}`);
-    const title = `Studio: tune ${name}`;
-    const body = `Tuned in Eternal Void Studio.\n\n${lines.join('\n')}${note ? `\n\nNote: ${String(note).slice(0, 500)}` : ''}\n\nMerging publishes to eternalvoid.io.`;
+    const titled = [...presetKeys.map(k => names[k]?.name || k), ...shapes.map(s => `${s} music`)];
+    const title = `Studio: tune ${titled.length <= 3 ? titled.join(', ') : `${titled.slice(0, 3).join(', ')} and ${titled.length - 3} more`}`;
+    const body = `Tuned in Eternal Void Studio.\n\n${lines.join('\n')}${note ? `\nNote: ${String(note).slice(0, 500)}\n` : ''}\nMerging publishes to eternalvoid.io.`;
     git(dir, 'add', ...files);
     git(dir, 'commit', '-q', '-m', `${title}\n\n${lines.join('\n')}`);
     if (process.env.STUDIO_DRY_RUN) {
@@ -185,7 +211,7 @@ function openPullRequest({ presetKey, presetChanges, musicShape, musicProfile, n
     const url = execFileSync(GH, ['pr', 'create', '--repo', REPO, '--base', 'main', '--head', branch, '--title', title, '--body', body], { encoding: 'utf8' }).trim();
     return { url, branch };
   } finally {
-    try { git(root, 'worktree', 'remove', '--force', dir); } catch { /* left for manual cleanup */ }
+    try { git(root, 'worktree', 'remove', '--force', dir); } catch { /* already removed */ }
   }
 }
 
@@ -198,12 +224,10 @@ export function createStudioServer() {
       if (req.headers.origin && req.headers.origin !== `http://${req.headers.host}`) return send(res, 403, { error: 'Origin rejected.' });
       const url = new URL(req.url, 'http://127.0.0.1');
       if (url.pathname === '/api/studio/state') {
-        const p = loadPresets(fs.readFileSync(path.join(root, 'js/presets.js'), 'utf8'));
-        const m = loadMusic(fs.readFileSync(path.join(root, 'js/music-moods.js'), 'utf8'));
-        return send(res, 200, { ...p, music: m, branch: git(root, 'rev-parse', '--abbrev-ref', 'HEAD') });
+        return send(res, 200, { ...readLive(), branch: git(root, 'rev-parse', '--abbrev-ref', 'HEAD') });
       }
-      if (url.pathname === '/api/studio/save' && req.method === 'POST') {
-        let raw = ''; for await (const chunk of req) { raw += chunk; if (raw.length > 65536) return send(res, 413, { error: 'Too large.' }); }
+      if (url.pathname === '/api/studio/publish' && req.method === 'POST') {
+        let raw = ''; for await (const chunk of req) { raw += chunk; if (raw.length > 524288) return send(res, 413, { error: 'Too large.' }); }
         const body = JSON.parse(raw || '{}');
         return send(res, 200, openPullRequest(body));
       }
