@@ -1403,6 +1403,8 @@ kbd {
         box-sizing: border-box;
         max-height: calc(100dvh - 104px);
         overflow-y: auto;
+        overscroll-behavior: contain;
+        pointer-events: auto; /* lets a tall card scroll by touch on short phones */
         padding: 12px 16px;
     }
     
@@ -2491,14 +2493,11 @@ body:not(.autopilot-active) .control-panel .flow-toggle-group {
     margin-left: 4px;
 }
 
-.hud-scene-row { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
-.hud-scene-save { pointer-events: auto; width: 100%; border: 1px solid rgba(139, 92, 246, 0.62); border-radius: 7px; padding: 8px 10px; color: #f4f0ff; background: linear-gradient(100deg, rgba(92, 55, 185, 0.65), rgba(32, 121, 156, 0.48)); box-shadow: 0 0 16px rgba(119, 92, 246, 0.17); cursor: pointer; font-family: var(--font-display); font-size: 10px; font-weight: 700; letter-spacing: 1.1px; transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; }
-.hud-scene-save:hover { transform: translateY(-1px); border-color: rgba(183, 158, 255, 0.9); box-shadow: 0 0 21px rgba(139, 92, 246, 0.4); }
-.hud-share-row { pointer-events: auto; display: flex; justify-content: center; margin-top: 10px; }
-.hud-share-btn { pointer-events: auto; width: min(100%, 230px); min-height: 44px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 8px; padding: 8px 14px; color: var(--text-secondary); background: rgba(0, 0, 0, 0.32); cursor: pointer; font-family: var(--font-display); font-size: 12px; font-weight: 700; letter-spacing: 0.8px; transition: transform 0.18s ease, color 0.18s ease, border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease; }
-.hud-share-btn:hover { transform: translateY(-1px); color: #ffffff; border-color: rgba(129, 221, 255, 0.78); background: rgba(70, 156, 205, 0.32); box-shadow: 0 0 15px rgba(86, 191, 255, 0.28); }
-.hud-share-primary { color: #ffffff; border-color: rgba(144, 124, 255, 0.78); background: linear-gradient(105deg, rgba(98, 63, 195, 0.72), rgba(37, 137, 172, 0.56)); box-shadow: 0 0 16px rgba(119, 92, 246, 0.22); }
-.hud-share-primary:hover { border-color: rgba(196, 183, 255, 0.95); background: linear-gradient(105deg, rgba(116, 79, 219, 0.82), rgba(44, 161, 203, 0.68)); box-shadow: 0 0 22px rgba(124, 107, 255, 0.42); }
+/* Save and Share are one matched pair: same size, weight and treatment. */
+.hud-scene-actions { pointer-events: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.hud-action-btn { pointer-events: auto; min-height: 44px; border: 1px solid rgba(144, 124, 255, 0.7); border-radius: 8px; padding: 8px 10px; color: #f4f0ff; background: linear-gradient(105deg, rgba(98, 63, 195, 0.68), rgba(37, 137, 172, 0.52)); box-shadow: 0 0 14px rgba(119, 92, 246, 0.2); cursor: pointer; font-family: var(--font-display); font-size: 11px; font-weight: 700; letter-spacing: 0.9px; white-space: nowrap; transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease; }
+.hud-action-btn:hover { transform: translateY(-1px); border-color: rgba(196, 183, 255, 0.95); background: linear-gradient(105deg, rgba(116, 79, 219, 0.82), rgba(44, 161, 203, 0.68)); box-shadow: 0 0 20px rgba(124, 107, 255, 0.4); }
+.hud-action-btn:focus-visible { outline: 2px solid var(--text-accent); outline-offset: 2px; }
 .custom-presets-grid { display: grid; gap: 7px; margin-top: 10px; }
 .custom-preset-empty { padding: 11px 8px; color: var(--text-muted); border: 1px dashed rgba(255, 255, 255, 0.13); border-radius: 7px; font-size: 10px; line-height: 1.45; text-align: center; }
 .custom-preset-card { padding: 8px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 7px; background: rgba(255, 255, 255, 0.035); cursor: pointer; transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease; }
@@ -2934,3 +2933,34 @@ body:not(.autopilot-active) .control-panel .flow-toggle-group {
 .flow-stats-list { list-style: none; margin: 8px 0; padding: 0; font-size: 11px; }
 .flow-stats-list li { display: flex; justify-content: space-between; gap: 8px; padding: 3px 2px; border-bottom: 1px solid var(--border-glass); color: var(--text-secondary); }
 .flow-stats-list li.flow-stats-empty { border: 0; color: var(--text-muted); font-style: italic; }
+
+/* Short landscape screens (phones on their side): the HUD card fits the
+   height and scrolls, and the floating controls stand in a column on the
+   right so they no longer cover the card's buttons. */
+@media (orientation: landscape) and (max-height: 540px) {
+    .hud-container {
+        top: 8px;
+        left: 8px;
+        width: min(340px, calc(100vw - 92px));
+        box-sizing: border-box;
+        max-height: calc(100dvh - 16px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+        pointer-events: auto;
+        padding: 10px 12px;
+        gap: 8px;
+    }
+    .hud-equalizer { display: none; }
+    .hud-heading .project-links a { min-height: 36px; }
+    .floating-controls {
+        top: 8px;
+        right: 8px;
+        flex-direction: column;
+        gap: 6px;
+        padding: 6px;
+        max-height: calc(100dvh - 16px);
+        overflow-y: auto;
+    }
+    .floating-controls.panel-open { display: none; }
+}

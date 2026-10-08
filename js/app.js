@@ -244,6 +244,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function applyHistoryState(state) {
         if (!state) return;
+        window.VisualPlaylists?.takeover("history");
         
         Object.keys(state.settings).forEach(key => {
             const val = state.settings[key];
@@ -286,6 +287,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function applyRandomConfig() {
+        window.VisualPlaylists?.takeover("dice");
         const rnd = (min, max) => min + Math.random() * (max - min);
         const rndInt = (min, max) => Math.floor(rnd(min, max + 1));
         const occasionallyChange = (current, chance, enabledChance) =>
@@ -960,6 +962,32 @@ document.addEventListener("DOMContentLoaded", () => {
             return state();
         };
         
+        window.VisualPlaylists?.init({
+            presets: () => StylePresets,
+            orderedKeys: () => getOrderedPresetKeys(),
+            favorites: () => favoritePresetKeys,
+            excluded: () => excludedPresetKeys,
+            isComfortMode: () => isComfortMode,
+            personality: () => flowPersonality,
+            settingKeys: () => new Set(Object.keys(sim.settings)),
+            is3D: () => is3DMode,
+            isSimPaused: () => sim.isPaused,
+            isAutopilot: () => isAutopilot,
+            canvas: () => sim.canvas,
+            scene: () => ({ settings: { ...sim.settings }, palette: [...sim.palette] }),
+            applyScene: applyPlaylistScene,
+            morphSettings: (targets, seconds) => Object.entries(targets).forEach(([setting, value]) => startMorph(setting, value, seconds * 1000)),
+            morphPalette: (palette, seconds) => startPaletteMorph(palette, seconds * 1000),
+            suspendFlow: () => { if (isAutopilot) toggleAutopilot(false, { announce: false }); },
+            resumeFlow: () => { if (!isAutopilot) toggleAutopilot(true, { announce: false }); },
+            openConsole: () => {
+                togglePanel(true);
+                document.querySelector('.tab-btn[data-tab="tab-playlists"]')?.click();
+            },
+            toast: showToast,
+            log: message => CosmicLogger.info(message)
+        });
+
         // Start inactivity fade countdown
         resetUiFadeTimer();
         
@@ -1163,6 +1191,7 @@ document.addEventListener("DOMContentLoaded", () => {
             elements.presetsGrid.appendChild(empty);
         }
         syncPresetRowState();
+        window.VisualPlaylists?.refresh();
     }
 
     function buildPresetRow(key) {
@@ -1270,6 +1299,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function loadCustomScene(scene) {
         if (!scene?.settings || !Array.isArray(scene.palette)) return;
+        window.VisualPlaylists?.takeover("scene", scene.name);
         releaseActivePreset({ announce: false });
         applyLoadedState({
             settings: scene.settings,
@@ -1479,6 +1509,9 @@ document.addEventListener("DOMContentLoaded", () => {
     function loadPreset(key) {
         const p = StylePresets[key];
         if (!p) return;
+        // A manual pick while a visual playlist plays pauses the playlist and
+        // loads this preset normally, even when it is the playlist's current one.
+        if (window.VisualPlaylists?.takeover("preset", p.name)) lastPresetKey = null;
 
         if (lastPresetKey === key) {
             releaseActivePreset();
@@ -1576,6 +1609,57 @@ document.addEventListener("DOMContentLoaded", () => {
         showToast(`Preset shifted to: ${p.name}`);
         CosmicLogger.info(`Preset shifted to: ${p.name.toUpperCase()}.`);
         captureHistoryState();
+    }
+
+    // --- VISUAL PLAYLISTS BRIDGE ---
+    // Playlists reuse the preset morph engine without loadPreset's manual
+    // toggle and locks. Numeric settings glide for the whole transition;
+    // shape, lighting and kaleidoscope cannot be morphed, so they switch once,
+    // mid-transition, under a trail dissolve (js/visual-playlists.js).
+    let playlistSwitchTimer = null;
+    function applyPlaylistScene({ key, targets, discrete, duration, palette, dissolve }) {
+        const p = StylePresets[key];
+        if (!p || is3DMode) return;
+        activePresetLocks.forEach(setOptionToFlow);
+        activePresetLocks = [];
+        lastPresetKey = key;
+        updateHudPresetName(key);
+        if (elements.hudPresetName) elements.hudPresetName.textContent = `${p.name.toUpperCase()} (PLAYLIST)`;
+        document.querySelectorAll(".preset-card").forEach(card => card.classList.toggle("active", card.getAttribute("data-preset") === key));
+        syncPresetRowState();
+
+        const ms = duration * 1000;
+        // Segments for a kaleidoscope that is about to appear are set with the switch.
+        const kaleidoArriving = discrete.kaleidoscopeEnabled && !sim.settings.kaleidoscopeEnabled;
+        Object.entries(targets).forEach(([setting, value]) => {
+            if (!(setting === "kaleidoscopeSegments" && kaleidoArriving)) startMorph(setting, value, ms);
+        });
+        if (palette) startPaletteMorph(palette, ms);
+
+        clearTimeout(playlistSwitchTimer);
+        const changed = Object.keys(discrete).some(setting => sim.settings[setting] !== discrete[setting]);
+        if (!changed) { modulateSynth(); return; }
+        playlistSwitchTimer = setTimeout(() => {
+            if (is3DMode) return;
+            // Hold the outgoing frame until the incoming scene's trails have built
+            // up (about three trail time-constants), so the switch never dims.
+            const buildUp = 3 / (60 * Math.max(0.004, targets.dissipation ?? sim.settings.dissipation));
+            dissolve?.(sim.canvas, Math.max(1, Math.min(6, Math.max(duration * 0.4, buildUp))));
+            Object.assign(sim.settings, discrete);
+            if (kaleidoArriving && targets.kaleidoscopeSegments != null) {
+                delete activeTransitions.kaleidoscopeSegments;
+                updateActiveSetting("kaleidoscopeSegments", targets.kaleidoscopeSegments);
+            }
+            elements.particleShapeSelect.value = discrete.particleShape;
+            elements.particleLightingSelect.value = discrete.particleLighting;
+            elements.kaleidoscopeToggle.checked = discrete.kaleidoscopeEnabled;
+            elements.kaleidoscopeSettings.classList.toggle("hidden", !discrete.kaleidoscopeEnabled);
+            elements.psychedelicToggle.checked = discrete.psychedelicMode;
+            elements.morphingBgToggle.checked = discrete.morphingBg;
+            elements.spinningKaleidoToggle.checked = discrete.spinningKaleido;
+            updateSignatureControlsVisibility();
+            modulateSynth();
+        }, ms * 0.45);
     }
 
     // Loads a preset's PATTERN/PHYSICS only — colors are left to the independent
@@ -2170,7 +2254,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // --- AUTOPILOT MORPH ROTATOR ---
-    function toggleAutopilot(state) {
+    function toggleAutopilot(state, { announce = true } = {}) {
+        if (state) window.VisualPlaylists?.takeover("flow");
         isAutopilot = state;
         if (elements.autopilotToggle) elements.autopilotToggle.checked = state;
         
@@ -2186,12 +2271,12 @@ document.addEventListener("DOMContentLoaded", () => {
             document.body.classList.add("autopilot-active");
             if (elements.autopilotSettings) elements.autopilotSettings.classList.remove("hidden");
             startAutopilotIntervals();
-            showToast("Autopilot co-pilot engaged.");
+            if (announce) showToast("Autopilot co-pilot engaged.");
         } else {
             document.body.classList.remove("autopilot-active");
             if (elements.autopilotSettings) elements.autopilotSettings.classList.add("hidden");
             stopAutopilotIntervals();
-            showToast("Autopilot co-pilot disengaged.");
+            if (announce) showToast("Autopilot co-pilot disengaged.");
         }
     }
 
@@ -4198,7 +4283,8 @@ document.addEventListener("DOMContentLoaded", () => {
     function getFadeUiElements() {
         return [elements.hud, elements.floatingActions, elements.sidebarHandle,
             elements.controlPanel, elements.flowStatusBanner,
-            document.getElementById('music-player'), document.getElementById('spatial-player')].filter(Boolean);
+            document.getElementById('music-player'), document.getElementById('spatial-player'),
+            document.getElementById('playlist-bar')].filter(Boolean);
     }
 
     function resetUiFadeTimer() {
@@ -4725,6 +4811,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // Tick particle movements on canvas
         sim.tick();
+        window.VisualPlaylists?.dissolveFrame(sim);
         
         // Diagnostic updates in HUD (FPS Counter limit updates to every 500ms)
         frameCount++;
@@ -4772,6 +4859,8 @@ document.addEventListener("DOMContentLoaded", () => {
             goth: "Velvet obsidian shadows, crimson red, and deep burgundy.",
             ocean: "Swaying seafoam greens, deep sapphire, and sandy reefs.",
             chakra: "Chakra energies, crown amethyst violet, throat blue, solar yellow.",
+            wildwood: "Old-growth forest, jungle canopy, river moss, stone and rich earth.",
+            stardream: "Deep-space blues, violet nebulae and a rose-gold stellar dawn.",
             psychedelic: "High contrast neon melts, acid trips, and retro psychedelic hues.",
             custom: "Loops sequentially through custom themes saved in your library."
         };

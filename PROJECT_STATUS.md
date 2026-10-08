@@ -12,6 +12,18 @@ preset values (Studio edits are what Flow shows); `vortexHole` and `blackHoleSiz
 settings; local Eternal Void Studio (`node tools/studio-server.mjs`, see tools/STUDIO.md)
 whose Save opens a pull request.
 
+## 2026-10-07 Visual Playlists candidate (Claude)
+
+Prepared from origin/main 19592fe on branch claude/visual-playlists (independent of the
+unmerged tuning-studio PR #6). Cosmic Console > Playlists: preset playlists saved in this
+browser, Flow-within-playlist and Preset-sequence modes, separate hold and transition
+timing with per-preset overrides, repeat/shuffle, one or two color playlists (alternate or
+combine) on their own clock, trail-dissolve geometry switches, compact status bar, manual
+takeover that pauses with Resume, Comfort Mode limits, excluded presets skipped. Demo
+"Night Voyage" seeded on first visit. The recorder's 60 s cap is unchanged and documented.
+Details, measurements and limitations: VISUAL_PLAYLISTS.md. Release gate passed (14 checks).
+Not merged or deployed.
+
 ## 2026-10-06 Spatial Audio player candidate
 
 Prepared from origin/main 6e1fbd5. Removes the floating speaker button and moves generated
