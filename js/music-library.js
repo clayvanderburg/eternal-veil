@@ -1,7 +1,7 @@
 /* Device-local preferences; the catalog contains only finished audio assets. */
 (function (root) {
     'use strict';
-    const TRACKS = [
+    const NOCTURNAL_TRACKS = [
         ['blackwater-threshold', 'Blackwater Threshold', 238],
         ['undertow', 'Undertow', 234.2],
         ['obsidian-veil', 'Obsidian Veil', 273],
@@ -9,6 +9,15 @@
         ['below-the-signal', 'Below the Signal', 268],
         ['night-without-edges', 'Night Without Edges', 208.6]
     ].map(([id, title, duration]) => ({ id, title, duration, url: `audio/nocturnal/${id}.mp3` }));
+    const DARK_PULSE_TRACKS = [
+        ["iron-pulse","Iron Pulse",209.64],
+        ["black-circuit","Black Circuit",209.48],
+        ["acid-wake","Acid Wake",210],
+        ["gravity-hammer","Gravity Hammer",209.56],
+        ["night-engine","Night Engine",209.96],
+        ["last-voltage","Last Voltage",209.6]
+    ].map(([id, title, duration]) => ({ id, title, duration, url: `audio/dark-pulse/${id}.mp3` }));
+    const TRACKS = [...NOCTURNAL_TRACKS, ...DARK_PULSE_TRACKS];
     const STORAGE_KEY = 'eternalvoid.music.v1';
     class MusicLibrary {
         constructor(storage) {
@@ -43,10 +52,11 @@
                 return true;
             } catch (_) { return false; }
         }
-        playlists() { return [{ id: 'nocturnal', name: 'Nocturnal Drift' }, { id: 'favorites', name: 'Favorites' }, ...this.custom]; }
+        playlists() { return [{ id: 'nocturnal', name: 'Nocturnal Drift' }, { id: 'dark-pulse', name: 'Dark Pulse' }, { id: 'favorites', name: 'Favorites' }, ...this.custom]; }
         track(id) { return TRACKS.find(t => t.id === id); }
         trackIds(id) {
-            if (id === 'nocturnal') return TRACKS.map(t => t.id);
+            if (id === 'nocturnal') return NOCTURNAL_TRACKS.map(t => t.id);
+            if (id === 'dark-pulse') return DARK_PULSE_TRACKS.map(t => t.id);
             if (id === 'favorites') return [...this.favorites];
             return this.custom.find(p => p.id === id)?.tracks.slice() || [];
         }

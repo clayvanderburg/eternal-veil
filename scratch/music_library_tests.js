@@ -35,3 +35,18 @@ assert.equal(malformed.settings.volume, 1);
 assert.equal(malformed.settings.repeat, 'all');
 assert.equal(new MusicLibrary({getItem:()=>null,setItem:()=>{throw Error('full')}}).save(), false);
 console.log('Music library: ban/restore, favorite, custom order, reload, malformed storage, and unavailable persistence passed.');
+
+// Built-in playlists remain separate; existing local preferences can include either catalog.
+const both = new MusicLibrary(storage);
+assert.equal(both.trackIds('nocturnal').length, 6);
+assert.equal(both.trackIds('dark-pulse').length, 6);
+assert(!both.trackIds('nocturnal').some(id => both.trackIds('dark-pulse').includes(id)));
+both.favorite('iron-pulse'); both.banish('iron-pulse');
+assert(!both.playable('dark-pulse').includes('iron-pulse'));
+assert.equal(both.playable('nocturnal').length, 6);
+both.banish('iron-pulse'); both.favorite('iron-pulse'); both.add(both.custom[0].id, 'iron-pulse'); both.save();
+const combined = new MusicLibrary(storage);
+assert(combined.playable(combined.custom[0].id).includes('iron-pulse'));
+assert(combined.playable('favorites').includes('iron-pulse'));
+assert(combined.track('iron-pulse').url === 'audio/dark-pulse/iron-pulse.mp3');
+console.log('Both built-in playlists, cross-catalog favorites, bans, custom lists and saved preferences passed.');
