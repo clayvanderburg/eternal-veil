@@ -4106,11 +4106,13 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                     break;
                 case "arrowleft":
+                    if (window.VoidDevice?.isTV) break; // remote D-pad moves focus instead
                     e.preventDefault();
                     const prevState = ConfigHistory.back();
                     if (prevState) applyHistoryState(prevState);
                     break;
                 case "arrowright":
+                    if (window.VoidDevice?.isTV) break;
                     e.preventDefault();
                     const nextState = ConfigHistory.forward();
                     if (nextState) applyHistoryState(nextState);
