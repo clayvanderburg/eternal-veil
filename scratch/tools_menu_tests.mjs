@@ -35,7 +35,31 @@ try {
     assert.equal((await head.text()).length, 0, 'HEAD has no body');
     assert.equal((await fetch(base + '/tools/not-a-tool.html', { method: 'HEAD' })).status, 404, 'missing tool: 404');
     assert.equal((await fetch(base + '/tools/studio.html')).status, 200, 'Studio still at /tools/studio.html');
+
+    // The steady name: void.localhost (any *.localhost) is accepted; other sites are not.
+    const { isLocalHost } = await import('../tools/studio-server.mjs');
+    for (const h of ['void.localhost', 'void.localhost:80', 'studio.localhost:8820', 'localhost', '127.0.0.1:8820', '[::1]:8820']) assert(isLocalHost(h), `${h} allowed`);
+    for (const h of ['evil.com', 'void.localhost.evil.com', 'localhost.evil.com', '10.0.0.5', '', undefined, 'a.b.localhost']) assert(!isLocalHost(h), `${h} refused`);
+    const http = await import('node:http');
+    const withHost = (host, p = '/tools/') => new Promise((resolve, reject) => {
+        http.get({ host: '127.0.0.1', port: server.address().port, path: p, headers: { host } }, res => { res.resume(); resolve(res.statusCode); }).on('error', reject);
+    });
+    assert.equal(await withHost('void.localhost'), 200, 'served at void.localhost');
+    assert.equal(await withHost('evil.com'), 403, 'other hosts refused');
 } finally {
     server.close();
 }
+
+// listenLocal: IPv4 + IPv6 loopback; a busy port is reported, not fatal.
+{
+    const { listenLocal } = await import('../tools/studio-server.mjs');
+    const first = await listenLocal(0);
+    assert(first.some(r => r.server), 'listens on loopback');
+    const port = first.find(r => r.server).server.address().port;
+    const again = await listenLocal(port);
+    assert(again.find(r => r.host === '127.0.0.1').error, 'busy port reported');
+    for (const r of [...first, ...again]) r.server?.close();
+}
+const serverSource = fs.readFileSync(path.join(root, 'tools/studio-server.mjs'), 'utf8');
+assert(serverSource.includes("const NAME = 'void.localhost';") && /STUDIO_NAME_PORT \?\? 80/.test(serverSource), 'void.localhost on port 80 by default');
 console.log(`Tools menu: ${pages.length} tool pages listed; / and /tools lead to /tools/ on the Studio server.`);

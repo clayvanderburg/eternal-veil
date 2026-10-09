@@ -9,9 +9,12 @@ your changes into a pull request, so nothing reaches eternalvoid.io until you me
 node tools/studio-server.mjs
 ```
 
-Open http://127.0.0.1:8820/tools/ (local only; the server refuses other hosts). That is the
+Open **http://void.localhost/tools/** (local only; the server refuses other hosts). That is the
 menu of every tool: this Studio (`/tools/studio.html`), the Music Lab and every preset lab, all
-on the one address. `/` goes to the menu too.
+on the one address. `/` goes to the menu too. `void.localhost` is port 80, so there is no number
+to remember; any `*.localhost` name reaches this computer with no setup. The old
+http://127.0.0.1:8820/tools/ keeps working (and is the fallback if port 80 is ever taken; the
+server says so when it starts). `STUDIO_NAME_PORT=0` turns the name off.
 
 ## Use
 

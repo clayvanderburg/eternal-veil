@@ -24,7 +24,7 @@ instead of many "make it 10% faster" round trips.
       (`<script src="../js/<module>.js">`), so the lab and the site can never drift.
       It is live at `https://eternalvoid.io/tools/<presetKey>-lab.html` after a push.
 - [ ] Add the lab to the tools menu (`TOOLS` in `tools/index.html`), so it shows at
-      `http://127.0.0.1:8820/tools/` with every other tool (`scratch/tools_menu_tests.mjs` checks).
+      `http://void.localhost/tools/` with every other tool (`scratch/tools_menu_tests.mjs` checks).
 - [ ] The renderer exposes `DEFAULT_TUNING`, the live `tuning` object and
       `setTuning(values)` (clamped). Artistic constants worth tuning live there,
       not scattered through the code.

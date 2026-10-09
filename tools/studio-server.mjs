@@ -1,5 +1,6 @@
 // Eternal Void Studio server — LOCAL ONLY.
-//   node tools/studio-server.mjs        then open http://127.0.0.1:8820/tools/ (menu of every tool)
+//   node tools/studio-server.mjs        then open http://void.localhost/tools/ (menu of every tool)
+//                                       (also http://127.0.0.1:8820/tools/)
 //
 // The preview runs from Studio's own copy of the site (.studio/preview), kept on the live
 // code (origin/main) or on an open pull request being reviewed, so it never depends on
@@ -18,6 +19,10 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.STUDIO_PORT || 8820);
+// The steady address: http://void.localhost/ (port 80, so no number). Any *.localhost name
+// reaches this computer without setup. STUDIO_NAME_PORT=0 turns it off.
+const NAME = 'void.localhost';
+const NAME_PORT = Number(process.env.STUDIO_NAME_PORT ?? 80);
 const GH = process.env.GH_PATH || (process.platform === 'win32' ? 'C:\\Program Files\\GitHub CLI\\gh.exe' : 'gh');
 const REPO = 'clayvanderburg/eternal-veil';
 const FFMPEG = process.env.FFMPEG_PATH || 'ffmpeg';
@@ -453,7 +458,9 @@ function send(res, code, obj) { res.writeHead(code, { 'Content-Type': 'applicati
 export function createStudioServer() {
   return http.createServer(async (req, res) => {
     try {
-      if (!/^(127\.0\.0\.1|localhost)(:\d+)?$/.test(req.headers.host || '')) return send(res, 403, { error: 'Studio runs locally only.' });
+      // Local names only: guards against other websites reaching Studio (DNS rebinding), which
+      // cannot use .localhost names.
+      if (!isLocalHost(req.headers.host)) return send(res, 403, { error: 'Studio runs locally only.' });
       if (req.headers.origin && req.headers.origin !== `http://${req.headers.host}`) return send(res, 403, { error: 'Origin rejected.' });
       const url = new URL(req.url, 'http://127.0.0.1');
       if (url.pathname === '/api/studio/state') {
@@ -497,6 +504,25 @@ export function createStudioServer() {
     }
   });
 }
+export function isLocalHost(host) {
+  return /^(127\.0\.0\.1|\[::1\]|localhost|[a-z0-9-]+\.localhost)(:\d+)?$/i.test(host || '');
+}
+// Listen on IPv4 and IPv6 loopback (Windows resolves *.localhost to ::1). Resolves to the
+// addresses that worked; a busy or forbidden port is reported, not fatal.
+export function listenLocal(port) {
+  const tries = ['127.0.0.1', '::1'].map(host => new Promise(resolve => {
+    const server = createStudioServer();
+    server.once('error', error => resolve({ host, error }));
+    server.listen(port, host, () => resolve({ host, server }));
+  }));
+  return Promise.all(tries);
+}
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  createStudioServer().listen(PORT, '127.0.0.1', () => console.log(`Eternal Void tools: http://127.0.0.1:${PORT}/tools/  (Studio: /tools/studio.html)`));
+  const main = await listenLocal(PORT);
+  if (!main.some(r => r.server)) { console.error(`Studio could not start on port ${PORT}: ${main[0].error?.message}`); process.exit(1); }
+  const named = NAME_PORT ? await listenLocal(NAME_PORT) : [];
+  const nameUrl = NAME_PORT === 80 ? `http://${NAME}` : `http://${NAME}:${NAME_PORT}`;
+  if (named.some(r => r.server)) console.log(`Eternal Void tools: ${nameUrl}/tools/  (Studio: ${nameUrl}/tools/studio.html)`);
+  else if (NAME_PORT) console.log(`(${nameUrl} unavailable: port ${NAME_PORT} ${named[0]?.error?.code || 'busy'})`);
+  console.log(`Also: http://127.0.0.1:${PORT}/tools/`);
 }
