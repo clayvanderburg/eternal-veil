@@ -1554,6 +1554,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (p.wanderMix != null) startMorph("wanderMix", p.wanderMix);
         if (p.eclipseCount != null) startMorph("eclipseCount", p.eclipseCount);
         if (p.eclipseSize != null) startMorph("eclipseSize", p.eclipseSize);
+        if (p.vortexHole != null) startMorph("vortexHole", p.vortexHole);
+        if (p.blackHoleSize != null) startMorph("blackHoleSize", p.blackHoleSize);
         
         // Colors travel the same gentle path instead of snapping to the preset.
         startPaletteMorph([...p.colors], 7000);
@@ -2651,16 +2653,23 @@ document.addEventListener("DOMContentLoaded", () => {
         const familyPresetKeys = {
             jadeCurrents: "liquid", quantumDrift: "quantum", prismDrift: "mandala",
             nebulaSpark: "cosmic", solarFlare: "supernova", violetUndertow: "vortex",
-            cosmicStrings: "strings"
+            cosmicStrings: "strings", lotus: "lotusPulse"
         };
-        const familyPreset = StylePresets[familyPresetKeys[nextPatternShape]];
+        // Every scene follows its own tuned preset (Studio edits are what Flow shows);
+        // plain ellipses stay a free-roaming generic family.
+        const familyPresetKey = familyPresetKeys[nextPatternShape]
+            || (nextPatternShape && nextPatternShape !== "ellipse" ? getPresetByShape(nextPatternShape) : null);
+        const familyPreset = StylePresets[familyPresetKey];
         if (familyPreset) {
             const spread = effectivePersonality === "serene" ? 0.12 : effectivePersonality === "wild" ? 0.28 : 0.20;
             const aliases = { size: "baseSize", sizeVar: "sizeVariation", curl: "flowOrganic" };
-            for (const field of ["speed", "turbulence", "density", "dissipation", "zoom", "size", "sizeVar", "stretch", "curl", "rotationSpeed", "wobble", "interaction", "drag"]) {
+            for (const field of ["speed", "turbulence", "density", "dissipation", "zoom", "size", "sizeVar", "stretch", "curl", "rotationSpeed", "wobble", "interaction", "drag", "vortexHole", "blackHoleSize"]) {
                 const key = aliases[field] || field;
                 if (!Number.isFinite(familyPreset[field]) || !isFlowEnabled(key)) continue;
-                let value = familyPreset[field] * rnd(1 - spread, 1 + spread);
+                const range = familyPreset.flowRanges?.[field];
+                let value = Array.isArray(range) && range.length === 2 && range.every(Number.isFinite)
+                    ? rnd(Math.min(...range), Math.max(...range))
+                    : familyPreset[field] * rnd(1 - spread, 1 + spread);
                 if (field === "density") value = Math.round(value);
                 if (field === "drag") value = Math.min(0.98, value);
                 startMorph(key, value, baseDuration * 0.72);
@@ -2668,14 +2677,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         const activeFlowShape = nextPatternShape || sim.settings.particleShape;
         const isProtectedAuthoredFlow = ["pendulumSpiral", "painterlyVortex", "chromeRibbon", "celticCurrent", "celticKnotwork", "cymaticResonance", "mandelbrotDive", "molecularDance", "stellarNursery", "tightTailVortex", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"].includes(activeFlowShape);
-        // Flow kaleidoscope odds per scene, from Clay's review (2026-10-07).
-        // Unlisted scenes get "sometimes" (the personality chance below).
-        const kaleidoExcludedShapes = new Set(["acid", "quantumLattice"]);
-        const kaleidoHalfShapes = new Set(["mandelbrotDive", "nebulaSpark"]);
-        const kaleidoOftenShapes = new Set(["pendulumSpiral", "cluster", "pipes", "pipesTight", "pipesCathedral", "pipesShrine", "zenMandala"]);
-        const kaleidoMaxSegments = { tightTailVortex: 4 };
-        // Scenes that always keep their own kaleidoscope (outside comfort mode).
-        const kaleidoFixedSegments = { cosmicStrings: 8 };
+        // Flow kaleidoscope odds and segment range come from the scene's preset
+        // (flowKaleidoChance, flowKaleidoMin/Max; tuned in the Studio). Unset means the
+        // Flow personality's chance and 4..10 segments.
+        const kaleidoPreset = familyPreset || StylePresets[getPresetByShape(activeFlowShape)];
+        const presetKaleidoChance = Number.isFinite(kaleidoPreset?.flowKaleidoChance) ? kaleidoPreset.flowKaleidoChance : null;
+        const kaleidoMinSegments = Math.max(3, Math.round(kaleidoPreset?.flowKaleidoMin ?? 4));
+        const kaleidoMaxSegments = Math.max(kaleidoMinSegments, Math.round(kaleidoPreset?.flowKaleidoMax ?? 10));
+        // Grid and circuit scenes keep their full density under the mirror.
         const kaleidoGeometricShapes = new Set(["quantumLattice", "pipesTight", "pipesCathedral", "pipesShrine"]);
         const nextKaleidoEnabledFlow = isFlowEnabled("kaleidoscopeEnabled");
         const nextKaleidoSegmentsFlow = isFlowEnabled("kaleidoscopeSegments");
@@ -2683,11 +2692,7 @@ document.addEventListener("DOMContentLoaded", () => {
         let currentKaleidoEnabled = sim.settings.kaleidoscopeEnabled;
         if (nextKaleidoEnabledFlow) {
             const kaleidoChance = { serene: 0.24, alive: 0.38, wild: 0.46 }[effectivePersonality];
-            currentKaleidoEnabled = !isComfortMode
-                && !kaleidoExcludedShapes.has(activeFlowShape)
-                && (kaleidoFixedSegments[activeFlowShape] != null
-                    || Math.random() < (kaleidoOftenShapes.has(activeFlowShape) ? Math.max(kaleidoChance, 0.58)
-                        : kaleidoHalfShapes.has(activeFlowShape) ? 0.5 : kaleidoChance));
+            currentKaleidoEnabled = !isComfortMode && Math.random() < (presetKaleidoChance ?? kaleidoChance);
             elements.kaleidoscopeToggle.checked = currentKaleidoEnabled;
             sim.settings.kaleidoscopeEnabled = currentKaleidoEnabled;
         }
@@ -2695,10 +2700,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (currentKaleidoEnabled) {
             elements.kaleidoscopeSettings.classList.remove("hidden");
             if (nextKaleidoSegmentsFlow) {
-                const folds = (kaleidoGeometricShapes.has(activeFlowShape)
-                    ? [4, 5, 6, 8]
-                    : [4, 5, 6, 7, 8, 10]).filter(n => n <= (kaleidoMaxSegments[activeFlowShape] ?? Infinity));
-                startMorph("kaleidoscopeSegments", kaleidoFixedSegments[activeFlowShape] ?? folds[Math.floor(Math.random() * folds.length)], baseDuration);
+                startMorph("kaleidoscopeSegments", rndInt(kaleidoMinSegments, kaleidoMaxSegments), baseDuration);
             }
             // Reflections fill the frame with fewer particles; keep the extra
             // compositing work from overwhelming slower devices in Flow.
@@ -2712,7 +2714,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (isFlowEnabled("spinningKaleido")) {
             const spinChance = { serene: 0.55, alive: 0.72, wild: 0.8 }[effectivePersonality];
             sim.settings.spinningKaleido = !isComfortMode && currentKaleidoEnabled
-                && !kaleidoExcludedShapes.has(activeFlowShape)
                 && Math.random() < spinChance;
             elements.spinningKaleidoToggle.checked = sim.settings.spinningKaleido;
         }

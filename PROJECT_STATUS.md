@@ -1,3 +1,17 @@
+## 2026-10-07 live: compact presets (PR #3), kaleidoscope review (PR #5); Studio candidate
+
+Live on eternalvoid.io: searchable one-line preset list with expandable details and live
+signature sliders (32a802b); kaleidoscope on every scene (frame mirror for module scenes,
+wedge mirror for Quantum Drift), Flow kaleidoscope tiers from Clay's per-scene review,
+Cosmic Strings and Acid Rain in Flow, `PresetOrder` with New! badges (`addedOn`, 30 days),
+meditation hidden (`MEDITATION_MODE_AVAILABLE`), chakra colors, share links up to 8 colors,
+"Motion Speed" label and a Flow History panel (19592fe).
+
+Candidate (branch claude/tuning-studio, not live): Flow now centres every scene on its own
+preset values (Studio edits are what Flow shows); `vortexHole` and `blackHoleSize` preset
+settings; local Eternal Void Studio (`node tools/studio-server.mjs`, see tools/STUDIO.md)
+whose Save opens a pull request.
+
 ## 2026-10-07 Visual Playlists candidate (Claude)
 
 Prepared from origin/main 19592fe on branch claude/visual-playlists (independent of the

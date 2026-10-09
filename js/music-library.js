@@ -1,14 +1,13 @@
 /* Device-local preferences; the catalog contains only finished audio assets. */
 (function (root) {
     'use strict';
-    const TRACKS = [
-        ['blackwater-threshold', 'Blackwater Threshold', 238],
-        ['undertow', 'Undertow', 234.2],
-        ['obsidian-veil', 'Obsidian Veil', 273],
-        ['slow-orbit', 'Slow Orbit', 239.56],
-        ['below-the-signal', 'Below the Signal', 268],
-        ['night-without-edges', 'Night Without Edges', 208.6]
-    ].map(([id, title, duration]) => ({ id, title, duration, url: `audio/nocturnal/${id}.mp3` }));
+    // Songs and built-in playlists come from js/music-catalog.js (edited in Eternal Void Studio).
+    const CATALOG = root.EternalMusicCatalog || (typeof require === 'function' ? require('./music-catalog.js') : { tracks: [], playlists: [] });
+    const TRACKS = CATALOG.tracks.map(t => ({ id: t.id, title: t.title, duration: t.duration, url: t.url }));
+    const TRACK_IDS = new Set(TRACKS.map(t => t.id));
+    const BUILT_IN = CATALOG.playlists
+        .filter(p => p && /^[a-z0-9-]+$/.test(p.id) && p.id !== 'favorites' && !p.id.startsWith('custom-'))
+        .map(p => ({ id: p.id, name: String(p.name || 'Untitled'), tracks: (p.tracks || []).filter(id => TRACK_IDS.has(id)) }));
     const STORAGE_KEY = 'eternalvoid.music.v1';
     class MusicLibrary {
         constructor(storage) {
@@ -43,10 +42,12 @@
                 return true;
             } catch (_) { return false; }
         }
-        playlists() { return [{ id: 'nocturnal', name: 'Nocturnal Drift' }, { id: 'favorites', name: 'Favorites' }, ...this.custom]; }
+        playlists() { return [...BUILT_IN.map(({ id, name }) => ({ id, name })), { id: 'favorites', name: 'Favorites' }, ...this.custom]; }
+        get defaultPlaylist() { return BUILT_IN[0]?.id || 'favorites'; }
         track(id) { return TRACKS.find(t => t.id === id); }
         trackIds(id) {
-            if (id === 'nocturnal') return TRACKS.map(t => t.id);
+            const builtIn = BUILT_IN.find(p => p.id === id);
+            if (builtIn) return builtIn.tracks.slice();
             if (id === 'favorites') return [...this.favorites];
             return this.custom.find(p => p.id === id)?.tracks.slice() || [];
         }

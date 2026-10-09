@@ -22,6 +22,7 @@
 
 - **Lab first:** every new preset starts with a tuning lab page (`tools/<presetKey>-lab.html`) so Clay can tune it and paste back settings JSON. See section 0 of `PRESET_INTEGRATION_CHECKLIST.md`.
 - For every new or substantially changed preset, follow `PRESET_INTEGRATION_CHECKLIST.md` and record evidence, music behavior, and known mode gaps. See `PRESET_IMPLEMENTATION_REVIEW.md` for the 2026-09-18 baseline review.
+- **Studio review before live:** new presets, music cards and built-in songs/playlists reach the live site only through a pull request that Clay has opened in Eternal Void Studio (Previewing → the PR), tuned, and labelled `studio-reviewed`. Don't merge preset PRs without that label, and don't push preset changes straight to `main`. Songs and built-in playlists live in `js/music-catalog.js` and are edited in Studio's Music playlists tab (`tools/STUDIO.md`).
 - Use `node tools/work-gate.js <lane>` for deterministic completion checks. A passing gate does not replace visual, audio, phone, or deployment verification.
 
 - Prefer small, testable visual/sim changes.  

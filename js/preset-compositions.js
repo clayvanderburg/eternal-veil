@@ -1,7 +1,7 @@
 // Deliberately composed alternatives. Existing geometry identifiers stay intact.
 const PresetCompositions = {
     supports(shape) { return ['zenMandala', 'quantumLattice', 'gravityWell', 'fractalBloom'].includes(shape); },
-    point(shape, lane, role, phase, time) {
+    point(shape, lane, role, phase, time, settings) {
         const tau = Math.PI * 2;
         if (shape === 'fractalBloom') {
             // Six recursive binary trees: each generation repeats the same
@@ -58,7 +58,8 @@ const PresetCompositions = {
         }
         if (shape === 'gravityWell') {
             const progress = ((role - time * 0.014) % 1 + 1) % 1;
-            const radius = 0.075 + progress * 0.65;
+            const hole = Math.min(0.25, Math.max(0.01, settings?.blackHoleSize ?? 0.075));
+            const radius = hole + progress * 0.65;
             const arm = Math.floor(lane * 5);
             const angle = arm * tau / 5 + (lane * 5 - arm) * 0.5 + time * 0.3 + (1 - progress) * 10 + Math.sin(time * 0.24 + progress * 5) * 0.18;
             return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius * 0.78,

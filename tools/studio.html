@@ -1,0 +1,979 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Eternal Void Studio</title>
+<style>
+:root {
+  --void: #05060a; --panel: rgba(12, 14, 24, 0.94); --line: rgba(148, 163, 214, 0.18);
+  --ink: #e6e9f5; --muted: #8d95b3; --accent: #8b9cff; --accent-ink: #0b0e1a; --warn: #f6b35c; --good: #6ee7b7; --flow: #67e8f9;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--void); color: var(--ink); font: 13px/1.4 "Segoe UI", system-ui, sans-serif; display: flex; overflow: hidden; }
+[hidden] { display: none !important; }
+#stage { flex: 1; min-width: 0; border: 0; background: #000; }
+#side { width: 400px; flex: none; display: flex; flex-direction: column; background: var(--panel); border-left: 1px solid var(--line); }
+#drawer { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 16px 24px; }
+#footer { flex: none; background: #0b0d16; border-top: 1px solid var(--line); padding: 10px 16px; display: grid; gap: 6px; }
+h1 { font-size: 15px; letter-spacing: .12em; margin: 0 0 2px; }
+.sub { color: var(--muted); font-size: 11px; margin: 0 0 12px; }
+select, input[type=number], input[type=text] { width: 100%; background: #10121c; color: var(--ink); border: 1px solid var(--line); border-radius: 7px; padding: 7px 8px; font: inherit; }
+section { border-top: 1px solid var(--line); padding: 10px 0 4px; }
+section > h2 { font: 600 10px/1 var(--mono); letter-spacing: .14em; color: var(--muted); text-transform: uppercase; margin: 2px 0 8px; }
+.item { margin-bottom: 10px; }
+.head { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.head .name { flex: 1; }
+.head .was { color: var(--muted); font: 10px var(--mono); }
+.item.changed > .head .name, .item.changed > .head > label { color: var(--warn); }
+.ctl { display: grid; grid-template-columns: 1fr 76px; gap: 8px; align-items: center; }
+.ctl input[type=range] { width: 100%; accent-color: var(--accent); }
+.ctl input[type=number] { padding: 5px 6px; font: 12px var(--mono); }
+.reset { visibility: hidden; padding: 0 6px; font-size: 13px; line-height: 20px; border: 1px solid var(--line); background: none; color: var(--warn); border-radius: 6px; cursor: pointer; }
+.item.changed .reset, .reset.show { visibility: visible; }
+.flow { display: flex; align-items: center; gap: 6px; margin-top: 4px; font: 11px var(--mono); color: var(--flow); }
+.flow .label { flex: none; }
+.flow input[type=number] { width: 64px; padding: 3px 5px; font: 11px var(--mono); border-color: rgba(103, 232, 249, .35); }
+.flow .auto { color: var(--muted); flex: 1; }
+.flow button { font: 11px var(--mono); padding: 2px 7px; color: var(--flow); background: none; border: 1px solid rgba(103, 232, 249, .35); border-radius: 6px; cursor: pointer; }
+.flow.changed { color: var(--warn); }
+label.check { display: flex; align-items: center; gap: 8px; }
+.colors { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.colors input[type=color] { width: 34px; height: 28px; border: 1px solid var(--line); border-radius: 6px; background: none; padding: 0; }
+button { background: #ffffff0d; color: var(--ink); border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px; font: inherit; cursor: pointer; }
+button:hover { background: #ffffff18; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+button:disabled { opacity: .45; cursor: default; }
+.small { font-size: 11px; padding: 4px 8px; }
+.hint { color: var(--muted); font-size: 11px; margin: 4px 0 8px; }
+#drafts { display: flex; flex-wrap: wrap; gap: 6px; }
+#drafts:empty::before { content: "No saved drafts yet."; color: var(--muted); font-size: 11px; }
+.chip { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--line); border-radius: 999px; font-size: 11px; background: #ffffff08; }
+.chip button { border: 0; background: none; padding: 3px 8px; font-size: 11px; border-radius: 999px; }
+.chip button.x { padding: 3px 7px 3px 2px; color: var(--muted); }
+.chip.active { border-color: var(--accent); }
+#pending a { color: var(--good); }
+#status { font-size: 11px; color: var(--muted); min-height: 15px; word-break: break-word; }
+#status a { color: var(--good); }
+.bar { display: flex; gap: 8px; }
+.bar > * { flex: 1; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tabs { display: flex; gap: 6px; margin: 12px 0; }
+#target { margin-bottom: 2px; }
+.new-flag { color: var(--good); }
+.tabs button { flex: 1; }
+.tabs button[aria-selected=true] { border-color: var(--accent); color: var(--accent); background: #8b9cff14; }
+.row { display: flex; align-items: center; gap: 6px; padding: 5px 0; border-bottom: 1px solid #ffffff0a; }
+.row .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row input[type=text] { flex: 1; min-width: 0; padding: 4px 6px; }
+.row .dur { color: var(--muted); font: 11px var(--mono); flex: none; }
+.row button { flex: none; padding: 2px 7px; font-size: 11px; }
+.badge { flex: none; font: 600 9px/1 var(--mono); letter-spacing: .08em; color: var(--good); border: 1px solid #6ee7b755; border-radius: 4px; padding: 3px 4px; }
+.drop { display: block; border: 1px dashed var(--line); border-radius: 9px; padding: 14px; text-align: center; color: var(--muted); cursor: pointer; margin-bottom: 8px; }
+.drop.over { border-color: var(--accent); color: var(--ink); background: #8b9cff10; }
+.drop input { display: none; }
+#song-audio { width: 100%; margin-top: 8px; }
+.empty { color: var(--muted); font-size: 11px; padding: 6px 0; }
+</style>
+</head>
+<body>
+<iframe id="stage" title="Live preview of the site"></iframe>
+<div id="side">
+<aside id="drawer" aria-label="Studio controls">
+  <h1>ETERNAL VOID STUDIO</h1>
+  <p class="sub" id="branch">Loading…</p>
+  <label for="target">Previewing</label>
+  <select id="target"><option value="">Live site</option></select>
+  <div id="review-bar" class="bar" style="margin-top:6px" hidden><a id="review-link" class="small" target="_blank" rel="noopener" style="color:var(--good);align-self:center">Open on GitHub</a><button id="review-mark" class="small">Mark reviewed</button></div>
+  <p class="hint" id="target-hint">Open pull requests that change presets or music show up here so you can try and tune them before they go live.</p>
+  <div class="tabs" role="tablist">
+    <button id="tab-scenes" role="tab" aria-selected="true" aria-controls="scenes-tab">Scenes</button>
+    <button id="tab-music" role="tab" aria-selected="false" aria-controls="music-tab">Music playlists</button>
+  </div>
+  <div id="scenes-tab" role="tabpanel">
+  <label for="preset">Preset</label>
+  <select id="preset"></select>
+  <p class="hint">Values apply to the preview instantly. Amber = different from the live site (↺ resets one). Save keeps a preset as a draft; Publish sends every draft in one pull request.
+    <span style="color:var(--flow)">Flow</span> lines set what Flow picks when it visits this scene.</p>
+  <div class="bar"><button id="site-ui" class="small">Show site controls</button><button id="reload" class="small">Reload preview</button></div>
+  <div id="fields"></div>
+  <section id="music-section">
+    <h2>Music reaction</h2>
+    <p class="hint">Start music in the preview (Show site controls → ♫) to see these. Shared by every preset with this scene's shape.</p>
+    <div id="music"></div>
+    <div class="bar"><select id="music-add" aria-label="Add a music voice"></select><button id="music-add-btn" class="small">Add</button></div>
+  </section>
+  </div>
+  <div id="music-tab" role="tabpanel" hidden>
+    <p class="hint">The site's built-in music: every visitor sees these playlists in the music player. Changes save as a draft
+      automatically; Publish sends them (with any scene drafts) as one pull request. <span id="music-live"></span></p>
+    <section>
+      <h2>Playlists</h2>
+      <select id="pl-select" aria-label="Playlist"></select>
+      <div class="bar" style="margin-top:6px"><button id="pl-new" class="small">New</button><button id="pl-rename" class="small">Rename</button><button id="pl-first" class="small">Make first</button><button id="pl-delete" class="small">Delete</button></div>
+      <p class="hint">The first playlist is what the music button plays by default.</p>
+      <div id="pl-tracks"></div>
+      <div class="bar" style="margin-top:6px"><select id="pl-add" aria-label="Song to add"></select><button id="pl-add-btn" class="small" style="flex:none">Add song</button></div>
+    </section>
+    <section>
+      <h2>Songs</h2>
+      <label class="drop" id="song-drop">Drop songs here or click to choose<br><span class="hint">MP3, WAV, FLAC, OGG, M4A, AIFF or Opus. Anything that isn't MP3 is converted (192 kbps). New songs join the selected playlist.</span>
+        <input id="song-files" type="file" multiple accept="audio/*,.flac,.aif,.aiff,.opus"></label>
+      <div id="song-progress" class="hint"></div>
+      <div id="songs"></div>
+      <audio id="song-audio" controls hidden></audio>
+    </section>
+  </div>
+</aside>
+<div id="footer">
+  <div class="bar" id="scene-actions"><button id="reset">Reset preset</button><button id="save" disabled>Save</button></div>
+  <div id="drafts" aria-label="Saved drafts"></div>
+  <label for="note" class="hint" style="margin:0">Note for the pull request (optional)</label>
+  <input id="note" type="text" maxlength="300" autocomplete="off">
+  <button id="publish" class="primary" disabled>Publish</button>
+  <div id="pending" class="hint" style="margin:0"></div>
+  <div id="status" role="status" aria-live="polite"></div>
+</div>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const stage = $('stage');
+let state, key, original, current, musicOriginal, musicCurrent, musicShape;
+// Browser-only stores. drafts/published hold changes relative to the live site.
+const store = name => { try { return JSON.parse(localStorage.getItem(name)) || { presets: {}, music: {} }; } catch { return { presets: {}, music: {} }; } };
+const persist = (name, value) => { try { localStorage.setItem(name, JSON.stringify(value)); } catch { /* storage unavailable */ } };
+// ?pr=12 reviews pull request #12; no parameter = the live site.
+const TARGET = /^[1-9][0-9]{0,6}$/.test(new URLSearchParams(location.search).get('pr') || '') ? Number(new URLSearchParams(location.search).get('pr')) : 'live';
+const SUFFIX = TARGET === 'live' ? '' : `:pr-${TARGET}`;
+let drafts = store('evStudioDrafts' + SUFFIX);
+let published = store('evStudioPublished' + SUFFIX);
+published.prs = published.prs || [];
+
+// Preset fields map to these simulation settings.
+const ALIAS = { size: 'baseSize', sizeVar: 'sizeVariation', curl: 'flowOrganic' };
+// min, max, step, log scale. Speed and dissipation are logarithmic for fine low-end control.
+const RANGES = {
+  speed: [0.01, 8, 0.001, true], turbulence: [0, 3, 0.01], curl: [0, 2, 0.01], density: [100, 8000, 10],
+  dissipation: [0.001, 0.4, 0.0001, true], zoom: [0.1, 4, 0.01], size: [0.1, 14, 0.05], sizeVar: [0, 7, 0.05],
+  stretch: [0, 8, 0.05], interaction: [0, 3, 0.01], mouseInfluence: [0, 6, 0.05], rotationSpeed: [0, 1.2, 0.005],
+  wobble: [0, 1.5, 0.005], drag: [0.8, 0.99, 0.001], kaleidoscopeSegments: [3, 12, 1], miniSpiralCount: [4, 8, 1],
+  spiralExtent: [0.45, 0.98, 0.01], wanderMix: [0.05, 0.4, 0.01], eclipseCount: [12, 90, 1], eclipseSize: [0.45, 1.6, 0.01],
+  vortexHole: [0.005, 0.2, 0.001], blackHoleSize: [0.01, 0.25, 0.001]
+};
+// Values Flow varies when it visits a scene (auto = preset value ± personality variation).
+const FLOW_FIELDS = new Set(['speed', 'turbulence', 'density', 'dissipation', 'zoom', 'size', 'sizeVar', 'stretch', 'curl', 'rotationSpeed', 'wobble', 'interaction', 'drag', 'vortexHole', 'blackHoleSize']);
+const GROUPS = [
+  ['Motion', ['speed', 'turbulence', 'curl', 'rotationSpeed', 'wobble', 'drag']],
+  ['Particles', ['size', 'sizeVar', 'stretch', 'density', 'dissipation', 'zoom', 'interaction', 'mouseInfluence']],
+  ['Effects', ['psychedelicMode', 'morphingBg', 'particleLighting']],
+];
+const SKIP = new Set(['name', 'desc', 'addedOn', 'colors', 'particleShape', 'meditationPreset', 'bilateralEnabled', 'asmrEnabled', 'binauralMode',
+  'kaleidoscopeEnabled', 'kaleidoscopeSegments', 'spinningKaleido']);
+const LIGHTING = ['glow', 'reactive', 'pearl', 'metal'];
+const isFlowField = f => /^flow[A-Z]/.test(f);
+
+const win = () => stage.contentWindow;
+const sim = () => win()?.simInstance;
+const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+const status = (html) => { $('status').innerHTML = html; };
+const clean = n => Math.round(n * 10000) / 10000;
+const copy = v => v === undefined ? undefined : JSON.parse(JSON.stringify(v));
+
+async function api(path, body) {
+  const res = await fetch(path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+// ---------- preview ----------
+let siteUiVisible = false;
+function prepareStage() {
+  const doc = stage.contentDocument;
+  if (!doc) return;
+  [...doc.querySelectorAll('button')].find(b => /^enter the void$/i.test(b.textContent.trim()))?.click();
+  if (!doc.getElementById('studio-hide')) {
+    const style = doc.createElement('style');
+    style.id = 'studio-hide';
+    style.textContent = '#control-panel, .hud, header, .top-bar, .flow-status-banner, .toast { display: none !important; }';
+    doc.head.appendChild(style);
+  }
+  doc.getElementById('studio-hide').disabled = siteUiVisible;
+  setTimeout(() => selectInStage(key), 600);
+}
+function selectInStage(presetKey) {
+  const row = stage.contentDocument?.querySelector(`[data-preset="${presetKey}"]`);
+  if (row && !row.classList.contains('active')) row.querySelector('.preset-load')?.click();
+}
+// Keep the preview on the Studio's values even while the site morphs or Flow runs.
+function pinValues() {
+  const s = sim();
+  if (s && current) {
+    for (const [field, value] of Object.entries(current)) {
+      if (field === 'colors' || isFlowField(field) || value === null || value === undefined || typeof value === 'object') continue;
+      if (['name', 'desc', 'addedOn', 'meditationPreset', 'bilateralEnabled', 'asmrEnabled', 'binauralMode'].includes(field)) continue;
+      s.settings[ALIAS[field] || field] = value;
+    }
+    if (current.colors && !same(s.palette, current.colors)) s.updatePalette([...current.colors]);
+  }
+  requestAnimationFrame(pinValues);
+}
+// The preview loads only after the server has moved its copy to the target (see start-up).
+stage.addEventListener('load', () => { if (stage.getAttribute('src')) setTimeout(prepareStage, 400); });
+$('site-ui').onclick = () => {
+  siteUiVisible = !siteUiVisible;
+  const sheet = stage.contentDocument?.getElementById('studio-hide');
+  if (sheet) sheet.disabled = siteUiVisible;
+  $('site-ui').textContent = siteUiVisible ? 'Hide site controls' : 'Show site controls';
+};
+$('reload').onclick = () => stage.contentWindow.location.reload();
+
+// ---------- building blocks ----------
+const toSlider = (v, [min, max, , log]) => log ? Math.log(Math.max(v, min) / min) / Math.log(max / min) * 1000 : v;
+const fromSlider = (t, [min, max, step, log]) => {
+  const v = log ? min * Math.pow(max / min, t / 1000) : t;
+  return Math.round(v / step) * step;
+};
+function item(title, field, refresh) {
+  const el = document.createElement('div');
+  el.className = 'item';
+  const head = document.createElement('div');
+  head.className = 'head';
+  const name = document.createElement('span');
+  name.className = 'name';
+  name.textContent = title;
+  const was = document.createElement('span');
+  was.className = 'was';
+  const reset = document.createElement('button');
+  reset.className = 'reset';
+  reset.textContent = '↺';
+  reset.title = 'Reset to the original value';
+  reset.setAttribute('aria-label', `Reset ${title}`);
+  reset.onclick = () => { current[field] = copy(original[field]); if (current[field] === undefined) delete current[field]; refresh(); changedState(); };
+  head.append(name, was, reset);
+  el.append(head);
+  const mark = (wasText) => {
+    const changed = !same(current[field], original[field]);
+    el.classList.toggle('changed', changed);
+    was.textContent = changed ? `was ${wasText ?? fmt(original[field])}` : '';
+  };
+  return { el, head, mark };
+}
+const fmt = v => v === undefined || v === null ? 'auto' : typeof v === 'number' ? clean(v) : String(v);
+
+function slider(range, onValue) {
+  const wrap = document.createElement('div');
+  wrap.className = 'ctl';
+  const s = document.createElement('input');
+  s.type = 'range';
+  if (range[3]) { s.min = 0; s.max = 1000; s.step = 1; } else { s.min = range[0]; s.max = range[1]; s.step = range[2]; }
+  const box = document.createElement('input');
+  box.type = 'number';
+  box.step = range[2];
+  s.oninput = () => onValue(clean(fromSlider(Number(s.value), range)));
+  box.onchange = () => { const n = Number(box.value); if (Number.isFinite(n)) onValue(clean(n)); };
+  wrap.append(s, box);
+  return { wrap, set: v => { s.value = toSlider(v, range); box.value = clean(v); }, slider: s, box };
+}
+
+function numberItem(field) {
+  const range = RANGES[field] || [0, Math.max(1, Math.abs(current[field]) * 3), 0.01];
+  const it = item(field, field, () => show());
+  const ctl = slider(range, v => { current[field] = v; show(); changedState(); });
+  ctl.slider.setAttribute('aria-label', field);
+  ctl.box.setAttribute('aria-label', `${field} value`);
+  it.el.append(ctl.wrap);
+  let flow;
+  if (FLOW_FIELDS.has(field)) { flow = flowRangeLine(field); it.el.append(flow.el); }
+  const show = () => { ctl.set(current[field]); it.mark(); flow?.show(); };
+  show();
+  return it.el;
+}
+
+// Flow range for one value: auto (preset ± variation) or an exact min..max.
+function flowRangeLine(field) {
+  const el = document.createElement('div');
+  el.className = 'flow';
+  const range = RANGES[field] || [0, 100, 0.01];
+  const ranges = () => current.flowRanges || {};
+  const setRange = r => {
+    const next = { ...ranges() };
+    if (r) next[field] = r; else delete next[field];
+    if (Object.keys(next).length) current.flowRanges = next;
+    else if (original.flowRanges) current.flowRanges = {};
+    else delete current.flowRanges;
+    show(); changedState();
+  };
+  const show = () => {
+    el.replaceChildren();
+    const r = ranges()[field];
+    const was = original.flowRanges?.[field];
+    el.classList.toggle('changed', !same(r, was));
+    const label = document.createElement('span');
+    label.className = 'label';
+    label.textContent = 'Flow';
+    el.append(label);
+    if (!r) {
+      const auto = document.createElement('span');
+      auto.className = 'auto';
+      auto.textContent = `auto: ${clean(current[field])} ±12–28% by personality`;
+      const set = document.createElement('button');
+      set.textContent = 'set range';
+      set.onclick = () => setRange([clean(current[field] * 0.8), clean(current[field] * 1.2)]);
+      el.append(auto, set);
+    } else {
+      const lo = document.createElement('input'), hi = document.createElement('input');
+      for (const [input, i] of [[lo, 0], [hi, 1]]) {
+        input.type = 'number'; input.step = range[2]; input.value = r[i];
+        input.setAttribute('aria-label', `${field} Flow ${i ? 'maximum' : 'minimum'}`);
+        input.onchange = () => { const n = Number(input.value); if (!Number.isFinite(n)) return; const nr = [...r]; nr[i] = clean(n); setRange(nr); };
+      }
+      const dash = document.createElement('span'); dash.textContent = '–';
+      const auto = document.createElement('button');
+      auto.textContent = 'auto';
+      auto.onclick = () => setRange(null);
+      el.append(lo, dash, hi, auto);
+      if (!same(r, was)) {
+        const undo = document.createElement('button');
+        undo.textContent = '↺';
+        undo.setAttribute('aria-label', `Reset ${field} Flow range`);
+        undo.onclick = () => setRange(was ? [...was] : null);
+        el.append(undo);
+      }
+    }
+  };
+  show();
+  return { el, show };
+}
+
+function checkItem(field, title = field) {
+  const it = item(title, field, () => show());
+  const box = document.createElement('input');
+  box.type = 'checkbox';
+  box.setAttribute('aria-label', title);
+  box.onchange = () => { current[field] = box.checked; show(); changedState(); };
+  it.head.prepend(box);
+  it.head.querySelector('.name').textContent = title;
+  const show = () => { box.checked = !!current[field]; it.mark(); };
+  show();
+  return it.el;
+}
+function selectItem(field, options) {
+  const it = item(field, field, () => show());
+  const sel = document.createElement('select');
+  sel.setAttribute('aria-label', field);
+  for (const o of options) sel.add(new Option(o, o));
+  sel.onchange = () => { current[field] = sel.value; show(); changedState(); };
+  it.el.append(sel);
+  const show = () => { sel.value = current[field]; it.mark(); };
+  show();
+  return it.el;
+}
+
+// Kaleidoscope: the preset's own setting plus Flow's chance and segment range.
+function kaleidoSection() {
+  const sec = document.createElement('section');
+  sec.innerHTML = '<h2>Kaleidoscope</h2>';
+  if (!('kaleidoscopeEnabled' in current)) { current.kaleidoscopeEnabled = false; original.kaleidoscopeEnabled = false; }
+  if (!('kaleidoscopeSegments' in current)) { current.kaleidoscopeSegments = 6; original.kaleidoscopeSegments = 6; }
+  sec.append(checkItem('kaleidoscopeEnabled', 'On when this preset is loaded'));
+  sec.append(numberItem('kaleidoscopeSegments'));
+  if ('spinningKaleido' in current) sec.append(checkItem('spinningKaleido', 'Spinning'));
+
+  // Flow chance
+  const chance = item('Flow chance', 'flowKaleidoChance', () => showChance());
+  const chanceCtl = slider([0, 100, 1], v => { current.flowKaleidoChance = clean(v / 100); showChance(); changedState(); });
+  chanceCtl.slider.setAttribute('aria-label', 'Flow kaleidoscope chance percent');
+  chanceCtl.box.setAttribute('aria-label', 'Flow kaleidoscope chance percent value');
+  const autoLine = document.createElement('div');
+  autoLine.className = 'flow';
+  chance.el.append(chanceCtl.wrap, autoLine);
+  const showChance = () => {
+    const v = current.flowKaleidoChance;
+    const isAuto = !Number.isFinite(v);
+    chanceCtl.set(isAuto ? 0 : v * 100);
+    chanceCtl.wrap.style.opacity = isAuto ? 0.45 : 1;
+    chance.mark(Number.isFinite(original.flowKaleidoChance) ? `${Math.round(original.flowKaleidoChance * 100)}%` : 'auto');
+    autoLine.replaceChildren();
+    const text = document.createElement('span');
+    text.className = 'auto';
+    text.textContent = isAuto ? 'auto: Serene 24% · Alive 38% · Wild 46%' : `${Math.round(v * 100)}% in every Flow personality`;
+    const btn = document.createElement('button');
+    btn.textContent = isAuto ? 'set %' : 'auto';
+    btn.onclick = () => {
+      if (isAuto) current.flowKaleidoChance = 0.38;
+      else if (Number.isFinite(original.flowKaleidoChance) || original.flowKaleidoChance === null) current.flowKaleidoChance = null;
+      else delete current.flowKaleidoChance;
+      showChance(); changedState();
+    };
+    autoLine.append(text, btn);
+  };
+  showChance();
+  sec.append(chance.el);
+
+  // Flow segment range
+  const segs = item('Flow segments', 'flowKaleidoMin', () => {});
+  const segLine = document.createElement('div');
+  segLine.className = 'flow';
+  segs.el.append(segLine);
+  const showSegs = () => {
+    segLine.replaceChildren();
+    const lo = current.flowKaleidoMin ?? 4, hi = current.flowKaleidoMax ?? 10;
+    const changed = !same(current.flowKaleidoMin, original.flowKaleidoMin) || !same(current.flowKaleidoMax, original.flowKaleidoMax);
+    segs.el.classList.toggle('changed', changed);
+    segs.head.querySelector('.was').textContent = changed ? `was ${original.flowKaleidoMin ?? 4}–${original.flowKaleidoMax ?? 10}` : '';
+    const label = document.createElement('span');
+    label.className = 'label'; label.textContent = 'from';
+    const inputs = [['flowKaleidoMin', lo], ['flowKaleidoMax', hi]].map(([f, v]) => {
+      const input = document.createElement('input');
+      input.type = 'number'; input.min = 3; input.max = 12; input.step = 1; input.value = v;
+      input.setAttribute('aria-label', f === 'flowKaleidoMin' ? 'Fewest Flow segments' : 'Most Flow segments');
+      input.onchange = () => { const n = Math.round(Number(input.value)); if (n >= 3 && n <= 12) { current[f] = n; showSegs(); changedState(); } };
+      return input;
+    });
+    const to = document.createElement('span'); to.textContent = 'to';
+    segLine.append(label, inputs[0], to, inputs[1]);
+  };
+  segs.head.querySelector('.reset').onclick = () => {
+    for (const f of ['flowKaleidoMin', 'flowKaleidoMax']) { if (original[f] === undefined) delete current[f]; else current[f] = original[f]; }
+    showSegs(); changedState();
+  };
+  showSegs();
+  sec.append(segs.el);
+  return sec;
+}
+
+function colorsSection() {
+  const sec = document.createElement('section');
+  sec.innerHTML = '<h2>Colors</h2>';
+  const it = item('Palette', 'colors', () => render());
+  const wrap = document.createElement('div');
+  wrap.className = 'colors';
+  it.el.append(wrap);
+  const render = () => {
+    wrap.replaceChildren();
+    current.colors.forEach((color, i) => {
+      const input = document.createElement('input');
+      input.type = 'color';
+      input.value = toHex(color);
+      input.setAttribute('aria-label', `Color ${i + 1}`);
+      input.oninput = () => { current.colors[i] = input.value; it.mark(`${original.colors.length} colors`); changedState(); };
+      wrap.append(input);
+    });
+    const add = document.createElement('button');
+    add.className = 'small'; add.textContent = '+'; add.disabled = current.colors.length >= 8; add.setAttribute('aria-label', 'Add color');
+    add.onclick = () => { current.colors.push(current.colors.at(-1)); render(); changedState(); };
+    const remove = document.createElement('button');
+    remove.className = 'small'; remove.textContent = '−'; remove.disabled = current.colors.length <= 1; remove.setAttribute('aria-label', 'Remove last color');
+    remove.onclick = () => { current.colors.pop(); render(); changedState(); };
+    wrap.append(add, remove);
+    it.mark(`${original.colors.length} colors`);
+  };
+  render();
+  sec.append(it.el);
+  return sec;
+}
+function toHex(color) {
+  if (/^#[0-9a-f]{6}$/i.test(color)) return color.toLowerCase();
+  const probe = document.createElement('canvas').getContext('2d');
+  probe.fillStyle = color;
+  return probe.fillStyle.startsWith('#') ? probe.fillStyle : '#ffffff';
+}
+
+function renderFields() {
+  const host = $('fields');
+  host.replaceChildren();
+  const used = new Set();
+  const section = (title, fields) => {
+    const el = document.createElement('section');
+    el.innerHTML = `<h2>${title}</h2>`;
+    for (const field of fields) {
+      if (!(field in current)) continue;
+      used.add(field);
+      const v = current[field];
+      if (field === 'particleLighting') el.append(selectItem(field, LIGHTING));
+      else if (typeof v === 'boolean') el.append(checkItem(field));
+      else if (typeof v === 'number') el.append(numberItem(field));
+    }
+    if (el.children.length > 1) host.append(el);
+  };
+  for (const [title, fields] of GROUPS) section(title, fields);
+  const extras = Object.keys(current).filter(f => !used.has(f) && !SKIP.has(f) && !isFlowField(f) && (typeof current[f] === 'number' || typeof current[f] === 'boolean'));
+  section('Scene-specific', extras);
+  host.append(kaleidoSection(), colorsSection());
+  if (!current.particleShape || current.particleShape === 'ellipse') {
+    const note = document.createElement('p');
+    note.className = 'hint';
+    note.textContent = 'Flow treats plain-ellipse scenes as a free-roaming family, so Flow ranges here only matter when this preset is loaded directly.';
+    host.append(note);
+  }
+}
+
+// ---------- music ----------
+function renderMusic() {
+  const host = $('music');
+  host.replaceChildren();
+  const params = state.music.params;
+  if (!musicCurrent) { host.textContent = 'This shape has no music card.'; $('music-add').disabled = $('music-add-btn').disabled = true; return; }
+  const flat = flatten(musicCurrent), base = flatten(musicOriginal);
+  for (const p of params) {
+    if (!(p.key in flat)) continue;
+    const el = document.createElement('div');
+    el.className = 'item';
+    const head = document.createElement('div');
+    head.className = 'head';
+    head.title = p.hint || '';
+    const name = document.createElement('span'); name.className = 'name'; name.textContent = p.label;
+    const was = document.createElement('span'); was.className = 'was';
+    const reset = document.createElement('button');
+    reset.className = 'reset'; reset.textContent = '↺'; reset.setAttribute('aria-label', `Reset ${p.label}`);
+    head.append(name, was, reset);
+    const ctl = slider([p.min, p.max, p.step], v => set(v));
+    ctl.slider.setAttribute('aria-label', p.label);
+    ctl.box.setAttribute('aria-label', `${p.label} value`);
+    el.append(head, ctl.wrap);
+    const show = () => {
+      const v = flatten(musicCurrent)[p.key];
+      ctl.set(v);
+      const changed = v !== base[p.key];
+      el.classList.toggle('changed', changed);
+      was.textContent = changed ? `was ${base[p.key] ?? '—'}` : '';
+    };
+    const set = v => { setFlat(p.key, Math.min(p.max, Math.max(p.min, clean(v)))); show(); musicChanged(); };
+    reset.onclick = () => {
+      if (p.key in base) set(base[p.key]);
+      else { removeFlat(p.key); renderMusic(); musicChanged(); }
+    };
+    host.append(el);
+    show();
+  }
+  if (musicCurrent.ripple) {
+    for (const [k, choices] of Object.entries(state.music.choices)) {
+      const sub = k.slice(7);
+      const el = document.createElement('div');
+      el.className = 'item';
+      const head = document.createElement('div');
+      head.className = 'head';
+      const name = document.createElement('span'); name.className = 'name'; name.textContent = k;
+      const reset = document.createElement('button');
+      reset.className = 'reset'; reset.textContent = '↺'; reset.setAttribute('aria-label', `Reset ${k}`);
+      head.append(name, reset);
+      const sel = document.createElement('select');
+      sel.setAttribute('aria-label', k);
+      for (const c of choices) sel.add(new Option(c, c));
+      const show = () => { sel.value = musicCurrent.ripple[sub]; el.classList.toggle('changed', sel.value !== musicOriginal.ripple?.[sub]); };
+      sel.onchange = () => { musicCurrent.ripple[sub] = sel.value; show(); musicChanged(); };
+      reset.onclick = () => { if (musicOriginal.ripple?.[sub]) { musicCurrent.ripple[sub] = musicOriginal.ripple[sub]; show(); musicChanged(); } };
+      el.append(head, sel);
+      host.append(el);
+      show();
+    }
+  }
+  const add = $('music-add');
+  add.replaceChildren(new Option('Add a music voice…', ''));
+  for (const p of params) if (!(p.key in flat)) add.add(new Option(p.label, p.key));
+  add.disabled = $('music-add-btn').disabled = add.options.length <= 1;
+}
+function flatten(prof) {
+  const out = {};
+  for (const [k, v] of Object.entries(prof || {})) {
+    if (k === 'ripple' && v) { for (const [rk, rv] of Object.entries(v)) if (typeof rv === 'number') out['ripple.' + rk] = rv; }
+    else if (typeof v === 'number') out[k] = v;
+  }
+  return out;
+}
+function setFlat(k, v) {
+  if (k.startsWith('ripple.')) { musicCurrent.ripple = musicCurrent.ripple || { amp: 0, dir: 'out', freq: 1, to: 'both' }; musicCurrent.ripple[k.slice(7)] = v; }
+  else musicCurrent[k] = v;
+}
+function removeFlat(k) {
+  if (k.startsWith('ripple.')) { if (!musicOriginal.ripple) delete musicCurrent.ripple; }
+  else delete musicCurrent[k];
+}
+$('music-add-btn').onclick = () => {
+  const k = $('music-add').value;
+  if (!k) return;
+  const p = state.music.params.find(x => x.key === k);
+  setFlat(k, Math.min(p.max, Math.max(p.min, 0)) || p.min);
+  renderMusic(); musicChanged();
+};
+function musicChanged() {
+  win()?.MusicMoods?.setProfile?.(musicShape, musicCurrent);
+  changedState();
+}
+
+// ---------- state ----------
+function applyChanges(base, changes) {
+  const out = copy(base);
+  for (const [field, value] of Object.entries(changes || {})) out[field] = copy(value);
+  return out;
+}
+// What this preset looks like once its open PRs and saved draft are applied.
+function savedPreset(k) { return applyChanges(applyChanges(state.presets[k], published.presets[k]), drafts.presets[k]); }
+function savedMusic(shape) { return copy(drafts.music[shape] ?? published.music[shape] ?? state.music.profiles[shape] ?? null); }
+function unsaved() {
+  if (!current) return false;
+  const saved = savedPreset(key);
+  // Defaults the panel fills in (e.g. kaleidoscope segments) exist on current/original only.
+  const value = (obj, f) => f in obj ? obj[f] : original[f];
+  const fields = new Set([...Object.keys(current), ...Object.keys(saved)]);
+  const presetDirty = [...fields].some(f => !same(value(current, f), value(saved, f)));
+  return presetDirty || (musicCurrent && !same(musicCurrent, savedMusic(musicShape)));
+}
+// Drop published changes once the live site has them (the PR was merged).
+function prunePublished() {
+  for (const [k, changes] of Object.entries(published.presets)) {
+    if (!state.presets[k] || Object.entries(changes).every(([f, v]) => same(state.presets[k][f], v))) delete published.presets[k];
+  }
+  for (const [shape, prof] of Object.entries(published.music)) if (same(state.music.profiles[shape], prof)) delete published.music[shape];
+  if (published.catalog && state.catalog && same(liveShape(published.catalog), state.catalog)) delete published.catalog;
+  if (!Object.keys(published.presets).length && !Object.keys(published.music).length && !published.catalog) published.prs = [];
+  persist('evStudioPublished' + SUFFIX, published);
+}
+function draftCount() { return Object.keys(drafts.presets).length + Object.keys(drafts.music).length + (drafts.catalog ? 1 : 0); }
+function renderDrafts() {
+  const host = $('drafts');
+  host.replaceChildren();
+  const add = (label, open, remove, active) => {
+    const chip = document.createElement('span');
+    chip.className = 'chip' + (active ? ' active' : '');
+    const btn = document.createElement('button');
+    btn.textContent = label;
+    btn.onclick = open;
+    const x = document.createElement('button');
+    x.className = 'x'; x.textContent = '×'; x.setAttribute('aria-label', `Discard draft: ${label}`);
+    x.onclick = remove;
+    chip.append(btn, x);
+    host.append(chip);
+  };
+  for (const k of Object.keys(drafts.presets)) add(state.presets[k]?.name || k, () => switchTo(k), () => discardDraft('presets', k), k === key);
+  for (const shape of Object.keys(drafts.music)) add(`${shape} music`, () => {
+    const k = state.order.find(o => (state.presets[o].particleShape || 'ellipse') === shape);
+    if (k) switchTo(k);
+  }, () => discardDraft('music', shape), shape === musicShape);
+  if (drafts.catalog) add('Music playlists', () => showTab('music'), () => discardDraft('catalog'), activeTab === 'music');
+  const n = draftCount();
+  $('publish').disabled = n === 0;
+  $('publish').textContent = !n ? 'Publish' : TARGET === 'live' ? `Publish ${n} draft${n === 1 ? '' : 's'} as one pull request` : `Add ${n} draft${n === 1 ? '' : 's'} to pull request #${TARGET}`;
+  const pending = [...Object.keys(published.presets).map(k => state.presets[k]?.name || k), ...Object.keys(published.music).map(s => `${s} music`), ...(published.catalog ? ['music playlists'] : [])];
+  $('pending').innerHTML = pending.length
+    ? `Waiting to be merged (not live yet): ${pending.join(', ')} · ${published.prs.map(u => `<a href="${u}" target="_blank" rel="noopener">${u.split('/').pop() === u ? u : '#' + u.split('/').pop()}</a>`).join(' ')}`
+    : '';
+}
+function discardDraft(kind, id) {
+  if (!confirm('Discard this saved draft?')) return;
+  if (kind === 'catalog') {
+    delete drafts.catalog;
+    persist('evStudioDrafts' + SUFFIX, drafts);
+    loadCatalogDraft(); renderSongs(); renderDrafts();
+    return;
+  }
+  delete drafts[kind][id];
+  persist('evStudioDrafts' + SUFFIX, drafts);
+  if ((kind === 'presets' && id === key) || (kind === 'music' && id === musicShape)) { current = null; loadKey(key); }
+  else renderDrafts();
+}
+function switchTo(k) {
+  if (k === key) return;
+  $('preset').value = k;
+  loadKey(k);
+}
+function presetChanges() {
+  const out = {};
+  for (const field of new Set([...Object.keys(current), ...Object.keys(original)])) {
+    if (same(current[field], original[field])) continue;
+    out[field] = current[field] === undefined ? null : current[field];
+  }
+  return out;
+}
+function changedState() {
+  const dirty = unsaved();
+  $('save').disabled = !dirty;
+  $('save').textContent = dirty ? 'Save draft' : 'Saved';
+  renderDrafts();
+}
+function loadKey(next) {
+  if (unsaved() && !confirm('This preset has changes that are not saved as a draft. Discard them?')) { $('preset').value = key; return; }
+  key = next;
+  const p = state.presets[key];
+  original = copy(p);               // "was" = live site
+  current = savedPreset(key);       // live + open PRs + saved draft
+  musicShape = p.particleShape || 'ellipse';
+  musicOriginal = state.music.profiles[musicShape] ? copy(state.music.profiles[musicShape]) : null;
+  musicCurrent = musicOriginal ? savedMusic(musicShape) : null;
+  renderFields();
+  renderMusic();
+  changedState();
+  status('');
+  selectInStage(key);
+  if (musicCurrent) win()?.MusicMoods?.setProfile?.(musicShape, musicCurrent);
+}
+$('preset').onchange = () => loadKey($('preset').value);
+// Reset returns the preset (and its music card) to what is live, then Save to drop the draft.
+$('reset').onclick = () => {
+  current = copy(original);
+  musicCurrent = musicOriginal ? copy(musicOriginal) : null;
+  if (musicOriginal) win()?.MusicMoods?.setProfile?.(musicShape, musicOriginal);
+  renderFields(); renderMusic(); changedState();
+};
+$('save').onclick = () => {
+  const changes = presetChanges();
+  if (Object.keys(changes).length) drafts.presets[key] = changes; else delete drafts.presets[key];
+  if (musicCurrent && !same(musicCurrent, musicOriginal)) drafts.music[musicShape] = copy(musicCurrent); else delete drafts.music[musicShape];
+  persist('evStudioDrafts' + SUFFIX, drafts);
+  status(Object.keys(changes).length || drafts.music[musicShape] ? `Saved ${state.presets[key].name} as a draft.` : `${state.presets[key].name} matches the live site; nothing to save.`);
+  changedState();
+};
+$('publish').onclick = async () => {
+  if (unsaved() && !confirm('The current preset has changes that are not saved as a draft. Publish the saved drafts without them?')) return;
+  $('publish').disabled = true;
+  status('Creating one branch and pull request for all drafts…');
+  try {
+    const result = await api('/api/studio/publish', { presets: drafts.presets, music: drafts.music, catalog: drafts.catalog || null, note: $('note').value, target: TARGET });
+    if (result.url !== 'dry-run') {
+      Object.assign(published.presets, drafts.presets);
+      Object.assign(published.music, drafts.music);
+      if (drafts.catalog) published.catalog = drafts.catalog;
+      published.prs.push(result.url);
+      persist('evStudioPublished' + SUFFIX, published);
+    }
+    drafts = { presets: {}, music: {} };
+    persist('evStudioDrafts' + SUFFIX, drafts);
+    loadCatalogDraft(); renderSongs();
+    $('note').value = '';
+    current = null;
+    loadKey(key);
+    status(result.review
+      ? `Added your tuning to <a href="${result.url}" target="_blank" rel="noopener">#${TARGET}</a>. Mark it reviewed, then merge it to go live.`
+      : `Pull request opened: <a href="${result.url}" target="_blank" rel="noopener">${result.url}</a>. Merge it to publish.`);
+  } catch (error) {
+    status(`Couldn't publish: ${error.message}`);
+    renderDrafts();
+  }
+};
+// ---------- music playlists tab ----------
+let activeTab = 'scenes', songs = null, plId = null;
+function showTab(name) {
+  activeTab = name;
+  $('scenes-tab').hidden = name !== 'scenes';
+  $('music-tab').hidden = name !== 'music';
+  $('scene-actions').hidden = name !== 'scenes';
+  $('tab-scenes').setAttribute('aria-selected', name === 'scenes');
+  $('tab-music').setAttribute('aria-selected', name === 'music');
+  if (name !== 'music') { $('song-audio').pause(); }
+  renderDrafts();
+}
+$('tab-scenes').onclick = () => showTab('scenes');
+$('tab-music').onclick = () => showTab('music');
+// What a catalog will look like on the site (uploads become audio/library files).
+const liveShape = c => ({
+  tracks: c.tracks.map(({ upload, ...t }) => ({ ...t, url: upload ? `audio/library/${t.id}.mp3` : t.url })),
+  playlists: c.playlists.map(p => ({ id: p.id, name: p.name, tracks: [...p.tracks] }))
+});
+const liveCatalog = () => state.catalog || state.catalogLocal || { tracks: [], playlists: [] };
+function loadCatalogDraft() {
+  songs = copy(drafts.catalog || published.catalog || liveCatalog());
+  if (!songs.playlists.some(p => p.id === plId)) plId = songs.playlists[0]?.id || null;
+  const live = liveCatalog();
+  $('music-live').textContent = state.catalog
+    ? `Live site: ${live.tracks.length} songs in ${live.playlists.length} playlist${live.playlists.length === 1 ? '' : 's'}.`
+    : 'The live site doesn\'t have the music catalog yet (merge the Studio music update first); showing this checkout\'s.';
+}
+function songsChanged() {
+  if (same(liveShape(songs), liveShape(published.catalog || liveCatalog()))) delete drafts.catalog;
+  else drafts.catalog = copy(songs);
+  persist('evStudioDrafts' + SUFFIX, drafts);
+  renderSongs(); renderDrafts();
+}
+const slug = text => String(text).toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/['’]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50) || 'song';
+function uniqueId(base, taken) { let id = base, n = 2; while (taken.has(id)) id = `${base}-${n++}`; return id; }
+const mmss = sec => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}`;
+const songById = id => songs.tracks.find(t => t.id === id);
+function songButton(label, title, onclick) {
+  const b = document.createElement('button'); b.textContent = label; b.title = title; b.setAttribute('aria-label', title); b.onclick = onclick; return b;
+}
+function play(track) {
+  const a = $('song-audio');
+  a.hidden = false;
+  a.src = track.upload ? `/.studio/uploads/${track.upload}.mp3` : `/${track.url}`;
+  a.play().catch(() => {});
+}
+function renderSongs() {
+  if (!songs) return;
+  const sel = $('pl-select');
+  sel.replaceChildren(...songs.playlists.map((p, i) => new Option(`${p.name} (${p.tracks.length})${i === 0 ? ' · default' : ''}`, p.id)));
+  sel.value = plId || '';
+  const pl = songs.playlists.find(p => p.id === plId);
+  $('pl-rename').disabled = $('pl-delete').disabled = !pl;
+  $('pl-first').disabled = !pl || songs.playlists[0] === pl;
+  const list = $('pl-tracks');
+  list.replaceChildren();
+  if (pl && !pl.tracks.length) list.innerHTML = '<div class="empty">No songs in this playlist yet. Add one below or drop new songs in.</div>';
+  pl?.tracks.forEach((id, i) => {
+    const t = songById(id); if (!t) return;
+    const row = document.createElement('div'); row.className = 'row';
+    const name = document.createElement('span'); name.className = 'title'; name.textContent = `${i + 1}. ${t.title}`;
+    const dur = document.createElement('span'); dur.className = 'dur'; dur.textContent = mmss(t.duration);
+    const up = songButton('▲', `Move ${t.title} up`, () => { [pl.tracks[i - 1], pl.tracks[i]] = [pl.tracks[i], pl.tracks[i - 1]]; songsChanged(); });
+    const down = songButton('▼', `Move ${t.title} down`, () => { [pl.tracks[i + 1], pl.tracks[i]] = [pl.tracks[i], pl.tracks[i + 1]]; songsChanged(); });
+    up.disabled = i === 0; down.disabled = i === pl.tracks.length - 1;
+    row.append(songButton('▶', `Play ${t.title}`, () => play(t)), name, dur, up, down,
+      songButton('✕', `Take ${t.title} out of ${pl.name}`, () => { pl.tracks.splice(i, 1); songsChanged(); }));
+    list.append(row);
+  });
+  const add = $('pl-add');
+  const missing = pl ? songs.tracks.filter(t => !pl.tracks.includes(t.id)) : [];
+  add.replaceChildren(...(missing.length ? missing.map(t => new Option(t.title, t.id)) : [new Option(pl ? 'Every song is already in it' : 'Make a playlist first', '')]));
+  add.disabled = $('pl-add-btn').disabled = !missing.length;
+
+  const host = $('songs');
+  host.replaceChildren();
+  if (!songs.tracks.length) host.innerHTML = '<div class="empty">No songs yet.</div>';
+  const live = new Set(liveCatalog().tracks.map(t => t.id));
+  for (const t of songs.tracks) {
+    const row = document.createElement('div'); row.className = 'row';
+    const title = document.createElement('input'); title.type = 'text'; title.value = t.title; title.maxLength = 80; title.setAttribute('aria-label', 'Song title');
+    title.onchange = () => { const v = title.value.trim(); if (v) { t.title = v; songsChanged(); } else title.value = t.title; };
+    const dur = document.createElement('span'); dur.className = 'dur'; dur.textContent = mmss(t.duration);
+    row.append(songButton('▶', `Play ${t.title}`, () => play(t)), title);
+    if (!live.has(t.id)) { const b = document.createElement('span'); b.className = 'badge'; b.textContent = 'NEW'; row.append(b); }
+    const used = songs.playlists.filter(p => p.tracks.includes(t.id)).length;
+    row.append(dur, songButton('✕', `Remove ${t.title} from the site`, () => {
+      if (!confirm(`Remove "${t.title}" from the site${used ? ` and from ${used} playlist${used === 1 ? '' : 's'}` : ''}?`)) return;
+      songs.tracks = songs.tracks.filter(x => x !== t);
+      songs.playlists.forEach(p => { p.tracks = p.tracks.filter(id => id !== t.id); });
+      songsChanged();
+    }));
+    host.append(row);
+  }
+}
+$('pl-select').onchange = () => { plId = $('pl-select').value; renderSongs(); };
+$('pl-new').onclick = () => {
+  const name = (prompt('Name for the new playlist') || '').trim().slice(0, 60);
+  if (!name) return;
+  const id = uniqueId(slug(name), new Set(['favorites', ...songs.playlists.map(p => p.id)]));
+  songs.playlists.push({ id: id.startsWith('custom-') ? `list-${id}` : id, name, tracks: [] });
+  plId = songs.playlists.at(-1).id;
+  songsChanged();
+};
+$('pl-rename').onclick = () => {
+  const pl = songs.playlists.find(p => p.id === plId); if (!pl) return;
+  const name = (prompt('New name', pl.name) || '').trim().slice(0, 60);
+  if (name && name !== pl.name) { pl.name = name; songsChanged(); }
+};
+$('pl-first').onclick = () => {
+  const i = songs.playlists.findIndex(p => p.id === plId); if (i <= 0) return;
+  songs.playlists.unshift(...songs.playlists.splice(i, 1));
+  songsChanged();
+};
+$('pl-delete').onclick = () => {
+  const pl = songs.playlists.find(p => p.id === plId); if (!pl) return;
+  if (songs.playlists.length === 1) return alert('Keep at least one playlist.');
+  if (!confirm(`Delete the playlist "${pl.name}"? Its songs stay in the library.`)) return;
+  songs.playlists = songs.playlists.filter(p => p !== pl);
+  plId = songs.playlists[0].id;
+  songsChanged();
+};
+$('pl-add-btn').onclick = () => {
+  const pl = songs.playlists.find(p => p.id === plId), id = $('pl-add').value;
+  if (pl && id && !pl.tracks.includes(id)) { pl.tracks.push(id); songsChanged(); }
+};
+async function uploadSongs(files) {
+  const list = [...files];
+  for (let i = 0; i < list.length; i++) {
+    const f = list[i];
+    $('song-progress').textContent = `Adding ${f.name} (${i + 1} of ${list.length})${/\.mp3$/i.test(f.name) ? '' : ', converting to MP3'}…`;
+    try {
+      const res = await fetch(`/api/studio/upload?name=${encodeURIComponent(f.name)}`, { method: 'POST', body: f });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || res.statusText);
+      const title = f.name.replace(/\.[^.]+$/, '').replace(/[_]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Untitled';
+      const id = uniqueId(slug(title), new Set(songs.tracks.map(t => t.id)));
+      songs.tracks.push({ id, title, duration: data.duration, upload: data.upload });
+      songs.playlists.find(p => p.id === plId)?.tracks.push(id);
+      songsChanged();
+    } catch (error) {
+      $('song-progress').textContent = `Couldn't add ${f.name}: ${error.message}`;
+      return;
+    }
+  }
+  $('song-progress').textContent = `Added ${list.length} song${list.length === 1 ? '' : 's'}. Rename them below if you like, then Publish.`;
+}
+$('song-files').onchange = e => { uploadSongs(e.target.files); e.target.value = ''; };
+const drop = $('song-drop');
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); if (e.dataTransfer.files.length) uploadSongs(e.dataTransfer.files); };
+
+// ---------- what the preview runs: live site or a pull request under review ----------
+async function loadCandidates() {
+  const sel = $('target');
+  try {
+    const { candidates } = await api('/api/studio/candidates');
+    for (const c of candidates) sel.add(new Option(`#${c.number} ${c.title}${c.reviewed ? ' ✓' : ''}${c.presets ? '' : ' (music)'}`, c.number));
+    if (TARGET !== 'live' && !candidates.some(c => c.number === TARGET)) sel.add(new Option(`#${TARGET}`, TARGET));
+    if (!candidates.length && TARGET === 'live') $('target-hint').textContent = 'No pull requests are waiting for review. New presets from Claude or Codex will show up here.';
+  } catch (error) {
+    $('target-hint').textContent = `Couldn't list pull requests (${error.message}).`;
+  }
+  sel.value = TARGET === 'live' ? '' : String(TARGET);
+}
+$('target').onchange = () => {
+  const v = $('target').value;
+  if (unsaved() && !confirm('This preset has changes that are not saved as a draft. Switch anyway?')) { $('target').value = TARGET === 'live' ? '' : String(TARGET); return; }
+  location.search = v ? `?pr=${v}` : '';
+};
+$('review-mark').onclick = async () => {
+  if (draftCount() && !confirm('You still have drafts that are not added to this pull request. Mark it reviewed anyway?')) return;
+  $('review-mark').disabled = true;
+  try {
+    await api('/api/studio/review', { target: TARGET });
+    $('review-mark').textContent = '✓ Reviewed';
+    status(`Marked #${TARGET} reviewed on GitHub. Merge it when you're ready for it to go live.`);
+  } catch (error) {
+    $('review-mark').disabled = false;
+    status(`Couldn't mark it reviewed: ${error.message}`);
+  }
+};
+// The live site can move on while Studio is open (another pull request merged): offer a reload.
+setInterval(async () => {
+  if (TARGET !== 'live' || !state || document.hidden) return;
+  try {
+    const { live } = await api('/api/studio/live');
+    if (live !== state.live) status(`The live site just updated (${live}). Your drafts are kept: <button class="small" onclick="location.reload()">Reload Studio</button>`);
+  } catch { /* offline */ }
+}, 60000);
+loadCandidates();
+
+addEventListener('beforeunload', e => { if (unsaved()) { e.preventDefault(); e.returnValue = ''; } });
+
+(async () => {
+  status(TARGET === 'live' ? 'Loading the live site…' : `Loading pull request #${TARGET}…`);
+  state = await api(`/api/studio/state?target=${TARGET}`);
+  stage.src = '/index.html?studio=1';
+  status('');
+  prunePublished();
+  const cand = state.candidate;
+  const isNew = new Set(cand ? cand.newKeys : []);
+  if (cand) {
+    $('branch').textContent = `Reviewing #${cand.number}: ${cand.title}. "was" = this pull request's version (${state.sha}); preview runs it.`;
+    $('review-bar').hidden = false;
+    $('review-link').href = cand.url;
+    $('review-mark').textContent = cand.reviewed ? '✓ Reviewed' : 'Mark reviewed';
+    $('review-mark').disabled = cand.reviewed;
+    $('target-hint').textContent = isNew.size ? `New in this pull request: ${cand.newKeys.map(k => state.presets[k].name).join(', ')}.` : 'This pull request changes existing presets or music.';
+  } else {
+    $('branch').textContent = `"was" = live site (${state.live}); preview runs the live code.`;
+  }
+  // New presets first when reviewing, so they are the first thing you see.
+  const order = [...state.order.filter(k => isNew.has(k)), ...state.order.filter(k => !isNew.has(k))];
+  for (const k of order) $('preset').add(new Option(`${isNew.has(k) ? '★ NEW · ' : ''}${state.presets[k].name}`, k));
+  loadKey(order[0]);
+  loadCatalogDraft(); renderSongs();
+  requestAnimationFrame(pinValues);
+})().catch(error => status(`Studio failed to load: ${error.message}`));
+</script>
+</body>
+</html>
