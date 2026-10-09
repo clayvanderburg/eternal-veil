@@ -9,7 +9,9 @@ your changes into a pull request, so nothing reaches eternalvoid.io until you me
 node tools/studio-server.mjs
 ```
 
-Open http://127.0.0.1:8820/tools/studio.html (local only; the server refuses other hosts).
+Open http://127.0.0.1:8820/tools/ (local only; the server refuses other hosts). That is the
+menu of every tool: this Studio (`/tools/studio.html`), the Music Lab and every preset lab, all
+on the one address. `/` goes to the menu too.
 
 ## Use
 
