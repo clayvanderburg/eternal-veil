@@ -26,6 +26,14 @@ Open http://127.0.0.1:8820/tools/studio.html (local only; the server refuses oth
    on a `studio/…` branch). Ask Claude to merge it; merging publishes. Published-but-not-
    merged changes stay visible as "waiting to be merged" until the live site has them.
 
+## Notes
+
+The note box under Save belongs to the preset you're looking at (or to the music playlists on
+that tab). Save keeps the note with that preset's draft; chips with a note show ✎. Publish
+prints each note under its own preset in the pull request, so agents know exactly which scene
+it's about. A preset can carry a note with no value changes (e.g. "kaleidoscope doesn't
+segment"); it gets its own section, as long as the publish includes at least one real change.
+
 ## Always in sync with the live site
 
 The preview runs from Studio's own copy of the site (`.studio/preview`, git-ignored), not from

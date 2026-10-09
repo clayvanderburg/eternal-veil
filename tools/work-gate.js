@@ -15,7 +15,7 @@ const suites = {
   ],
   music: [
     "node --check js/spatial-audio.js", "node scratch/spatial_audio_tests.js",
-    "node --check js/music-player.js", "node --check js/music-library.js", "node scratch/music_library_tests.js", "node scratch/music_source_tests.js", "node --check js/music-catalog.js", "node scratch/studio_music_tests.mjs", "node scratch/studio_review_tests.mjs",
+    "node --check js/music-player.js", "node --check js/music-library.js", "node scratch/music_library_tests.js", "node scratch/music_source_tests.js", "node --check js/music-catalog.js", "node scratch/studio_music_tests.mjs", "node scratch/studio_review_tests.mjs", "node scratch/studio_notes_tests.mjs",
     "node --check js/app.js", "node --check js/simulation.js",
     "node scratch/preset_integration_tests.js", "node scratch/music_moods_tests.js", "node scratch/music_lab_tests.js", "node scratch/url_tests.js"
   ],

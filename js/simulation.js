@@ -21,11 +21,57 @@ const MINI_SPIRALS = [
     { minR: 0.010, maxR: 0.13, turns: 14, dir: 1, spin: 0.0070, travel: 0.00058 }
 ];
 const SPIRAL_WANDER_FAMILY = 9;
-// Scenes whose kaleidoscope mirrors the whole drawn frame (their own module or
-// drawKaleidoscoped), so the particle mirror pass skips them.
-const LAYER_KALEIDOSCOPE_SHAPES = new Set(["mandelbrotDive", "molecularDance", "stellarNursery", "chromeRibbon", "celticCurrent", "celticKnotwork", "cymaticResonance", "quantumDrift", "solarFlare"]);
-// Evenly screen-filling scenes hide overlapping mirror copies; mirror one wedge instead.
-const WEDGE_KALEIDOSCOPE_SHAPES = new Set(["quantumDrift", "solarFlare"]);
+// True kaleidoscope for every scene: mirror one slice of `image` around the centre.
+// `segments` = N-fold symmetry built from 2N alternating mirrored slices, so neighbouring
+// slices always meet edge to edge (odd counts too), like Mandelbrot Dive's shader fold.
+// w × h are in the current transform's units; the copies are enlarged just enough that
+// the slice reaches the corners.
+// Speed: the slice is clipped once into a small transparent canvas, then stamped around
+// the circle with plain drawImage calls (clipping every copy cost ~14x more per frame).
+let kaleidoSlice = null;
+function drawWedgeKaleidoscope(ctx, image, w, h, segments, spin = 0) {
+    const slices = Math.max(3, Math.floor(segments)) * 2;
+    const step = (Math.PI * 2) / slices;
+    const half = step / 2;
+    const reach = Math.hypot(w / 2, h / 2) + 2;
+    const available = Math.min(w / 2, half < Math.PI / 2 ? (h / 2) / Math.sin(half) : h / 2);
+    const zoom = Math.max(1, Math.hypot(w / 2, h / 2) / available);
+    // Work at the real pixel density of the target so the slice is never blurrier than the scene.
+    const m = (ctx.getTransform && ctx.getTransform()) || { a: 1, b: 0 };
+    const res = Math.max(1, Math.hypot(m.a, m.b));
+    // A hair of overlap (about 1.5 px at the rim) hides anti-aliased seams between slices.
+    const spread = half + 1.5 / reach;
+    const sw = Math.ceil(reach), sh = Math.ceil(2 * reach * Math.sin(spread)) + 2;
+    if (!kaleidoSlice) {
+        kaleidoSlice = document.createElement("canvas");
+        kaleidoSlice.ctx = kaleidoSlice.getContext("2d");
+    }
+    const pw = Math.ceil(sw * res), ph = Math.ceil(sh * res);
+    if (kaleidoSlice.width !== pw || kaleidoSlice.height !== ph) { kaleidoSlice.width = pw; kaleidoSlice.height = ph; }
+    const sc = kaleidoSlice.ctx;
+    sc.setTransform(1, 0, 0, 1, 0, 0);
+    sc.clearRect(0, 0, pw, ph);
+    sc.setTransform(res, 0, 0, res, 0, res * sh / 2);
+    sc.save();
+    sc.beginPath();
+    sc.moveTo(0, 0);
+    sc.arc(0, 0, reach * 1.02, -spread, spread);
+    sc.closePath();
+    sc.clip();
+    sc.scale(zoom, zoom);
+    sc.translate(-w / 2, -h / 2);
+    sc.drawImage(image, 0, 0, w, h);
+    sc.restore();
+    for (let i = 0; i < slices; i++) {
+        ctx.save();
+        ctx.translate(w / 2, h / 2);
+        ctx.rotate(step * i + spin);
+        if (i % 2 === 1) ctx.scale(1, -1);
+        ctx.drawImage(kaleidoSlice, 0, -sh / 2, sw, sh);
+        ctx.restore();
+    }
+}
+if (typeof window !== "undefined") window.drawWedgeKaleidoscope = drawWedgeKaleidoscope;
 // How large an authored composition is drawn relative to the screen (1 = original).
 const COMPOSITION_SCALE = { quantumLattice: 0.55 };
 
@@ -2105,9 +2151,10 @@ class FlowSimulation {
         this.spawnParticles();
     }
 
-    // Scenes drawn by their own module (not particles) are mirrored as a whole
-    // frame: render once into a layer, then lay rotated, mirrored copies.
-    drawKaleidoscoped(draw, { wedge = false } = {}) {
+    // Kaleidoscope for any scene: render the frame once into a layer, then mirror one
+    // slice of it around the centre (drawWedgeKaleidoscope). Draws straight through
+    // when the kaleidoscope is off.
+    drawKaleidoscoped(draw) {
         const segments = this.settings.kaleidoscopeEnabled
             ? Math.max(3, Math.floor(this.settings.kaleidoscopeSegments || 6)) : 0;
         // A hidden or minimized window can briefly report a 0×0 canvas; drawImage
@@ -2130,46 +2177,10 @@ class FlowSimulation {
         layer.clearRect(0, 0, w, h);
         layer.setTransform(this.ctx.getTransform());
         draw(layer);
-        const step = (Math.PI * 2) / segments;
         const spin = this.settings.spinningKaleido ? this.globalTime * 0.002 : 0;
         this.ctx.save();
         this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-        if (wedge) {
-            // Copy only the source wedge centred on the wide axis; odd copies are
-            // reflected about their own axis so neighbouring wedges meet edge to
-            // edge. Enlarge the copies just enough that the wedge reaches the corners.
-            const half = step / 2;
-            const radius = Math.hypot(w, h);
-            const available = Math.min(w / 2, half < Math.PI / 2 ? (h / 2) / Math.sin(half) : h / 2);
-            const zoom = Math.max(1, Math.hypot(w / 2, h / 2) / available);
-            for (let seg = 0; seg < segments; seg++) {
-                this.ctx.save();
-                this.ctx.translate(w / 2, h / 2);
-                this.ctx.rotate(step * seg + spin);
-                if (seg % 2 === 1) this.ctx.scale(1, -1);
-                this.ctx.beginPath();
-                this.ctx.moveTo(0, 0);
-                this.ctx.arc(0, 0, radius, -half, half);
-                this.ctx.closePath();
-                this.ctx.clip();
-                this.ctx.scale(zoom, zoom);
-                this.ctx.translate(-w / 2, -h / 2);
-                this.ctx.drawImage(this.sceneLayer, 0, 0);
-                this.ctx.restore();
-            }
-            this.ctx.restore();
-            return;
-        }
-        this.ctx.drawImage(this.sceneLayer, 0, 0);
-        for (let seg = 1; seg < segments; seg++) {
-            this.ctx.save();
-            this.ctx.translate(w / 2, h / 2);
-            this.ctx.rotate(step * seg + spin);
-            if (seg % 2 === 1) this.ctx.scale(-1, 1);
-            this.ctx.translate(-w / 2, -h / 2);
-            this.ctx.drawImage(this.sceneLayer, 0, 0);
-            this.ctx.restore();
-        }
+        drawWedgeKaleidoscope(this.ctx, this.sceneLayer, w, h, segments, spin);
         this.ctx.restore();
     }
 
@@ -2631,9 +2642,11 @@ class FlowSimulation {
                     this.particles[i].update(this.settings, this.globalTime, this.mouse, this.customForces, this.shockwaves, this.vortices, dt);
                 }
                 const depthOrderedParticles = [...this.particles].sort((a, b) => (a.painterDepth ?? 0) - (b.painterDepth ?? 0));
-                for (let i = 0; i < depthOrderedParticles.length; i++) {
-                    depthOrderedParticles[i].draw(this.ctx, this.settings);
-                }
+                this.drawKaleidoscoped(ctx => {
+                    for (let i = 0; i < depthOrderedParticles.length; i++) {
+                        depthOrderedParticles[i].draw(ctx, this.settings);
+                    }
+                });
             } else {
                 const shape = this.settings.particleShape;
                 const drawParticles = ctx => {
@@ -2652,8 +2665,7 @@ class FlowSimulation {
                         overlay[i].draw(ctx, this.settings);
                     }
                 };
-                if (WEDGE_KALEIDOSCOPE_SHAPES.has(shape)) this.drawKaleidoscoped(drawParticles, { wedge: true });
-                else drawParticles(this.ctx);
+                this.drawKaleidoscoped(drawParticles);
             }
 
             // Update & Draw sparkles
@@ -2685,58 +2697,9 @@ class FlowSimulation {
 
             // Expanding shockwaves are physical forces only (no white lines drawn)
 
-            // Apply Kaleidoscope mirror reflection quadrant symmetry
-            // Mandelbrot Dive mirrors inside its own shader and Molecular Dance
-            // and Stellar Nursery mirror their own layer; the particle mirror pass would only redraw
-            // those presets' idle particle pool.
-            if (this.settings.kaleidoscopeEnabled && !LAYER_KALEIDOSCOPE_SHAPES.has(this.settings.particleShape)) {
-                const cx = this.width / 2;
-                const cy = this.height / 2;
-                const segments = Math.max(3, Math.floor(this.settings.kaleidoscopeSegments));
-                const angleSegment = (Math.PI * 2) / segments;
-                const spinAngle = this.settings.spinningKaleido ? this.globalTime * 0.002 : 0;
-
-                // Draw the mirrored population once per frame, then reuse it.
-                // Replaying thousands of painterly particle draws for every
-                // reflection is especially costly now that copies are centered.
-                if (!this.kaleidoCanvas) {
-                    this.kaleidoCanvas = document.createElement('canvas');
-                    this.kaleidoCtx = this.kaleidoCanvas.getContext('2d');
-                }
-                if (this.kaleidoCanvas.width !== this.canvas.width || this.kaleidoCanvas.height !== this.canvas.height) {
-                    this.kaleidoCanvas.width = this.canvas.width;
-                    this.kaleidoCanvas.height = this.canvas.height;
-                }
-                this.kaleidoCtx.setTransform(1, 0, 0, 1, 0, 0);
-                this.kaleidoCtx.clearRect(0, 0, this.kaleidoCanvas.width, this.kaleidoCanvas.height);
-                this.kaleidoCtx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-                for (let i = 0; i < Math.min(this.particles.length, 1200); i++) {
-                    this.particles[i].draw(this.kaleidoCtx, this.settings);
-                }
-
-                // Reflect particle renders across radial quadrants
-                for (let seg = 1; seg < segments; seg++) {
-                    this.ctx.save();
-                    this.ctx.translate(cx, cy);
-                    this.ctx.rotate(angleSegment * seg + spinAngle);
-                    
-                    if (seg % 2 === 1) {
-                        this.ctx.scale(-1, 1); // mirror reflection
-                    }
-
-                    // Particle coordinates are absolute canvas coordinates.
-                    // Rotate/reflect around the center, not around an offset
-                    // copy of the top-left corner. Preserve outer breath/zoom.
-                    this.ctx.translate(-cx, -cy);
-
-                    // Render particles in mirrored section
-                    this.ctx.drawImage(this.kaleidoCanvas, 0, 0, this.width, this.height);
-
-                    // Mirrored shockwaves are physical forces only
-
-                    this.ctx.restore();
-                }
-            }
+            // Kaleidoscope: every scene above is drawn through drawKaleidoscoped (a true
+            // mirrored-slice kaleidoscope); Mandelbrot Dive folds inside its shader and
+            // Molecular Dance / Stellar Nursery mirror their own layer the same way.
         }
 
         this.ctx.restore();
