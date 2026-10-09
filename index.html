@@ -33,9 +33,17 @@
     <!-- Custom Style Sheet -->
     <link rel="stylesheet" href="styles.css?v=community-buttons-1">
     <link rel="stylesheet" href="music-player.css?v=spatial-2">
+    <link rel="stylesheet" href="social.css?v=social-1">
     <link rel="stylesheet" href="playlists.css?v=playlists-1">
 </head>
 <body>
+    <!-- Social icon sprite (shared by the HUD, welcome screen and console) -->
+    <svg class="social-sprite" width="0" height="0" aria-hidden="true" focusable="false">
+        <symbol id="icon-youtube" viewBox="0 0 24 24"><rect x="2.5" y="5.5" width="19" height="13" rx="4" fill="none" stroke="currentColor" stroke-width="1.8"></rect><path d="M10.2 9.1v5.8l5-2.9z" fill="currentColor"></path></symbol>
+        <symbol id="icon-instagram" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="5" fill="none" stroke="currentColor" stroke-width="1.8"></rect><circle cx="12" cy="12" r="3.9" fill="none" stroke="currentColor" stroke-width="1.8"></circle><circle cx="17.1" cy="6.9" r="1.1" fill="currentColor"></circle></symbol>
+        <symbol id="icon-patreon" viewBox="0 0 24 24"><circle cx="14.6" cy="9.6" r="5.9" fill="none" stroke="currentColor" stroke-width="1.8"></circle><rect x="3.9" y="3.7" width="2.7" height="16.6" rx="1.1" fill="currentColor"></rect></symbol>
+    </svg>
+
     <!-- Entry Splash Screen Overlay -->
     <div id="splash-screen" class="splash-overlay">
         <div class="splash-card">
@@ -65,6 +73,13 @@
             </div>
             <p class="splash-preference-note">Comfort settings can be changed later in the console.</p>
             <p class="splash-preference-note"><a href="/support" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 14px; color: var(--text-accent); text-underline-offset: 3px;">Would you support Eternal Void?</a><br>Interest only · no payment or signup.</p>
+            <nav class="social-row splash-social" aria-label="Follow Eternal Void">
+                <div class="social-links">
+                    <a class="social-link" data-network="youtube" href="https://www.youtube.com/@eternalvoidio" target="_blank" rel="noopener noreferrer" aria-label="YouTube (opens a new tab)" title="YouTube · @eternalvoidio"><svg aria-hidden="true" focusable="false"><use href="#icon-youtube"></use></svg></a>
+                    <a class="social-link" data-network="instagram" href="https://www.instagram.com/eternalvoidio/" target="_blank" rel="noopener noreferrer" aria-label="Instagram (opens a new tab)" title="Instagram · @eternalvoidio"><svg aria-hidden="true" focusable="false"><use href="#icon-instagram"></use></svg></a>
+                    <a class="social-link" data-network="patreon" href="https://www.patreon.com/c/TheEternalVoid" target="_blank" rel="noopener noreferrer" aria-label="Patreon (opens a new tab)" title="Patreon · Free updates"><svg aria-hidden="true" focusable="false"><use href="#icon-patreon"></use></svg></a>
+                </div>
+            </nav>
         </div>
     </div>
 
@@ -226,6 +241,14 @@
                 <button class="hud-action-btn" id="hud-save-scene" type="button" title="Save this exact scene to Custom Scenes">SAVE SCENE</button>
                 <button class="hud-action-btn" id="hud-share-native" type="button" title="Share this exact scene">SHARE SCENE</button>
             </div>
+            <nav class="social-row hud-social" aria-label="Follow Eternal Void">
+                <span class="social-label">FOLLOW THE VOID</span>
+                <div class="social-links">
+                    <a class="social-link" data-network="youtube" href="https://www.youtube.com/@eternalvoidio" target="_blank" rel="noopener noreferrer" aria-label="YouTube (opens a new tab)" title="YouTube · @eternalvoidio"><svg aria-hidden="true" focusable="false"><use href="#icon-youtube"></use></svg></a>
+                    <a class="social-link" data-network="instagram" href="https://www.instagram.com/eternalvoidio/" target="_blank" rel="noopener noreferrer" aria-label="Instagram (opens a new tab)" title="Instagram · @eternalvoidio"><svg aria-hidden="true" focusable="false"><use href="#icon-instagram"></use></svg></a>
+                    <a class="social-link" data-network="patreon" href="https://www.patreon.com/c/TheEternalVoid" target="_blank" rel="noopener noreferrer" aria-label="Patreon (opens a new tab)" title="Patreon · Free updates"><svg aria-hidden="true" focusable="false"><use href="#icon-patreon"></use></svg></a>
+                </div>
+            </nav>
         </div>
     </header>
 
@@ -944,6 +967,15 @@
 
             <!-- TAB 4: EXPORT, URL SHARING & AUDIO -->
             <section class="tab-content" id="tab-share">
+                <div class="setting-group social-console">
+                    <span class="setting-label-header">FOLLOW ETERNAL VOID</span>
+                    <p class="setting-desc">New scenes, clips and updates, wherever you like to watch.</p>
+                    <div class="social-cards">
+                        <a class="social-card" data-network="youtube" href="https://www.youtube.com/@eternalvoidio" target="_blank" rel="noopener noreferrer" aria-label="YouTube: @eternalvoidio · scene videos and shorts (opens a new tab)"><span class="social-card-icon"><svg aria-hidden="true" focusable="false"><use href="#icon-youtube"></use></svg></span><span class="social-card-text"><strong>YouTube</strong><small>@eternalvoidio · scene videos and shorts</small></span><span class="social-card-arrow" aria-hidden="true">↗</span></a>
+                        <a class="social-card" data-network="instagram" href="https://www.instagram.com/eternalvoidio/" target="_blank" rel="noopener noreferrer" aria-label="Instagram: @eternalvoidio · reels and stills (opens a new tab)"><span class="social-card-icon"><svg aria-hidden="true" focusable="false"><use href="#icon-instagram"></use></svg></span><span class="social-card-text"><strong>Instagram</strong><small>@eternalvoidio · reels and stills</small></span><span class="social-card-arrow" aria-hidden="true">↗</span></a>
+                        <a class="social-card" data-network="patreon" href="https://www.patreon.com/c/TheEternalVoid" target="_blank" rel="noopener noreferrer" aria-label="Patreon: Free updates · joining is optional (opens a new tab)"><span class="social-card-icon"><svg aria-hidden="true" focusable="false"><use href="#icon-patreon"></use></svg></span><span class="social-card-text"><strong>Patreon</strong><small>Free updates · joining is optional</small></span><span class="social-card-arrow" aria-hidden="true">↗</span></a>
+                    </div>
+                </div>
                 <div class="setting-group"><span class="setting-label-header">SPATIAL AUDIO</span><p class="setting-desc">Binaural tones and soft bilateral movement, with their own player and controls.</p><button class="btn btn-secondary" id="open-spatial-console">Open Spatial Audio</button></div>
                 <!-- Compatibility controls retained for saved scenes; Spatial Audio owns the visible player. -->
                 <div class="setting-group" hidden style="display:none">
