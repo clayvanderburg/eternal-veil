@@ -69,23 +69,54 @@ function kaleidoRingAxis(axis, ring) {
 function kaleidoRingRadius(w, h, ring, rings) {
     return ((w / 2 + h / 2) / 2) * (ring + 1) / rings;
 }
+// Ring Folds: each ring can have its own number of folds (layered mandalas: a 6-fold
+// centre inside an 8-fold band inside a 12-fold rim). Ring 0 is the centre.
+//   same        every ring uses the Mandala Segments count
+//   growing     each ring outward adds `step` folds (6 / 8 / 10 / 12)
+//   doubling    each ring outward doubles (4 / 8 / 16)
+//   alternating rings alternate between the count and twice it (6 / 12 / 6 / 12)
+//   custom      the per-ring counts in kaleidoRingCustom
+const KALEIDO_RING_FOLD_MODES = ["same", "growing", "doubling", "alternating", "custom"];
+const KALEIDO_MAX_FOLDS = 24;
+function kaleidoRingFolds(settings) {
+    const s = settings || {};
+    const rings = Math.max(1, Math.min(5, Math.round(Number(s.kaleidoAxesRings)) || 1));
+    const base = Math.max(3, Math.min(KALEIDO_MAX_FOLDS, Math.floor(Number(s.kaleidoscopeSegments)) || 6));
+    const step = Math.max(1, Math.min(6, Math.round(Number(s.kaleidoRingStep)) || 2));
+    const custom = Array.isArray(s.kaleidoRingCustom) ? s.kaleidoRingCustom : [];
+    const mode = KALEIDO_RING_FOLD_MODES.includes(s.kaleidoRingFolds) ? s.kaleidoRingFolds : "same";
+    const folds = [];
+    for (let k = 0; k < rings; k++) {
+        const n = mode === "growing" ? base + step * k
+            : mode === "doubling" ? base * Math.pow(2, k)
+            : mode === "alternating" ? (k % 2 ? base * 2 : base)
+            : mode === "custom" ? (Number(custom[k]) || base)
+            : base;
+        folds.push(Math.max(3, Math.min(KALEIDO_MAX_FOLDS, Math.round(n))));
+    }
+    return folds;
+}
+// `segments` is one fold count for every ring, or a per-ring list (ring 0 first).
 function drawWedgeKaleidoscope(ctx, image, w, h, segments, axis = 0, rings = 1) {
     const count = Math.max(1, Math.min(5, Math.floor(rings) || 1));
-    if (count === 1 || !axis) {
-        drawWedgeKaleidoscopeTier(ctx, image, w, h, segments, axis);
+    const foldsAt = k => Array.isArray(segments) ? segments[Math.min(k, segments.length - 1)] : segments;
+    let allSame = true;
+    for (let k = 1; k < count; k++) if (Math.floor(foldsAt(k)) !== Math.floor(foldsAt(0))) allSame = false;
+    if (count === 1 || (!axis && allSame)) {
+        drawWedgeKaleidoscopeTier(ctx, image, w, h, foldsAt(0), axis);
         return;
     }
     // Outermost first; each inner tier is laid over it inside its own circle.
     for (let k = count - 1; k >= 0; k--) {
         if (k === count - 1) {
-            drawWedgeKaleidoscopeTier(ctx, image, w, h, segments, kaleidoRingAxis(axis, k));
+            drawWedgeKaleidoscopeTier(ctx, image, w, h, foldsAt(k), kaleidoRingAxis(axis, k));
             continue;
         }
         ctx.save();
         ctx.beginPath();
         ctx.arc(w / 2, h / 2, kaleidoRingRadius(w, h, k, count), 0, Math.PI * 2);
         ctx.clip();
-        drawWedgeKaleidoscopeTier(ctx, image, w, h, segments, kaleidoRingAxis(axis, k));
+        drawWedgeKaleidoscopeTier(ctx, image, w, h, foldsAt(k), kaleidoRingAxis(axis, k));
         ctx.restore();
     }
 }
@@ -162,6 +193,7 @@ if (typeof window !== "undefined") {
     window.drawWedgeKaleidoscope = drawWedgeKaleidoscope;
     window.kaleidoscopeAxis = kaleidoscopeAxis;
     window.kaleidoRingAxis = kaleidoRingAxis;
+    window.kaleidoRingFolds = kaleidoRingFolds;
 }
 // How large an authored composition is drawn relative to the screen (1 = original).
 const COMPOSITION_SCALE = { quantumLattice: 0.55 };
@@ -2222,7 +2254,10 @@ class FlowSimulation {
             psychedelicMode: false,
             morphingBg: false,
             spinningKaleido: false,
-            kaleidoAxesRings: 1,    // Axes Rings: concentric tiers the spinning axes split into
+            kaleidoAxesRings: 1,    // Rings: concentric tiers the mandala splits into
+            kaleidoRingFolds: "same", // fold count per ring (see kaleidoRingFolds)
+            kaleidoRingStep: 2,     // folds each ring adds outward in "growing"
+            kaleidoRingCustom: [6, 8, 10, 12, 14], // per-ring folds in "custom"
             particleShape: "ellipse",
             particleLighting: "glow",
             shockwavesEnabled: true,
@@ -2272,7 +2307,7 @@ class FlowSimulation {
         const { axis } = kaleidoscopeAxis(this.settings.spinningKaleido === true);
         this.ctx.save();
         this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-        drawWedgeKaleidoscope(this.ctx, this.sceneLayer, w, h, segments, axis, this.settings.kaleidoAxesRings);
+        drawWedgeKaleidoscope(this.ctx, this.sceneLayer, w, h, kaleidoRingFolds(this.settings), axis, this.settings.kaleidoAxesRings);
         this.ctx.restore();
     }
 

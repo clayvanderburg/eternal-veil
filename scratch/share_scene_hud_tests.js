@@ -33,6 +33,7 @@ vm.runInContext(extract('getPresetByShape', 'updateHudPresetName') +
     extract('updateHudPresetName', 'updateHudColorSwatches') +
     extract('applyLoadedState', 'updateSliderTextDisplays'), context);
 context.releaseActivePreset = () => context.updateHudPresetName(null);
+context.syncRingControls = () => {};
 
 const scenarios = [
     ['mandelbrotDive', 'MANDELBROT DIVE'],

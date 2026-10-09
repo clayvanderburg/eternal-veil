@@ -859,7 +859,8 @@ const MolecularDance = (() => {
             if (typeof window !== "undefined" && window.drawWedgeKaleidoscope) {
                 // Same true kaleidoscope as every other scene (js/simulation.js).
                 const axes = window.kaleidoscopeAxis ? window.kaleidoscopeAxis(settings.spinningKaleido === true) : { axis: 0 };
-                window.drawWedgeKaleidoscope(ctx, layer.canvas, width, height, segments, axes.axis, settings.kaleidoAxesRings);
+                const folds = window.kaleidoRingFolds ? window.kaleidoRingFolds({ ...settings, kaleidoscopeSegments: segments }) : segments;
+                window.drawWedgeKaleidoscope(ctx, layer.canvas, width, height, folds, axes.axis, settings.kaleidoAxesRings);
             } else {
                 ctx.drawImage(layer.canvas, 0, 0, width, height);
             }

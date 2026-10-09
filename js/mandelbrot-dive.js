@@ -155,6 +155,7 @@ uniform float interiorGlow;
 uniform float kaleido;
 uniform float kaleidoSpin;
 uniform float kaleidoRings;
+uniform float kaleidoFolds[5];
 uniform float warp;
 uniform float warpTime;
 uniform float ripple;
@@ -180,13 +181,15 @@ void main() {
     if (kaleido >= 2.5) {
         // Fold the screen into mirrored wedges: the dive becomes a mandala.
         float wedge = 6.2831853 / kaleido;
-        // Axes Rings: concentric tiers, each with its own sweep (same radii and speeds as
-        // kaleidoRingAxis / kaleidoRingRadius in js/simulation.js).
+        // Rings: concentric tiers, each with its own sweep and fold count (same radii,
+        // speeds and folds as kaleidoRingAxis / kaleidoRingRadius / kaleidoRingFolds in
+        // js/simulation.js).
         float spin = kaleidoSpin;
         if (kaleidoRings > 1.5) {
             float ringBase = 0.5 * (resolution.x + resolution.y) / min(resolution.x, resolution.y); // ((w + h) / 4) / (min / 2)
             float ring = min(kaleidoRings - 1.0, floor(radius0 / ringBase * kaleidoRings));
             spin *= (mod(ring, 2.0) > 0.5 ? -1.0 : 1.0) * (1.0 + 0.35 * ring);
+            wedge = 6.2831853 / max(3.0, kaleidoFolds[int(ring)]);
         }
         float a = mod(atan(p.y, p.x) + spin + 0.5 * wedge, wedge) - 0.5 * wedge;
         a = abs(a);
@@ -278,7 +281,7 @@ void main() {
             });
             const names = ["orbit", "period", "maxIter", "resolution", "offset", "axis", "pixel", "palette", "paletteSize",
                 "bandDensity", "colorPhase", "glowWidth", "glowGain", "fieldLevel", "interiorGlow",
-                "kaleido", "kaleidoSpin", "kaleidoRings", "warp", "warpTime", "ripple", "stalks", "shimmer"];
+                "kaleido", "kaleidoSpin", "kaleidoRings", "kaleidoFolds", "warp", "warpTime", "ripple", "stalks", "shimmer"];
             const uniforms = {};
             for (const name of names) uniforms[name] = gl.getUniformLocation(program, name);
             const position = gl.getAttribLocation(program, "position");
@@ -387,6 +390,9 @@ void main() {
         gl.uniform1f(uniforms.kaleido, kaleidoSegments(settings));
         gl.uniform1f(uniforms.kaleidoSpin, settings.spinningKaleido ? state.warpTime * 0.12 : 0);
         gl.uniform1f(uniforms.kaleidoRings, Math.max(1, Math.min(5, Math.floor(finite(settings.kaleidoAxesRings, 1)))));
+        const folds = typeof window !== "undefined" && window.kaleidoRingFolds
+            ? window.kaleidoRingFolds({ ...settings, kaleidoscopeSegments: kaleidoSegments(settings) || 6 }) : [];
+        gl.uniform1fv(uniforms.kaleidoFolds, Array.from({ length: 5 }, (_, k) => folds[Math.min(k, folds.length - 1)] || kaleidoSegments(settings) || 6));
         gl.uniform1f(uniforms.warp, look.warp);
         gl.uniform1f(uniforms.warpTime, state.warpTime);
         gl.uniform1f(uniforms.ripple, tuning.ripple);

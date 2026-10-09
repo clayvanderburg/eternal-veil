@@ -2964,6 +2964,3 @@ body:not(.autopilot-active) .control-panel .flow-toggle-group {
     }
     .floating-controls.panel-open { display: none; }
 }
-
-/* Axes Rings only matter while the mandala axes spin. */
-.setting-group:has(#spinning-kaleido-toggle:not(:checked)) #kaleido-rings-control { display: none; }

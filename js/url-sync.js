@@ -13,6 +13,7 @@ const UrlStateSync = {
     mouseModes: ["burst", "attract", "repel", "vortex", "paint"],
     lightingModes: ["glow", "reactive", "pearl", "metal"],
     binauralModes: ["delta", "theta", "alpha", "beta", "gamma"],
+    ringFoldModes: ["same", "growing", "doubling", "alternating", "custom"],
 
     // V2 packs the same fields as the legacy JSON link into about 60 bytes.
     packState(state) {
@@ -43,6 +44,13 @@ const UrlStateSync = {
         byte(colors.length);
         colors.forEach(color);
         color(state.bg);
+        // Optional trailer for ring folds (fold mode, step, five custom counts). Left off
+        // when the folds are the default, so ordinary links are byte-for-byte unchanged.
+        const foldMode = this.ringFoldModes.indexOf(state.rf);
+        if (foldMode > 0) {
+            byte(foldMode); byte(state.rst);
+            for (let k = 0; k < 5; k++) byte(state.rc?.[k]);
+        }
         return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     },
 
@@ -70,9 +78,14 @@ const UrlStateSync = {
         state.vs = flags & (1 << 10) ? "dome" : "native";
         state.kr = Math.min(5, ((flags >> 11) & 7) + 1);
         const count = byte();
-        if (count < 1 || count > 8 || bytes.length !== offset + count * 3 + 3) return null;
+        const trailer = bytes.length - (offset + count * 3 + 3);
+        if (count < 1 || count > 8 || (trailer !== 0 && trailer !== 7)) return null;
         state.p = Array.from({ length: count }, color);
         state.bg = color();
+        if (trailer) {
+            state.rf = choice(this.ringFoldModes); state.rst = byte();
+            state.rc = Array.from({ length: 5 }, byte);
+        }
         return state;
     },
 
@@ -103,6 +116,9 @@ const UrlStateSync = {
                 mb: sim.settings.morphingBg ? 1 : 0,
                 sk: sim.settings.spinningKaleido ? 1 : 0,
                 kr: parseInt(sim.settings.kaleidoAxesRings || 1),
+                rf: sim.settings.kaleidoRingFolds || "same",
+                rst: parseInt(sim.settings.kaleidoRingStep || 2),
+                rc: Array.isArray(sim.settings.kaleidoRingCustom) ? sim.settings.kaleidoRingCustom.map(n => parseInt(n)) : undefined,
                 ps: sim.settings.particleShape,
                 pl: sim.settings.particleLighting || "glow",
                 se: sim.settings.shockwavesEnabled ? 1 : 0,
@@ -171,6 +187,9 @@ const UrlStateSync = {
                     morphingBg: state.mb === 1,
                     spinningKaleido: state.sk === 1,
                     kaleidoAxesRings: state.kr,
+                    kaleidoRingFolds: state.rf,
+                    kaleidoRingStep: state.rst,
+                    kaleidoRingCustom: state.rc,
                     particleShape: state.ps,
                     particleLighting: state.pl,
                     shockwavesEnabled: state.se !== 0, // default to true

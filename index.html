@@ -31,7 +31,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     
     <!-- Custom Style Sheet -->
-    <link rel="stylesheet" href="styles.css?v=mandala-rings-1">
+    <link rel="stylesheet" href="styles.css?v=community-buttons-1">
     <link rel="stylesheet" href="music-player.css?v=spatial-2">
     <link rel="stylesheet" href="social.css?v=social-1">
     <link rel="stylesheet" href="playlists.css?v=playlists-1">
@@ -839,6 +839,58 @@
                             <span class="slider-value" id="kaleido-segments-val">6</span>
                         </div>
                         <input type="range" id="kaleido-segments-slider" class="range-slider" min="3" max="12" value="6">
+
+                        <div class="slider-header">
+                            <span class="setting-label">Rings</span>
+                            <span class="slider-value" id="kaleido-rings-val">1</span>
+                        </div>
+                        <p class="setting-desc">Splits the mandala into concentric rings; with Spinning Mandala Axes they turn against each other</p>
+                        <input type="range" id="kaleido-rings-slider" class="range-slider" min="1" max="5" step="1" value="1">
+
+                        <div id="kaleido-ring-fold-controls" class="hidden">
+                            <span class="setting-label">Ring Folds</span>
+                            <select id="kaleido-ring-folds-select" class="dropdown-select">
+                                <option value="same">Same in every ring</option>
+                                <option value="growing">Growing outward (6 / 8 / 10)</option>
+                                <option value="doubling">Doubling (4 / 8 / 16)</option>
+                                <option value="alternating">Alternating (6 / 12 / 6)</option>
+                                <option value="custom">Custom per ring</option>
+                            </select>
+                            <div id="kaleido-ring-step-control" class="hidden">
+                                <div class="slider-header">
+                                    <span class="setting-label">Folds Added per Ring</span>
+                                    <span class="slider-value" id="kaleido-ring-step-val">2</span>
+                                </div>
+                                <input type="range" id="kaleido-ring-step-slider" class="range-slider" min="1" max="6" step="1" value="2">
+                            </div>
+                            <div id="kaleido-ring-custom-controls" class="hidden">
+                            <div class="slider-header" data-ring="0">
+                                <span class="setting-label">Ring 1 folds</span>
+                                <span class="slider-value" id="kaleido-ring-custom-val-0">6</span>
+                            </div>
+                            <input type="range" id="kaleido-ring-custom-slider-0" data-ring="0" class="range-slider" min="3" max="24" step="1" value="6">
+                            <div class="slider-header" data-ring="1">
+                                <span class="setting-label">Ring 2 folds</span>
+                                <span class="slider-value" id="kaleido-ring-custom-val-1">8</span>
+                            </div>
+                            <input type="range" id="kaleido-ring-custom-slider-1" data-ring="1" class="range-slider" min="3" max="24" step="1" value="8">
+                            <div class="slider-header" data-ring="2">
+                                <span class="setting-label">Ring 3 folds</span>
+                                <span class="slider-value" id="kaleido-ring-custom-val-2">10</span>
+                            </div>
+                            <input type="range" id="kaleido-ring-custom-slider-2" data-ring="2" class="range-slider" min="3" max="24" step="1" value="10">
+                            <div class="slider-header" data-ring="3">
+                                <span class="setting-label">Ring 4 folds</span>
+                                <span class="slider-value" id="kaleido-ring-custom-val-3">12</span>
+                            </div>
+                            <input type="range" id="kaleido-ring-custom-slider-3" data-ring="3" class="range-slider" min="3" max="24" step="1" value="12">
+                            <div class="slider-header" data-ring="4">
+                                <span class="setting-label">Ring 5 folds</span>
+                                <span class="slider-value" id="kaleido-ring-custom-val-4">14</span>
+                            </div>
+                            <input type="range" id="kaleido-ring-custom-slider-4" data-ring="4" class="range-slider" min="3" max="24" step="1" value="14">
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -896,15 +948,6 @@
                             <input type="checkbox" id="spinning-kaleido-toggle">
                             <span class="switch-slider"></span>
                         </label>
-                    </div>
-                    <!-- Shown only while the axes spin (styles.css) -->
-                    <div class="control-item" id="kaleido-rings-control">
-                        <div class="slider-header">
-                            <span class="setting-label">Axes Rings</span>
-                            <span class="slider-value" id="kaleido-rings-val">1</span>
-                        </div>
-                        <p class="setting-desc">Splits the mandala into rings that turn against each other</p>
-                        <input type="range" id="kaleido-rings-slider" class="range-slider" min="1" max="5" step="1" value="1">
                     </div>
 
                     <div class="control-row">
@@ -1218,24 +1261,24 @@
     <!-- Core Javascript Scripts -->
     <!-- Load Three.js from Cloudflare CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="js/state-schema.js?v=mandala-rings-1"></script>
+    <script src="js/state-schema.js?v=mandala-folds-1"></script>
     <script src="js/render-quality.js?v=90375e6"></script>
     <script src="js/color-theory.js?v=Paletton-1"></script>
     <script src="js/color-cycles.js?v=color-cycles-2"></script>
-    <script src="js/presets.js?v=nursery-1"></script>
+    <script src="js/presets.js?v=mandala-folds-1"></script>
     <script src="js/synth.js?v=beat-1"></script>
     <script src="js/exporter.js?v=90375e6"></script>
-    <script src="js/url-sync.js?v=mandala-rings-1"></script>
+    <script src="js/url-sync.js?v=mandala-folds-1"></script>
     <script src="js/preset-compositions.js?v=mandala-layers-1"></script>
     <script src="js/chrome-ribbons.js?v=chrome-11"></script>
     <script src="js/celtic-currents.js?v=moods-1"></script>
     <script src="js/celtic-knotwork.js?v=moods-1"></script>
     <script src="js/cymatic-resonance.js?v=cymatic-4"></script>
-    <script src="js/mandelbrot-dive.js?v=mandala-rings-1"></script>
-    <script src="js/molecular-dance.js?v=mandala-rings-1"></script>
-    <script src="js/stellar-nursery.js?v=mandala-rings-1"></script>
+    <script src="js/mandelbrot-dive.js?v=mandala-folds-1"></script>
+    <script src="js/molecular-dance.js?v=mandala-folds-1"></script>
+    <script src="js/stellar-nursery.js?v=mandala-folds-1"></script>
     <script src="js/music-moods.js?v=beat-1"></script>
-    <script src="js/simulation.js?v=mandala-rings-1"></script>
+    <script src="js/simulation.js?v=mandala-folds-1"></script>
     <script src="js/simulation3d.js?v=breath-sanctuary-1"></script>
     <script src="js/simulation3d-native.js?v=mandala-layers-1"></script>
     <section id="spatial-player" class="void-music music-player spatial-player" aria-label="Spatial audio player" hidden></section>
@@ -1255,6 +1298,6 @@
     <script src="js/music-player.js?v=catalog-1"></script>
     <script src="js/spatial-audio.js?v=2"></script>
     <script src="js/visual-playlists.js?v=playlists-2"></script>
-    <script src="js/app.js?v=mandala-rings-1"></script>
+    <script src="js/app.js?v=mandala-folds-1"></script>
 </body>
 </html>

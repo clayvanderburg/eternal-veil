@@ -35,8 +35,12 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '
 // ---------- reading ----------
 export function loadPresets(text) {
   const ctx = vm.createContext({});
-  vm.runInContext(text + ';globalThis.__P = StylePresets; globalThis.__O = getOrderedPresetKeys();', ctx);
-  return { presets: JSON.parse(JSON.stringify(ctx.__P)), order: [...ctx.__O] };
+  vm.runInContext(text + ';globalThis.__P = StylePresets; globalThis.__O = getOrderedPresetKeys();'
+    + 'globalThis.__E = typeof FlowExtraEffects === "undefined" ? null : FlowExtraEffects;', ctx);
+  const out = { presets: JSON.parse(JSON.stringify(ctx.__P)), order: [...ctx.__O] };
+  // Flow extra effects (key, label, desc), when this version of presets.js has them.
+  if (ctx.__E) out.effects = JSON.parse(JSON.stringify(ctx.__E));
+  return out;
 }
 export function loadMusic(text) {
   const ctx = vm.createContext({ window: {} });
@@ -61,8 +65,16 @@ function formatValue(value) {
   }
   if (typeof value === 'string' && /^[A-Za-z]{1,40}$/.test(value)) return `"${value}"`;
   if (value && typeof value === 'object') {
-    // flowRanges: { field: [min, max] }
     const entries = Object.entries(value);
+    // flowEffectWeights: { effect: weight }
+    if (entries.length && entries.every(([, w]) => typeof w === 'number')) {
+      if (entries.length > 40) throw new Error('Too many Flow effect weights');
+      return `{ ${entries.map(([k, w]) => {
+        if (!/^[A-Za-z][A-Za-z0-9]{0,40}$/.test(k) || !Number.isFinite(w) || w < 0 || w > 100) throw new Error(`Bad Flow effect weight for ${k}`);
+        return `${k}: ${formatValue(w)}`;
+      }).join(', ')} }`;
+    }
+    // flowRanges: { field: [min, max] }
     if (entries.length > 40) throw new Error('Too many Flow ranges');
     const parts = entries.map(([field, range]) => {
       if (!/^[A-Za-z][A-Za-z0-9]{0,40}$/.test(field) || !Array.isArray(range) || range.length !== 2 || !range.every(n => typeof n === 'number' && Number.isFinite(n))) {
@@ -117,7 +129,9 @@ function applyPresetChangesLf(text, key, changes) {
   for (const [field, value] of Object.entries(changes)) {
     const got = check[field];
     const ok = Array.isArray(value) ? JSON.stringify(got) === JSON.stringify(value.map(c => c.toLowerCase()))
-      : value && typeof value === 'object' ? Object.entries(value).every(([f, r]) => Math.abs(got?.[f]?.[0] - Math.min(...r)) < 1e-3 && Math.abs(got?.[f]?.[1] - Math.max(...r)) < 1e-3)
+      : value && typeof value === 'object' ? Object.entries(value).every(([f, r]) => typeof r === 'number'
+        ? Math.abs(got?.[f] - r) < 1e-3
+        : Math.abs(got?.[f]?.[0] - Math.min(...r)) < 1e-3 && Math.abs(got?.[f]?.[1] - Math.max(...r)) < 1e-3)
       : typeof value === 'number' ? Math.abs(got - value) < 1e-3 : got === value;
     if (!ok) throw new Error(`Couldn't write ${key}.${field} safely`);
   }

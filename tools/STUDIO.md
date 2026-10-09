@@ -15,7 +15,7 @@ Open http://127.0.0.1:8820/tools/studio.html (local only; the server refuses oth
 
 1. Pick a preset. The preview switches to it and holds your values while you drag.
    "was …" always shows what is live on eternalvoid.io (GitHub `main`).
-2. Adjust Motion, Particles, Kaleidoscope (including Flow chance and segment range),
+2. Adjust Motion, Particles, Kaleidoscope & Flow Extra Effects (the chance Flow adds an extra effect, each effect's weight within that chance, and the segment range),
    scene-specific settings and Colors. Each value Flow varies has a cyan Flow line: auto
    (preset ± personality variation) or an exact range. ↺ resets one value to live.
 3. Music reaction edits the shared card for the preset's shape. Start music in the preview

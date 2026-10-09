@@ -21,8 +21,8 @@ const sliceCtx = { setTransform() {}, clearRect() {}, save() {}, restore() {}, b
 const document = { createElement: () => ({ width: 0, height: 0, getContext: () => sliceCtx }) };
 let clock = 0;
 const performance = { now: () => clock };
-const { drawWedgeKaleidoscope, kaleidoscopeAxis, kaleidoMirrorTiles } = new Function('document', 'performance',
-    source.slice(start, end) + '\nreturn { drawWedgeKaleidoscope, kaleidoscopeAxis, kaleidoMirrorTiles };')(document, performance);
+const { drawWedgeKaleidoscope, kaleidoscopeAxis, kaleidoMirrorTiles, kaleidoRingFolds } = new Function('document', 'performance',
+    source.slice(start, end) + '\nreturn { drawWedgeKaleidoscope, kaleidoscopeAxis, kaleidoMirrorTiles, kaleidoRingFolds };')(document, performance);
 const noopCtx = { getTransform: () => ({ a: 1, b: 0 }), save() {}, restore() {}, translate() {}, rotate() {}, scale() {}, drawImage() {} };
 
 const stillZoomOf = (width, height, segments) => {
@@ -151,6 +151,33 @@ for (const [width, height] of [[1600, 900], [900, 1600], [1024, 1024], [390, 844
         assert(circles[0][2] < Math.hypot(800, 450), 'the outermost tier still reaches the corners');
     }
     assert.equal(tierTurns(9, 0.8).length, 5, 'at most 5 rings');
+
+    // Ring Folds: per-ring fold counts by mode.
+    const folds = (mode, extra = {}) => kaleidoRingFolds({ kaleidoscopeSegments: 6, kaleidoAxesRings: 4, kaleidoRingFolds: mode, ...extra });
+    assert.deepEqual(folds('same'), [6, 6, 6, 6]);
+    assert.deepEqual(folds('growing'), [6, 8, 10, 12], 'growing adds 2 by default');
+    assert.deepEqual(folds('growing', { kaleidoRingStep: 3 }), [6, 9, 12, 15]);
+    assert.deepEqual(folds('doubling', { kaleidoscopeSegments: 4, kaleidoAxesRings: 3 }), [4, 8, 16]);
+    assert.deepEqual(folds('doubling'), [6, 12, 24, 24], 'capped at 24 folds');
+    assert.deepEqual(folds('alternating'), [6, 12, 6, 12]);
+    assert.deepEqual(folds('custom', { kaleidoRingCustom: [5, 7, 2, 99, 9] }), [5, 7, 3, 24], 'custom, clamped 3-24');
+    assert.deepEqual(folds('nonsense'), [6, 6, 6, 6], 'unknown mode: same');
+    assert.deepEqual(kaleidoRingFolds({ kaleidoscopeSegments: 7.6 }), [7], 'morphing segments: whole folds, one ring');
+
+    // Each tier stamps 2 × its own folds; different folds show rings even with the axes at rest.
+    const tierStamps = (segments, axis, rings) => {
+        const per = [];
+        const clip = sliceCtx.clip;
+        sliceCtx.clip = () => { per.push(0); };
+        const counted = { ...ringCtx, drawImage() { per[per.length - 1]++; } };
+        drawWedgeKaleidoscope(counted, {}, 1600, 900, segments, axis, rings);
+        sliceCtx.clip = clip;
+        return per.reverse(); // ring 0 first
+    };
+    assert.deepEqual(tierStamps([4, 8, 16], 0, 3), [8, 16, 32], 'still layered mandala: each ring its own folds');
+    assert.deepEqual(tierStamps([4, 8, 16], 0.5, 3), [8, 16, 32], 'spinning too');
+    assert.deepEqual(tierStamps([6, 6, 6], 0, 3), [12], 'same folds at rest: one plain tier');
+    assert.deepEqual(tierStamps(6, 0.5, 1), [12], 'a plain number still works');
 }
 
 // The shared axes clock: still while off, eases in over ~1.5 s, turns ~0.12 rad/s, glides to a

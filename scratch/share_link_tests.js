@@ -62,6 +62,22 @@ for (const rings of [1, 2, 3, 4, 5]) {
     assert.equal(back.settings.spinningKaleido, true);
     assert.equal(back.presentation.style, "dome", "neighbouring flag bits untouched");
 }
+// Ring folds ride in an optional 7-byte trailer, only when they are not the default.
+settings.kaleidoAxesRings = 4;
+for (const mode of ["growing", "doubling", "alternating", "custom"]) {
+    Object.assign(settings, { kaleidoRingFolds: mode, kaleidoRingStep: 3, kaleidoRingCustom: [5, 9, 13, 17, 21] });
+    const url = sync.generateShareUrl(sim, false, { is3DMode: true, style: "dome" });
+    assert(url.length > shortUrl.length && url.length < shortUrl.length + 12, "small trailer");
+    window.location.hash = url.slice(url.indexOf("#"));
+    const back = sync.parseUrlState().settings;
+    assert.deepEqual([back.kaleidoRingFolds, back.kaleidoRingStep, back.kaleidoRingCustom, back.kaleidoAxesRings],
+        [mode, 3, [5, 9, 13, 17, 21], 4], `${mode} folds round trip`);
+}
+settings.kaleidoRingFolds = "same";
+assert.equal(sync.generateShareUrl(sim, false, { is3DMode: true, style: "dome" }).length, shortUrl.length, "default folds: no trailer");
+window.location.hash = shortUrl.slice(shortUrl.indexOf("#"));
+assert.equal(sync.parseUrlState().settings.kaleidoRingFolds, "same", "links without the trailer read as same folds");
+delete settings.kaleidoRingFolds; delete settings.kaleidoRingStep; delete settings.kaleidoRingCustom;
 delete settings.kaleidoAxesRings;
 settings.spinningKaleido = false;
 
