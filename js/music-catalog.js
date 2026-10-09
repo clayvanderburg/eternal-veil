@@ -43,12 +43,27 @@
     { "id": "victory-will-be-mine", "title": "Victory Will Be Mine", "duration": 179.08, "url": "audio/library/victory-will-be-mine.mp3" },
     { "id": "realm-rescued", "title": "Realm Rescued", "duration": 179.44, "url": "audio/library/realm-rescued.mp3" },
     { "id": "final-triumph", "title": "Final Triumph", "duration": 179.4, "url": "audio/library/final-triumph.mp3" },
-    { "id": "awaken", "title": "Awaken", "duration": 179.56, "url": "audio/library/awaken.mp3" }
+    { "id": "awaken", "title": "Awaken", "duration": 179.56, "url": "audio/library/awaken.mp3" },
+    { "id": "warm-copper", "title": "Warm Copper", "duration": 179.84, "url": "audio/library/warm-copper.mp3" },
+    { "id": "8-track-echoes", "title": "8-track Echoes", "duration": 180, "url": "audio/library/8-track-echoes.mp3" },
+    { "id": "disaster-i-leave-you", "title": "Disaster I leave you", "duration": 208.68, "url": "audio/library/disaster-i-leave-you.mp3" },
+    { "id": "south-of-joy", "title": "South of Joy", "duration": 214.4, "url": "audio/library/south-of-joy.mp3" },
+    { "id": "waiting-on-sometime", "title": "Waiting on Sometime", "duration": 207.96, "url": "audio/library/waiting-on-sometime.mp3" },
+    { "id": "scenic-view", "title": "Scenic View", "duration": 214.88, "url": "audio/library/scenic-view.mp3" },
+    { "id": "hanging-in-the-wind", "title": "Hanging in the Wind", "duration": 203.6, "url": "audio/library/hanging-in-the-wind.mp3" },
+    { "id": "scent-of-stardust", "title": "Scent of Stardust", "duration": 212.8, "url": "audio/library/scent-of-stardust.mp3" },
+    { "id": "mesmer-eyes", "title": "Mesmer Eyes", "duration": 211.6, "url": "audio/library/mesmer-eyes.mp3" },
+    { "id": "south-of-freedom", "title": "South of Freedom", "duration": 213.2, "url": "audio/library/south-of-freedom.mp3" },
+    { "id": "left-lost-and-leavin", "title": "Left, Lost and Leavin", "duration": 210, "url": "audio/library/left-lost-and-leavin.mp3" },
+    { "id": "when-the-smoke-hits-my-eye", "title": "When the smoke hits my eye", "duration": 199.56, "url": "audio/library/when-the-smoke-hits-my-eye.mp3" },
+    { "id": "far-cry-away", "title": "Far cry away", "duration": 179.88, "url": "audio/library/far-cry-away.mp3" },
+    { "id": "method-acting", "title": "Method Acting", "duration": 179.52, "url": "audio/library/method-acting.mp3" }
   ],
   "playlists": [
     { "id": "void-walker", "name": "Void Walker", "tracks": ["iron-chord", "circuit-break", "wake-of-ashes", "hammerhand", "dark-drive", "silent-shock", "slow-night", "iron-pulse-slow-strike", "last-voltage", "night-engine", "gravity-hammer", "acid-wake", "black-circuit", "iron-pulse"] },
     { "id": "nocturnal", "name": "Nocturnal Drift", "tracks": ["blackwater-threshold", "undertow", "obsidian-veil", "slow-orbit", "below-the-signal", "night-without-edges"] },
-    { "id": "a-heros-journey", "name": "A Hero's Journey", "tracks": ["darkness-invades", "princesss-call", "im-being-oppressed", "gloom-of-the-kingdom", "waiting-for-the-hero", "hope-leaves", "awaken", "hero-awakens", "sir-linken", "halp-us", "quest-accepted", "journey-begins", "gannondorf", "holding-on", "hopes-return", "sword-in-the-stone", "master-sword-awakens", "victory-will-be-mine", "realm-rescued", "final-triumph"] }
+    { "id": "a-heros-journey", "name": "A Hero's Journey", "tracks": ["darkness-invades", "princesss-call", "im-being-oppressed", "gloom-of-the-kingdom", "waiting-for-the-hero", "hope-leaves", "awaken", "hero-awakens", "sir-linken", "halp-us", "quest-accepted", "journey-begins", "gannondorf", "holding-on", "hopes-return", "sword-in-the-stone", "master-sword-awakens", "victory-will-be-mine", "realm-rescued", "final-triumph"] },
+    { "id": "classic-vibration", "name": "Classic Vibration", "tracks": ["warm-copper", "8-track-echoes", "disaster-i-leave-you", "south-of-joy", "waiting-on-sometime", "scenic-view", "hanging-in-the-wind", "scent-of-stardust", "mesmer-eyes", "south-of-freedom", "left-lost-and-leavin", "when-the-smoke-hits-my-eye", "far-cry-away", "method-acting"] }
   ]
 };
     root.EternalMusicCatalog = CATALOG;
