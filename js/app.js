@@ -4849,8 +4849,13 @@ document.addEventListener("DOMContentLoaded", () => {
                     // Trigger a beat vortex swirl at center (pulls inward and spins)
                     sim.triggerVortex(cx, cy, 280, 16.0, 45);
                     
-                    // Silent force wave to push outer vectors
-                    sim.triggerShockwave(cx, cy, 55.0, 10.5);
+                    // Silent force wave to push outer vectors. It sweeps the whole screen in
+                    // about a third of a second so the push lands on the beat everywhere: at the
+                    // old 10.5 px/frame it reached mid-screen ~0.8 s and the edges ~1.7 s after the
+                    // kick (1-3 beats late). Each particle still gets the same total push: a ring
+                    // as wide as two frames of travel, at 55 × (70/10.5) / 4 force per frame.
+                    const waveSpeed = Math.max(window.innerWidth, window.innerHeight) * 0.55 / 20;
+                    sim.triggerShockwave(cx, cy, 55.0 * (70 / 10.5) / 4, waveSpeed, waveSpeed * 2);
                 }
                 
                 lastShockwaveTime = now;

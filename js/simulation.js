@@ -1221,7 +1221,7 @@ class Particle {
                 if (distSq > 16) {
                     const dist = Math.sqrt(distSq);
                     // Force is active only near the shockwave expanding wavefront ring
-                    const ringWidth = 35 * scaleRef;
+                    const ringWidth = sw.widthPx || 35 * scaleRef;
                     if (Math.abs(dist - sw.radius) < ringWidth) {
                         const distFromWave = 1.0 - Math.abs(dist - sw.radius) / ringWidth;
                         const lifeFactor = 1.0 - sw.radius / sw.maxRadius;
@@ -2558,14 +2558,16 @@ class FlowSimulation {
         }
     }
 
-    triggerShockwave(x, y, force = 18.0, speed = 5.5) {
+    // widthPx: optional half-width of the pushing ring in screen pixels (default 35 × viewport scale).
+    triggerShockwave(x, y, force = 18.0, speed = 5.5, widthPx = null) {
         this.shockwaves.push({
             x: x,
             y: y,
             radius: 5,
             maxRadius: Math.max(this.width, this.height) * 0.55,
             speed: speed,
-            force: force
+            force: force,
+            widthPx: widthPx
         });
     }
 

@@ -624,7 +624,28 @@ class BinauralBeatEngine {
             trebleDb = this.beatBandDb(2000, 6000);
         }
 
-        return { bass: bassVal, treble: trebleVal, mid: midVal, level: levelVal, bassDb, trebleDb };
+        return this.alignToSpeakers({ bass: bassVal, treble: trebleVal, mid: midVal, level: levelVal, bassDb, trebleDb });
+    }
+
+    // Audio the site plays itself (playlists, an uploaded file, Spatial Audio) reaches the speakers
+    // outputLatency after the analyser hears it: ~40 ms wired, often 150-300 ms over Bluetooth.
+    // Hand back the reading from that long ago so the scene moves when you hear the beat, not
+    // before. Capture sources (microphone, device audio) are already behind, so they pass through.
+    alignToSpeakers(reading) {
+        const played = ['playlist', 'upload', 'spatial'].includes(this.visualizerMode);
+        const output = (this.ctx && (this.ctx.outputLatency || 0) + (this.ctx.baseLatency || 0)) || 0;
+        // Detection itself takes about a frame, so only the rest needs holding back.
+        const hold = played ? Math.min(0.35, Math.max(0, output - 0.02)) * 1000 : 0;
+        if (!hold) { this.speakerQueue = null; return reading; }
+        const now = performance.now();
+        const queue = this.speakerQueue || (this.speakerQueue = []);
+        queue.push({ at: now, reading });
+        // Drop readings older than needed, then use whichever remaining reading is closest to
+        // `hold` ms old (at low frame rates the next-newer one can be much nearer the target).
+        while (queue.length > 1 && queue[1].at <= now - hold) queue.shift();
+        if (queue.length > 120) queue.splice(0, queue.length - 120);
+        const pick = queue.length > 1 && Math.abs(now - queue[1].at - hold) < Math.abs(now - queue[0].at - hold) ? queue[1] : queue[0];
+        return pick.reading;
     }
 
     // Helper to glide master ambient sound gain smoothly
@@ -784,6 +805,7 @@ class BinauralBeatEngine {
     stopMusicReactivity() {
         this.sourceGeneration = (this.sourceGeneration || 0) + 1;
         this.visualizerMode = "none";
+        this.speakerQueue = null;
         if (this.spatialSource) this.spatialSource.disconnect();
         this.spatialSource = null;
         if (this.playlistAudio) this.playlistAudio.pause();
