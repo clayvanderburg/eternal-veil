@@ -26,6 +26,27 @@ Open http://127.0.0.1:8820/tools/studio.html (local only; the server refuses oth
    on a `studio/…` branch). Ask Claude to merge it; merging publishes. Published-but-not-
    merged changes stay visible as "waiting to be merged" until the live site has them.
 
+## Always in sync with the live site
+
+The preview runs from Studio's own copy of the site (`.studio/preview`, git-ignored), not from
+this folder, so it never depends on which branch an agent has checked out here. In live mode
+that copy follows GitHub `main` (checked every 20 seconds); if the live site moves on while
+Studio is open, a "Reload Studio" notice appears and your drafts are kept.
+
+## Reviewing new presets before they go live
+
+New presets and music changes from Claude or Codex arrive as pull requests. **Previewing** at
+the top lists every open pull request that touches presets, music cards or the song list.
+
+1. Pick one. The preview runs that pull request's code; its new presets are marked ★ NEW and
+   come first. "was" now means that pull request's version.
+2. Tune and Save as usual (drafts are kept separately per pull request).
+3. **Add N drafts to pull request #…** puts your tuning on that same pull request (it never
+   force-pushes; if the PR changed meanwhile, reload and save again).
+4. **Mark reviewed** adds the `studio-reviewed` label on GitHub. Merge when you're happy.
+
+Pick **Live site** to go back to tuning what is already live.
+
 ## Music playlists tab
 
 The site's built-in music: every visitor sees these playlists in the music player.

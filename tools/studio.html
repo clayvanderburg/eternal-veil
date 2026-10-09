@@ -60,7 +60,9 @@ button:disabled { opacity: .45; cursor: default; }
 .bar { display: flex; gap: 8px; }
 .bar > * { flex: 1; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.tabs { display: flex; gap: 6px; margin: 0 0 12px; }
+.tabs { display: flex; gap: 6px; margin: 12px 0; }
+#target { margin-bottom: 2px; }
+.new-flag { color: var(--good); }
 .tabs button { flex: 1; }
 .tabs button[aria-selected=true] { border-color: var(--accent); color: var(--accent); background: #8b9cff14; }
 .row { display: flex; align-items: center; gap: 6px; padding: 5px 0; border-bottom: 1px solid #ffffff0a; }
@@ -77,11 +79,15 @@ button:disabled { opacity: .45; cursor: default; }
 </style>
 </head>
 <body>
-<iframe id="stage" src="/index.html?studio=1" title="Live preview of the site"></iframe>
+<iframe id="stage" title="Live preview of the site"></iframe>
 <div id="side">
 <aside id="drawer" aria-label="Studio controls">
   <h1>ETERNAL VOID STUDIO</h1>
   <p class="sub" id="branch">Loading…</p>
+  <label for="target">Previewing</label>
+  <select id="target"><option value="">Live site</option></select>
+  <div id="review-bar" class="bar" style="margin-top:6px" hidden><a id="review-link" class="small" target="_blank" rel="noopener" style="color:var(--good);align-self:center">Open on GitHub</a><button id="review-mark" class="small">Mark reviewed</button></div>
+  <p class="hint" id="target-hint">Open pull requests that change presets or music show up here so you can try and tune them before they go live.</p>
   <div class="tabs" role="tablist">
     <button id="tab-scenes" role="tab" aria-selected="true" aria-controls="scenes-tab">Scenes</button>
     <button id="tab-music" role="tab" aria-selected="false" aria-controls="music-tab">Music playlists</button>
@@ -138,8 +144,11 @@ let state, key, original, current, musicOriginal, musicCurrent, musicShape;
 // Browser-only stores. drafts/published hold changes relative to the live site.
 const store = name => { try { return JSON.parse(localStorage.getItem(name)) || { presets: {}, music: {} }; } catch { return { presets: {}, music: {} }; } };
 const persist = (name, value) => { try { localStorage.setItem(name, JSON.stringify(value)); } catch { /* storage unavailable */ } };
-let drafts = store('evStudioDrafts');
-let published = store('evStudioPublished');
+// ?pr=12 reviews pull request #12; no parameter = the live site.
+const TARGET = /^[1-9][0-9]{0,6}$/.test(new URLSearchParams(location.search).get('pr') || '') ? Number(new URLSearchParams(location.search).get('pr')) : 'live';
+const SUFFIX = TARGET === 'live' ? '' : `:pr-${TARGET}`;
+let drafts = store('evStudioDrafts' + SUFFIX);
+let published = store('evStudioPublished' + SUFFIX);
 published.prs = published.prs || [];
 
 // Preset fields map to these simulation settings.
@@ -211,7 +220,8 @@ function pinValues() {
   }
   requestAnimationFrame(pinValues);
 }
-stage.addEventListener('load', () => setTimeout(prepareStage, 400));
+// The preview loads only after the server has moved its copy to the target (see start-up).
+stage.addEventListener('load', () => { if (stage.getAttribute('src')) setTimeout(prepareStage, 400); });
 $('site-ui').onclick = () => {
   siteUiVisible = !siteUiVisible;
   const sheet = stage.contentDocument?.getElementById('studio-hide');
@@ -620,7 +630,7 @@ function prunePublished() {
   for (const [shape, prof] of Object.entries(published.music)) if (same(state.music.profiles[shape], prof)) delete published.music[shape];
   if (published.catalog && state.catalog && same(liveShape(published.catalog), state.catalog)) delete published.catalog;
   if (!Object.keys(published.presets).length && !Object.keys(published.music).length && !published.catalog) published.prs = [];
-  persist('evStudioPublished', published);
+  persist('evStudioPublished' + SUFFIX, published);
 }
 function draftCount() { return Object.keys(drafts.presets).length + Object.keys(drafts.music).length + (drafts.catalog ? 1 : 0); }
 function renderDrafts() {
@@ -646,7 +656,7 @@ function renderDrafts() {
   if (drafts.catalog) add('Music playlists', () => showTab('music'), () => discardDraft('catalog'), activeTab === 'music');
   const n = draftCount();
   $('publish').disabled = n === 0;
-  $('publish').textContent = n ? `Publish ${n} draft${n === 1 ? '' : 's'} as one pull request` : 'Publish';
+  $('publish').textContent = !n ? 'Publish' : TARGET === 'live' ? `Publish ${n} draft${n === 1 ? '' : 's'} as one pull request` : `Add ${n} draft${n === 1 ? '' : 's'} to pull request #${TARGET}`;
   const pending = [...Object.keys(published.presets).map(k => state.presets[k]?.name || k), ...Object.keys(published.music).map(s => `${s} music`), ...(published.catalog ? ['music playlists'] : [])];
   $('pending').innerHTML = pending.length
     ? `Waiting to be merged (not live yet): ${pending.join(', ')} · ${published.prs.map(u => `<a href="${u}" target="_blank" rel="noopener">${u.split('/').pop() === u ? u : '#' + u.split('/').pop()}</a>`).join(' ')}`
@@ -656,12 +666,12 @@ function discardDraft(kind, id) {
   if (!confirm('Discard this saved draft?')) return;
   if (kind === 'catalog') {
     delete drafts.catalog;
-    persist('evStudioDrafts', drafts);
+    persist('evStudioDrafts' + SUFFIX, drafts);
     loadCatalogDraft(); renderSongs(); renderDrafts();
     return;
   }
   delete drafts[kind][id];
-  persist('evStudioDrafts', drafts);
+  persist('evStudioDrafts' + SUFFIX, drafts);
   if ((kind === 'presets' && id === key) || (kind === 'music' && id === musicShape)) { current = null; loadKey(key); }
   else renderDrafts();
 }
@@ -712,7 +722,7 @@ $('save').onclick = () => {
   const changes = presetChanges();
   if (Object.keys(changes).length) drafts.presets[key] = changes; else delete drafts.presets[key];
   if (musicCurrent && !same(musicCurrent, musicOriginal)) drafts.music[musicShape] = copy(musicCurrent); else delete drafts.music[musicShape];
-  persist('evStudioDrafts', drafts);
+  persist('evStudioDrafts' + SUFFIX, drafts);
   status(Object.keys(changes).length || drafts.music[musicShape] ? `Saved ${state.presets[key].name} as a draft.` : `${state.presets[key].name} matches the live site; nothing to save.`);
   changedState();
 };
@@ -721,21 +731,23 @@ $('publish').onclick = async () => {
   $('publish').disabled = true;
   status('Creating one branch and pull request for all drafts…');
   try {
-    const result = await api('/api/studio/publish', { presets: drafts.presets, music: drafts.music, catalog: drafts.catalog || null, note: $('note').value });
+    const result = await api('/api/studio/publish', { presets: drafts.presets, music: drafts.music, catalog: drafts.catalog || null, note: $('note').value, target: TARGET });
     if (result.url !== 'dry-run') {
       Object.assign(published.presets, drafts.presets);
       Object.assign(published.music, drafts.music);
       if (drafts.catalog) published.catalog = drafts.catalog;
       published.prs.push(result.url);
-      persist('evStudioPublished', published);
+      persist('evStudioPublished' + SUFFIX, published);
     }
     drafts = { presets: {}, music: {} };
-    persist('evStudioDrafts', drafts);
+    persist('evStudioDrafts' + SUFFIX, drafts);
     loadCatalogDraft(); renderSongs();
     $('note').value = '';
     current = null;
     loadKey(key);
-    status(`Pull request opened: <a href="${result.url}" target="_blank" rel="noopener">${result.url}</a>. Ask Claude to merge it to publish.`);
+    status(result.review
+      ? `Added your tuning to <a href="${result.url}" target="_blank" rel="noopener">#${TARGET}</a>. Mark it reviewed, then merge it to go live.`
+      : `Pull request opened: <a href="${result.url}" target="_blank" rel="noopener">${result.url}</a>. Merge it to publish.`);
   } catch (error) {
     status(`Couldn't publish: ${error.message}`);
     renderDrafts();
@@ -772,7 +784,7 @@ function loadCatalogDraft() {
 function songsChanged() {
   if (same(liveShape(songs), liveShape(published.catalog || liveCatalog()))) delete drafts.catalog;
   else drafts.catalog = copy(songs);
-  persist('evStudioDrafts', drafts);
+  persist('evStudioDrafts' + SUFFIX, drafts);
   renderSongs(); renderDrafts();
 }
 const slug = text => String(text).toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/['’]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50) || 'song';
@@ -895,14 +907,70 @@ drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
 drop.ondragleave = () => drop.classList.remove('over');
 drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); if (e.dataTransfer.files.length) uploadSongs(e.dataTransfer.files); };
 
+// ---------- what the preview runs: live site or a pull request under review ----------
+async function loadCandidates() {
+  const sel = $('target');
+  try {
+    const { candidates } = await api('/api/studio/candidates');
+    for (const c of candidates) sel.add(new Option(`#${c.number} ${c.title}${c.reviewed ? ' ✓' : ''}${c.presets ? '' : ' (music)'}`, c.number));
+    if (TARGET !== 'live' && !candidates.some(c => c.number === TARGET)) sel.add(new Option(`#${TARGET}`, TARGET));
+    if (!candidates.length && TARGET === 'live') $('target-hint').textContent = 'No pull requests are waiting for review. New presets from Claude or Codex will show up here.';
+  } catch (error) {
+    $('target-hint').textContent = `Couldn't list pull requests (${error.message}).`;
+  }
+  sel.value = TARGET === 'live' ? '' : String(TARGET);
+}
+$('target').onchange = () => {
+  const v = $('target').value;
+  if (unsaved() && !confirm('This preset has changes that are not saved as a draft. Switch anyway?')) { $('target').value = TARGET === 'live' ? '' : String(TARGET); return; }
+  location.search = v ? `?pr=${v}` : '';
+};
+$('review-mark').onclick = async () => {
+  if (draftCount() && !confirm('You still have drafts that are not added to this pull request. Mark it reviewed anyway?')) return;
+  $('review-mark').disabled = true;
+  try {
+    await api('/api/studio/review', { target: TARGET });
+    $('review-mark').textContent = '✓ Reviewed';
+    status(`Marked #${TARGET} reviewed on GitHub. Merge it when you're ready for it to go live.`);
+  } catch (error) {
+    $('review-mark').disabled = false;
+    status(`Couldn't mark it reviewed: ${error.message}`);
+  }
+};
+// The live site can move on while Studio is open (another pull request merged): offer a reload.
+setInterval(async () => {
+  if (TARGET !== 'live' || !state || document.hidden) return;
+  try {
+    const { live } = await api('/api/studio/live');
+    if (live !== state.live) status(`The live site just updated (${live}). Your drafts are kept: <button class="small" onclick="location.reload()">Reload Studio</button>`);
+  } catch { /* offline */ }
+}, 60000);
+loadCandidates();
+
 addEventListener('beforeunload', e => { if (unsaved()) { e.preventDefault(); e.returnValue = ''; } });
 
 (async () => {
-  state = await api('/api/studio/state');
+  status(TARGET === 'live' ? 'Loading the live site…' : `Loading pull request #${TARGET}…`);
+  state = await api(`/api/studio/state?target=${TARGET}`);
+  stage.src = '/index.html?studio=1';
+  status('');
   prunePublished();
-  $('branch').textContent = `"was" = live site (${state.live}) · preview runs local branch ${state.branch}`;
-  for (const k of state.order) $('preset').add(new Option(state.presets[k].name, k));
-  loadKey(state.order[0]);
+  const cand = state.candidate;
+  const isNew = new Set(cand ? cand.newKeys : []);
+  if (cand) {
+    $('branch').textContent = `Reviewing #${cand.number}: ${cand.title}. "was" = this pull request's version (${state.sha}); preview runs it.`;
+    $('review-bar').hidden = false;
+    $('review-link').href = cand.url;
+    $('review-mark').textContent = cand.reviewed ? '✓ Reviewed' : 'Mark reviewed';
+    $('review-mark').disabled = cand.reviewed;
+    $('target-hint').textContent = isNew.size ? `New in this pull request: ${cand.newKeys.map(k => state.presets[k].name).join(', ')}.` : 'This pull request changes existing presets or music.';
+  } else {
+    $('branch').textContent = `"was" = live site (${state.live}); preview runs the live code.`;
+  }
+  // New presets first when reviewing, so they are the first thing you see.
+  const order = [...state.order.filter(k => isNew.has(k)), ...state.order.filter(k => !isNew.has(k))];
+  for (const k of order) $('preset').add(new Option(`${isNew.has(k) ? '★ NEW · ' : ''}${state.presets[k].name}`, k));
+  loadKey(order[0]);
   loadCatalogDraft(); renderSongs();
   requestAnimationFrame(pinValues);
 })().catch(error => status(`Studio failed to load: ${error.message}`));

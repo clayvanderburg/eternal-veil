@@ -1,11 +1,12 @@
 // Eternal Void Studio server — LOCAL ONLY.
 //   node tools/studio-server.mjs        then open http://127.0.0.1:8820/tools/studio.html
 //
-// Serves this checkout so the Studio can preview the real site and reads the LIVE
-// presets and music cards (origin/main). Drafts live in the browser. Publish writes
-// every draft into a fresh git worktree based on origin/main, commits them on one
-// studio/* branch, pushes it and opens a single pull request. The live site only
-// changes when that PR is merged. Your own working folder is never edited.
+// The preview runs from Studio's own copy of the site (.studio/preview), kept on the live
+// code (origin/main) or on an open pull request being reviewed, so it never depends on
+// which branch this folder has checked out. Drafts live in the browser. Publish writes
+// every draft into a fresh git worktree (origin/main, or the reviewed pull request),
+// commits them, and either opens one pull request or adds the commit to the one under
+// review. The live site only changes when a PR is merged. Your working folder is never edited.
 import http from 'node:http';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -23,6 +24,11 @@ const FFMPEG = process.env.FFMPEG_PATH || 'ffmpeg';
 const FFPROBE = process.env.FFPROBE_PATH || 'ffprobe';
 // Uploaded songs wait here (git-ignored) until a publish copies them into the pull request.
 const UPLOADS = process.env.STUDIO_UPLOADS || path.join(root, '.studio', 'uploads');
+// Studio's own checkout of the site for the preview.
+const PREVIEW = process.env.STUDIO_PREVIEW || path.join(root, '.studio', 'preview');
+// What counts as live. Tests point this at a local ref; normally it is GitHub main.
+const LIVE_REF = process.env.STUDIO_BASE || 'origin/main';
+const REVIEWED_LABEL = 'studio-reviewed';
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css',
   '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.mp3': 'audio/mpeg', '.webp': 'image/webp', '.ico': 'image/x-icon' };
 
@@ -241,26 +247,85 @@ export async function receiveUpload(req, name) {
 
 // ---------- git / PR ----------
 const git = (cwd, ...args) => execFileSync('git', ['-c', 'safe.directory=*', ...args], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
-// What is live: origin/main, refreshed at most every 20 seconds.
-let liveCache = { at: 0, value: null };
-function readLive() {
-  if (liveCache.value && Date.now() - liveCache.at < 20000) return liveCache.value;
-  try { git(root, 'fetch', '-q', 'origin', 'main'); } catch { /* offline: use the last fetched main */ }
-  const show = file => git(root, 'show', `origin/main:${file}`);
+// Fetch GitHub main at most every 20 seconds (offline: keep the last fetched main).
+let lastFetch = 0;
+function fetchLive(force = false) {
+  if (LIVE_REF !== 'origin/main' || (!force && Date.now() - lastFetch < 20000)) return;
+  try { git(root, 'fetch', '-q', 'origin', 'main'); } catch { /* offline */ }
+  lastFetch = Date.now();
+}
+// Presets, music cards and song catalog as they are at a git ref.
+const refCache = new Map();
+export function readRef(ref) {
+  const sha = git(root, 'rev-parse', ref);
+  if (refCache.has(sha)) return refCache.get(sha);
+  const show = file => git(root, 'show', `${sha}:${file}`);
   let catalog = null;
-  try { catalog = loadCatalog(show('js/music-catalog.js')); } catch { /* live site predates the catalog file */ }
-  const value = {
-    ...loadPresets(show('js/presets.js')),
-    music: loadMusic(show('js/music-moods.js')),
-    catalog,
-    live: git(root, 'rev-parse', '--short', 'origin/main'),
-  };
-  liveCache = { at: Date.now(), value };
+  try { catalog = loadCatalog(show('js/music-catalog.js')); } catch { /* predates the catalog file */ }
+  const value = { ...loadPresets(show('js/presets.js')), music: loadMusic(show('js/music-moods.js')), catalog, sha: sha.slice(0, 7) };
+  refCache.set(sha, value);
   return value;
+}
+// ---------- pull requests waiting for review ----------
+const PR_NUMBER = /^[1-9][0-9]{0,6}$/;
+const prRef = n => `refs/studio/pr-${n}`;
+function gh(...args) { return execFileSync(GH, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim(); }
+function prMeta(n) {
+  if (!PR_NUMBER.test(String(n))) throw new Error('Bad pull request number');
+  const meta = JSON.parse(gh('pr', 'view', String(n), '--repo', REPO, '--json', 'number,title,url,state,headRefName,isCrossRepository,labels'));
+  if (meta.state !== 'OPEN') throw new Error(`Pull request #${n} is ${meta.state.toLowerCase()}`);
+  if (meta.isCrossRepository) throw new Error(`Pull request #${n} comes from another repository; Studio only reviews this repository's branches`);
+  git(root, 'fetch', '-q', 'origin', `+pull/${n}/head:${prRef(n)}`);
+  return { number: meta.number, title: meta.title, url: meta.url, branch: meta.headRefName, reviewed: meta.labels.some(l => l.name === REVIEWED_LABEL) };
+}
+let candidatesCache = { at: 0, value: null };
+function listCandidates() {
+  if (candidatesCache.value && Date.now() - candidatesCache.at < 30000) return candidatesCache.value;
+  const prs = JSON.parse(gh('pr', 'list', '--repo', REPO, '--state', 'open', '--limit', '40', '--json', 'number,title,headRefName,isCrossRepository,files,labels,updatedAt'));
+  const watched = ['js/presets.js', 'js/music-moods.js', 'js/music-catalog.js'];
+  const value = prs.filter(pr => !pr.isCrossRepository && pr.files.some(f => watched.includes(f.path)))
+    .map(pr => ({ number: pr.number, title: pr.title, branch: pr.headRefName, updatedAt: pr.updatedAt,
+      reviewed: pr.labels.some(l => l.name === REVIEWED_LABEL), presets: pr.files.some(f => f.path === 'js/presets.js') }));
+  candidatesCache = { at: Date.now(), value };
+  return value;
+}
+// ---------- the preview copy ----------
+// Moves .studio/preview to a ref (live or a pull request), creating it the first time.
+export function syncPreview(ref) {
+  const sha = git(root, 'rev-parse', ref);
+  const isTree = fs.existsSync(path.join(PREVIEW, '.git'));
+  if (!isTree) {
+    fs.rmSync(PREVIEW, { recursive: true, force: true });
+    try { git(root, 'worktree', 'prune'); } catch { /* nothing to prune */ }
+    fs.mkdirSync(path.dirname(PREVIEW), { recursive: true });
+    git(root, 'worktree', 'add', '-q', '--detach', PREVIEW, sha);
+  } else if (git(PREVIEW, 'rev-parse', 'HEAD') !== sha) {
+    git(PREVIEW, 'checkout', '-q', '--detach', '-f', sha);
+    git(PREVIEW, 'clean', '-fdq');
+  }
+  return sha.slice(0, 7);
+}
+// Everything the Studio page needs for one target ('live' or a PR number).
+function studioState(target) {
+  fetchLive();
+  const live = readRef(LIVE_REF);
+  if (target === 'live') return { ...live, live: live.sha, preview: syncPreview(LIVE_REF), target: 'live' };
+  const candidate = prMeta(target);
+  const cand = readRef(prRef(target));
+  const newKeys = cand.order.filter(k => !live.presets[k]);
+  return { ...cand, live: live.sha, preview: syncPreview(prRef(target)), target: candidate.number, candidate: { ...candidate, newKeys } };
+}
+function markReviewed(n) {
+  const meta = prMeta(n);
+  gh('label', 'create', REVIEWED_LABEL, '--repo', REPO, '--color', '6ee7b7', '--description', 'Tuned and approved in Eternal Void Studio', '--force');
+  gh('pr', 'edit', String(meta.number), '--repo', REPO, '--add-label', REVIEWED_LABEL);
+  candidatesCache.at = 0;
+  return { ok: true, url: meta.url };
 }
 
 // One pull request for every drafted preset and music card.
-function openPullRequest({ presets = {}, music = {}, catalog = null, note }) {
+function openPullRequest({ presets = {}, music = {}, catalog = null, note, target = 'live' }) {
+  const review = target === 'live' ? null : prMeta(target);
   const presetKeys = Object.keys(presets).filter(k => presets[k] && Object.keys(presets[k]).length);
   const shapes = Object.keys(music).filter(k => music[k]);
   const songs = catalog ? cleanCatalog(catalog) : null;
@@ -270,8 +335,10 @@ function openPullRequest({ presets = {}, music = {}, catalog = null, note }) {
   const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
   const branch = `studio/${stamp}-${presetKeys[0] || shapes[0] || 'music'}${presetKeys.length + shapes.length + (songs ? 1 : 0) > 1 ? '-and-more' : ''}`;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-studio-'));
-  git(root, 'fetch', '-q', 'origin', 'main');
-  git(root, 'worktree', 'add', '-q', '-b', branch, dir, process.env.STUDIO_BASE || 'origin/main');
+  fetchLive(true);
+  // Reviewing a pull request: commit on top of it (detached), then push to its branch.
+  if (review) git(root, 'worktree', 'add', '-q', '--detach', dir, prRef(review.number));
+  else git(root, 'worktree', 'add', '-q', '-b', branch, dir, LIVE_REF);
   try {
     const files = [];
     const presetFile = path.join(dir, 'js', 'presets.js');
@@ -325,7 +392,7 @@ function openPullRequest({ presets = {}, music = {}, catalog = null, note }) {
         ...songs.playlists.map(p => `- ${p.name}: ${p.tracks.length} song${p.tracks.length === 1 ? '' : 's'}`), '');
     }
     const titled = [...presetKeys.map(k => names[k]?.name || k), ...shapes.map(s => `${s} music`), ...(songs ? ['music playlists'] : [])];
-    const title = `Studio: tune ${titled.length <= 3 ? titled.join(', ') : `${titled.slice(0, 3).join(', ')} and ${titled.length - 3} more`}`;
+    const title = `Studio: tune ${titled.length <= 3 ? titled.join(', ') : `${titled.slice(0, 3).join(', ')} and ${titled.length - 3} more`}${review ? ` (review of #${review.number})` : ''}`;
     const body = `Tuned in Eternal Void Studio.\n\n${lines.join('\n')}${note ? `\nNote: ${String(note).slice(0, 500)}\n` : ''}\nMerging publishes to eternalvoid.io.`;
     git(dir, 'add', ...files);
     git(dir, 'commit', '-q', '-m', `${title}\n\n${lines.join('\n')}`);
@@ -334,10 +401,18 @@ function openPullRequest({ presets = {}, music = {}, catalog = null, note }) {
       const diff = git(dir, 'show', '--stat', '--format=%s', 'HEAD');
       const catalogAfter = songs ? fs.readFileSync(path.join(dir, 'js', 'music-catalog.js'), 'utf8') : null;
       git(root, 'worktree', 'remove', '--force', dir);
-      git(root, 'branch', '-D', branch);
-      return { url: 'dry-run', branch, diff, catalogAfter };
+      if (!review) git(root, 'branch', '-D', branch);
+      return { url: 'dry-run', branch: review ? review.branch : branch, diff, catalogAfter, review: !!review };
     }
-    git(dir, '-c', 'credential.helper=', '-c', `credential.helper=!"${GH.replace(/\\/g, '/')}" auth git-credential`, 'push', '-q', '-u', 'origin', branch);
+    const auth = ['-c', 'credential.helper=', '-c', `credential.helper=!"${GH.replace(/\\/g, '/')}" auth git-credential`];
+    if (review) {
+      // Plain push (never forced): if the branch moved since the preview loaded, this fails safely.
+      try { git(dir, ...auth, 'push', '-q', 'origin', `HEAD:refs/heads/${review.branch}`); }
+      catch { throw new Error(`Pull request #${review.number} changed since Studio loaded it. Reload Studio and save your drafts again.`); }
+      candidatesCache.at = 0;
+      return { url: review.url, branch: review.branch, review: true };
+    }
+    git(dir, ...auth, 'push', '-q', '-u', 'origin', branch);
     const url = execFileSync(GH, ['pr', 'create', '--repo', REPO, '--base', 'main', '--head', branch, '--title', title, '--body', body], { encoding: 'utf8' }).trim();
     return { url, branch };
   } finally {
@@ -354,9 +429,18 @@ export function createStudioServer() {
       if (req.headers.origin && req.headers.origin !== `http://${req.headers.host}`) return send(res, 403, { error: 'Origin rejected.' });
       const url = new URL(req.url, 'http://127.0.0.1');
       if (url.pathname === '/api/studio/state') {
-        let catalogLocal = null;
-        try { catalogLocal = loadCatalog(fs.readFileSync(path.join(root, 'js', 'music-catalog.js'), 'utf8')); } catch { /* no catalog in this checkout */ }
-        return send(res, 200, { ...readLive(), catalogLocal, branch: git(root, 'rev-parse', '--abbrev-ref', 'HEAD') });
+        const t = url.searchParams.get('target') || 'live';
+        return send(res, 200, studioState(t === 'live' ? 'live' : Number(t)));
+      }
+      if (url.pathname === '/api/studio/live') {
+        // Cheap poll: has the live site moved on since the page loaded?
+        fetchLive();
+        return send(res, 200, { live: git(root, 'rev-parse', '--short', LIVE_REF) });
+      }
+      if (url.pathname === '/api/studio/candidates') return send(res, 200, { candidates: listCandidates() });
+      if (url.pathname === '/api/studio/review' && req.method === 'POST') {
+        let raw = ''; for await (const chunk of req) { raw += chunk; if (raw.length > 4096) return send(res, 413, { error: 'Too large.' }); }
+        return send(res, 200, markReviewed(Number(JSON.parse(raw || '{}').target)));
       }
       if (url.pathname === '/api/studio/upload' && req.method === 'POST') {
         return send(res, 200, await receiveUpload(req, url.searchParams.get('name')));
@@ -368,8 +452,11 @@ export function createStudioServer() {
       }
       if (req.method !== 'GET') return send(res, 404, { error: 'Not found.' });
       const rel = decodeURIComponent(url.pathname === '/' ? '/tools/studio.html' : url.pathname);
-      const file = path.resolve(root, '.' + rel);
-      if (!file.startsWith(root + path.sep) || file.includes(`${path.sep}.git${path.sep}`)) return send(res, 403, { error: 'Invalid path.' });
+      // Studio's own page and uploads come from this folder; the site itself from the preview copy.
+      const own = rel.startsWith('/tools/studio') || rel.startsWith('/.studio/uploads/');
+      const base = own || !fs.existsSync(path.join(PREVIEW, 'index.html')) ? root : PREVIEW;
+      const file = path.resolve(base, '.' + rel);
+      if (!file.startsWith(base + path.sep) || file.includes(`${path.sep}.git${path.sep}`) || (base === root && !own && file.startsWith(path.join(root, '.studio')))) return send(res, 403, { error: 'Invalid path.' });
       if (!fs.existsSync(file) || !fs.statSync(file).isFile()) return send(res, 404, { error: 'Not found.' });
       res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
       fs.createReadStream(file).pipe(res);
