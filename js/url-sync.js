@@ -14,6 +14,8 @@ const UrlStateSync = {
     lightingModes: ["glow", "reactive", "pearl", "metal"],
     binauralModes: ["delta", "theta", "alpha", "beta", "gamma"],
     ringFoldModes: ["same", "growing", "doubling", "alternating", "custom"],
+    // Keep this order stable (wire format): index 0 = the scene's own look.
+    spriteShapes: ["auto", "comet", "orb", "teardrop", "star", "spark", "diamond", "petal", "gem", "ring", "crescent"],
 
     // V2 packs the same fields as the legacy JSON link into about 60 bytes.
     packState(state) {
@@ -44,12 +46,18 @@ const UrlStateSync = {
         byte(colors.length);
         colors.forEach(color);
         color(state.bg);
-        // Optional trailer for ring folds (fold mode, step, five custom counts). Left off
-        // when the folds are the default, so ordinary links are byte-for-byte unchanged.
-        const foldMode = this.ringFoldModes.indexOf(state.rf);
-        if (foldMode > 0) {
+        // Optional trailer: ring folds (fold mode, step, five custom counts), then the
+        // particle shape (shape, taper, points, glow, core, spin). Left off when both are the
+        // defaults, so ordinary links are byte-for-byte unchanged.
+        const foldMode = Math.max(0, this.ringFoldModes.indexOf(state.rf));
+        const sprite = Math.max(0, this.spriteShapes.indexOf(state.sp));
+        if (foldMode > 0 || sprite > 0) {
             byte(foldMode); byte(state.rst);
-            for (let k = 0; k < 5; k++) byte(state.rc?.[k]);
+            for (let k = 0; k < 5; k++) byte(state.rc?.[k] ?? [6, 8, 10, 12, 14][k]);
+        }
+        if (sprite > 0) {
+            byte(sprite); byte(state.spt * 100); byte(state.spp);
+            byte(state.spg * 100); byte(state.spc * 100); byte((state.sps + 1) * 100);
         }
         return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     },
@@ -79,12 +87,16 @@ const UrlStateSync = {
         state.kr = Math.min(5, ((flags >> 11) & 7) + 1);
         const count = byte();
         const trailer = bytes.length - (offset + count * 3 + 3);
-        if (count < 1 || count > 8 || (trailer !== 0 && trailer !== 7)) return null;
+        if (count < 1 || count > 8 || ![0, 7, 13].includes(trailer)) return null;
         state.p = Array.from({ length: count }, color);
         state.bg = color();
         if (trailer) {
             state.rf = choice(this.ringFoldModes); state.rst = byte();
             state.rc = Array.from({ length: 5 }, byte);
+        }
+        if (trailer === 13) {
+            state.sp = choice(this.spriteShapes); state.spt = byte() / 100; state.spp = byte();
+            state.spg = byte() / 100; state.spc = byte() / 100; state.sps = byte() / 100 - 1;
         }
         return state;
     },
@@ -117,6 +129,10 @@ const UrlStateSync = {
                 sk: sim.settings.spinningKaleido ? 1 : 0,
                 kr: parseInt(sim.settings.kaleidoAxesRings || 1),
                 rf: sim.settings.kaleidoRingFolds || "same",
+                sp: sim.settings.particleSprite || "auto",
+                spt: Number(sim.settings.spriteTaper ?? 0.5), spp: parseInt(sim.settings.spritePoints ?? 5),
+                spg: Number(sim.settings.spriteGlow ?? 0.5), spc: Number(sim.settings.spriteCore ?? 0.4),
+                sps: Number(sim.settings.spriteSpin ?? 0),
                 rst: parseInt(sim.settings.kaleidoRingStep || 2),
                 rc: Array.isArray(sim.settings.kaleidoRingCustom) ? sim.settings.kaleidoRingCustom.map(n => parseInt(n)) : undefined,
                 ps: sim.settings.particleShape,
@@ -188,6 +204,9 @@ const UrlStateSync = {
                     spinningKaleido: state.sk === 1,
                     kaleidoAxesRings: state.kr,
                     kaleidoRingFolds: state.rf,
+                    particleSprite: state.sp,
+                    spriteTaper: state.spt, spritePoints: state.spp, spriteGlow: state.spg,
+                    spriteCore: state.spc, spriteSpin: state.sps,
                     kaleidoRingStep: state.rst,
                     kaleidoRingCustom: state.rc,
                     particleShape: state.ps,

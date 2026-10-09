@@ -121,6 +121,14 @@ const StateSchema = {
                 kaleidoAxesRings: Math.round(this.sanitizeNumber(rawState.settings?.kaleidoAxesRings, 1, 1, 5)),
                 kaleidoRingFolds: ["same", "growing", "doubling", "alternating", "custom"].includes(rawState.settings?.kaleidoRingFolds)
                     ? rawState.settings.kaleidoRingFolds : "same",
+                // Particle shape (js/particle-sprites.js)
+                particleSprite: ["auto", "comet", "orb", "teardrop", "star", "spark", "diamond", "petal", "gem", "ring", "crescent"].includes(rawState.settings?.particleSprite)
+                    ? rawState.settings.particleSprite : "auto",
+                spriteTaper: this.sanitizeNumber(rawState.settings?.spriteTaper, 0.5, 0, 1),
+                spritePoints: Math.round(this.sanitizeNumber(rawState.settings?.spritePoints, 5, 3, 8)),
+                spriteGlow: this.sanitizeNumber(rawState.settings?.spriteGlow, 0.5, 0, 1),
+                spriteCore: this.sanitizeNumber(rawState.settings?.spriteCore, 0.4, 0, 1),
+                spriteSpin: this.sanitizeNumber(rawState.settings?.spriteSpin, 0, -1, 1),
                 kaleidoRingStep: Math.round(this.sanitizeNumber(rawState.settings?.kaleidoRingStep, 2, 1, 6)),
                 kaleidoRingCustom: [6, 8, 10, 12, 14].map((fallback, k) =>
                     Math.round(this.sanitizeNumber(rawState.settings?.kaleidoRingCustom?.[k], fallback, 3, 24))),
