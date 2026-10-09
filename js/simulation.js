@@ -1972,12 +1972,16 @@ class Particle {
             return;
         }
         
+        // A preset's own particle shape (js/particle-sprites.js) never replaces Nebula's
+        // clouds or paint trails.
+        let keepsSceneLook = false;
         if (shape === "aquatic") {
             shape = this.aquaticType === "paint" ? "brush" : "ring";
         } else if (shape === "acid") {
             shape = "drop";
         } else if (shape === "nebula") {
             if (this.nebulaType === "cloud") {
+                keepsSceneLook = true;
                 shape = "ellipse";
                 drawSize = size * 13.75; // clouds half as big again (13.75x base size)
                 drawAlpha = alpha * 0.012; // 50% more transparent (0.012 instead of 0.024)
@@ -2001,6 +2005,19 @@ class Particle {
         const angle = Math.atan2(this.vy, this.vx);
         const velocityMagnitude = Math.min(2.5, Math.sqrt(this.vx * this.vx + this.vy * this.vy));
         const dynamicStretch = 1.0 + velocityMagnitude * 0.05 * stretch;
+
+        const sprites = typeof window !== "undefined" ? window.ParticleSprites : null;
+        const sprite = sprites && !keepsSceneLook && shape !== "brush" && sprites.appliesTo(settings.particleShape)
+            ? sprites.resolve(settings) : null;
+        if (sprite) {
+            if (sprite.shape === "orb" && (settings.particleLighting || "glow") !== "glow") {
+                this.drawLitOrb(ctx, drawSize * 1.5, drawAlpha * 0.95, settings);
+            } else {
+                sprites.draw(ctx, this.x, this.y, drawSize * 1.5, angle, this.color, drawAlpha, sprite,
+                    Date.now() * 0.001, this.effectPhase || this.randomSizeOffset || 0);
+            }
+            return;
+        }
 
         if (shape === "ellipse") {
             ctx.fillStyle = this.color;
@@ -2254,6 +2271,13 @@ class FlowSimulation {
             psychedelicMode: false,
             morphingBg: false,
             spinningKaleido: false,
+            // Particle shape (js/particle-sprites.js); "auto" keeps each scene's own look.
+            particleSprite: "auto",
+            spriteTaper: 0.5,
+            spritePoints: 5,
+            spriteGlow: 0.5,
+            spriteCore: 0.4,
+            spriteSpin: 0,
             kaleidoAxesRings: 1,    // Rings: concentric tiers the mandala splits into
             kaleidoRingFolds: "same", // fold count per ring (see kaleidoRingFolds)
             kaleidoRingStep: 2,     // folds each ring adds outward in "growing"

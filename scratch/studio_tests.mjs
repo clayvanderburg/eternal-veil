@@ -45,6 +45,14 @@ out = applyPresetChanges(out, 'mandalaZen', { flowEffectWeights: { kaleidoscope:
 assert.deepEqual(loadPresets(out).presets.mandalaZen.flowEffectWeights, { kaleidoscope: 1, foldsDoubling: 4 });
 assert.deepEqual(loadPresets(out).presets.blackHoleVortex.flowEffectWeights, undefined, 'presets built from Mandala Zen keep their own Flow tuning');
 assert.throws(() => applyPresetChanges(presetsText, 'mandalaZen', { flowEffectWeights: { kaleidoscope: -1 } }));
+// Particle shape: a new text field a preset may add, then edit in place.
+out = applyPresetChanges(presetsText, 'acid', { particleSprite: 'teardrop', spriteTaper: 0.8, spriteGlow: 0.3 });
+after = loadPresets(out).presets;
+assert.deepEqual([after.acid.particleSprite, after.acid.spriteTaper, after.acid.spriteGlow], ['teardrop', 0.8, 0.3]);
+out = applyPresetChanges(out, 'acid', { particleSprite: 'star' });
+assert.equal(loadPresets(out).presets.acid.particleSprite, 'star');
+assert.throws(() => applyPresetChanges(presetsText, 'acid', { particleSprite: 'star; alert(1)' }), 'shape names are plain words');
+assert.throws(() => applyPresetChanges(presetsText, 'acid', { someNewText: 'x' }), 'other new text fields still refused');
 assert.throws(() => applyPresetChanges(presetsText, 'mandalaZen', { flowEffectWeights: { 'bad key': 1 } }));
 assert.deepEqual(loadPresets(presetsText).effects.map(e => e.key),
   ['kaleidoscope', 'spinningAxes', 'axesRings', 'foldsGrowing', 'foldsDoubling', 'foldsAlternating']);

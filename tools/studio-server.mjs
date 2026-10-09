@@ -110,7 +110,9 @@ function applyPresetChangesLf(text, key, changes) {
   for (const [field, value] of Object.entries(changes)) {
     if (!/^[A-Za-z][A-Za-z0-9]{0,40}$/.test(field) || ['name', 'desc', 'addedOn'].includes(field)) throw new Error(`Field ${field} can't be edited here`);
     const flowField = /^flow[A-Z]/.test(field);
-    if (!(field in known) && !flowField && typeof value !== 'number' && typeof value !== 'boolean') throw new Error(`Unknown field ${field}`);
+    // New text fields a preset may add: its particle shape (js/particle-sprites.js).
+    const newText = field === 'particleSprite' && typeof value === 'string';
+    if (!(field in known) && !flowField && !newText && typeof value !== 'number' && typeof value !== 'boolean') throw new Error(`Unknown field ${field}`);
     if (!flowField && (value === null || (typeof value === 'object' && !Array.isArray(value)))) throw new Error(`Field ${field} needs a value`);
     const formatted = formatValue(value);
     const pattern = new RegExp(`(^|[\\s,{])(${field}:\\s*)(\\{[^}]*\\}|\\[[^\\]]*\\]|"[^"]*"|[^,\\n}]+)`, 'm');

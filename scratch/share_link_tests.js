@@ -77,6 +77,21 @@ settings.kaleidoRingFolds = "same";
 assert.equal(sync.generateShareUrl(sim, false, { is3DMode: true, style: "dome" }).length, shortUrl.length, "default folds: no trailer");
 window.location.hash = shortUrl.slice(shortUrl.indexOf("#"));
 assert.equal(sync.parseUrlState().settings.kaleidoRingFolds, "same", "links without the trailer read as same folds");
+// Particle shape rides after the folds in the trailer (13 bytes), with or without custom folds.
+for (const folds of ["same", "doubling"]) {
+    Object.assign(settings, { kaleidoRingFolds: folds, particleSprite: "petal", spriteTaper: 0.35, spritePoints: 7, spriteGlow: 0.8, spriteCore: 0.1, spriteSpin: -0.6 });
+    const url = sync.generateShareUrl(sim, false, { is3DMode: true, style: "dome" });
+    window.location.hash = url.slice(url.indexOf("#"));
+    const back = sync.parseUrlState().settings;
+    assert.deepEqual([back.particleSprite, back.spriteTaper, back.spritePoints, back.spriteGlow, back.spriteCore, back.spriteSpin, back.kaleidoRingFolds],
+        ["petal", 0.35, 7, 0.8, 0.1, -0.6, folds], `particle shape round trip (${folds} folds)`);
+}
+settings.particleSprite = "auto";
+settings.kaleidoRingFolds = "same";
+assert.equal(sync.generateShareUrl(sim, false, { is3DMode: true, style: "dome" }).length, shortUrl.length, "scene-default shape: no trailer");
+window.location.hash = shortUrl.slice(shortUrl.indexOf("#"));
+assert.equal(sync.parseUrlState().settings.particleSprite, "auto", "links without it keep the scene's own look");
+for (const k of ["particleSprite", "spriteTaper", "spritePoints", "spriteGlow", "spriteCore", "spriteSpin"]) delete settings[k];
 delete settings.kaleidoRingFolds; delete settings.kaleidoRingStep; delete settings.kaleidoRingCustom;
 delete settings.kaleidoAxesRings;
 settings.spinningKaleido = false;

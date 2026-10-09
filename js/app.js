@@ -1437,6 +1437,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (preset.psychedelicMode) keys.push("psychedelicMode");
         if (preset.morphingBg) keys.push("morphingBg");
         if (preset.spinningKaleido) keys.push("spinningKaleido");
+        if (preset.particleSprite && preset.particleSprite !== "auto") keys.push(...particleSpriteKeys());
         if (preset.miniSpiralCount != null) keys.push("miniSpiralCount");
         if (preset.spiralExtent != null) keys.push("spiralExtent");
         if (preset.wanderMix != null) keys.push("wanderMix");
@@ -1589,6 +1590,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const lighting = p.particleLighting || "glow";
         sim.settings.particleLighting = lighting;
         elements.particleLightingSelect.value = lighting;
+        applyPresetSprite(p);
 
         const kaleidoOn = p.kaleidoscopeEnabled === true;
         sim.settings.kaleidoscopeEnabled = kaleidoOn;
@@ -1854,6 +1856,18 @@ document.addEventListener("DOMContentLoaded", () => {
         for (let k = 0; k < 5; k++) {
             const val = document.getElementById(`kaleido-ring-custom-val-${k}`);
             if (val) val.textContent = custom[k];
+        }
+    }
+
+    // Particle shape (js/particle-sprites.js): a preset's own, else each scene's own look.
+    function particleSpriteKeys() {
+        return ["particleSprite", "spriteTaper", "spritePoints", "spriteGlow", "spriteCore", "spriteSpin"];
+    }
+    function applyPresetSprite(preset) {
+        const defaults = window.ParticleSprites?.DEFAULTS || { particleSprite: "auto" };
+        for (const key of particleSpriteKeys()) {
+            const value = preset?.[key] ?? defaults[key];
+            if (value !== undefined) sim.settings[key] = value;
         }
     }
 
@@ -2727,6 +2741,8 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
         const activeFlowShape = nextPatternShape || sim.settings.particleShape;
+        // A new scene brings its preset's particle shape (or the scene's own look).
+        if (nextPatternShape) applyPresetSprite(familyPreset);
         const isProtectedAuthoredFlow = ["pendulumSpiral", "painterlyVortex", "chromeRibbon", "celticCurrent", "celticKnotwork", "cymaticResonance", "mandelbrotDive", "molecularDance", "stellarNursery", "tightTailVortex", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"].includes(activeFlowShape);
         // Flow extra effect odds, effect weights and segment range come from the scene's
         // preset (flowEffectChance, flowEffectWeights, flowKaleidoMin/Max; tuned in the

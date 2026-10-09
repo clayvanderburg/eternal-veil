@@ -161,7 +161,8 @@ const RANGES = {
   stretch: [0, 8, 0.05], interaction: [0, 3, 0.01], mouseInfluence: [0, 6, 0.05], rotationSpeed: [0, 1.2, 0.005],
   wobble: [0, 1.5, 0.005], drag: [0.8, 0.99, 0.001], kaleidoscopeSegments: [3, 12, 1], miniSpiralCount: [4, 8, 1],
   spiralExtent: [0.45, 0.98, 0.01], wanderMix: [0.05, 0.4, 0.01], eclipseCount: [12, 90, 1], eclipseSize: [0.45, 1.6, 0.01],
-  vortexHole: [0.005, 0.2, 0.001], blackHoleSize: [0.01, 0.25, 0.001]
+  vortexHole: [0.005, 0.2, 0.001], blackHoleSize: [0.01, 0.25, 0.001],
+  spriteTaper: [0, 1, 0.01], spritePoints: [3, 8, 1], spriteGlow: [0, 1, 0.01], spriteCore: [0, 1, 0.01], spriteSpin: [-1, 1, 0.01]
 };
 // Values Flow varies when it visits a scene (auto = preset value ± personality variation).
 const FLOW_FIELDS = new Set(['speed', 'turbulence', 'density', 'dissipation', 'zoom', 'size', 'sizeVar', 'stretch', 'curl', 'rotationSpeed', 'wobble', 'interaction', 'drag', 'vortexHole', 'blackHoleSize']);
@@ -171,7 +172,8 @@ const GROUPS = [
   ['Effects', ['psychedelicMode', 'morphingBg', 'particleLighting']],
 ];
 const SKIP = new Set(['name', 'desc', 'addedOn', 'colors', 'particleShape', 'meditationPreset', 'bilateralEnabled', 'asmrEnabled', 'binauralMode',
-  'kaleidoscopeEnabled', 'kaleidoscopeSegments', 'spinningKaleido']);
+  'kaleidoscopeEnabled', 'kaleidoscopeSegments', 'spinningKaleido',
+  'particleSprite', 'spriteTaper', 'spritePoints', 'spriteGlow', 'spriteCore', 'spriteSpin']);
 const LIGHTING = ['glow', 'reactive', 'pearl', 'metal'];
 const isFlowField = f => /^flow[A-Z]/.test(f);
 
@@ -222,7 +224,12 @@ function pinValues() {
   requestAnimationFrame(pinValues);
 }
 // The preview loads only after the server has moved its copy to the target (see start-up).
-stage.addEventListener('load', () => { if (stage.getAttribute('src')) setTimeout(prepareStage, 400); });
+stage.addEventListener('load', () => {
+  if (!stage.getAttribute('src')) return;
+  setTimeout(prepareStage, 400);
+  // The Particle Shape section draws with the preview's own sprite code; build it once that is here.
+  setTimeout(() => { if (current && win()?.ParticleSprites) renderFields(); }, 450);
+});
 $('site-ui').onclick = () => {
   siteUiVisible = !siteUiVisible;
   const sheet = stage.contentDocument?.getElementById('studio-hide');
@@ -371,6 +378,100 @@ function selectItem(field, options) {
   const show = () => { sel.value = current[field]; it.mark(); };
   show();
   return it.el;
+}
+
+// Particle shape: the preset's own particle sprite (js/particle-sprites.js, drawn by the
+// preview's own copy so it matches the site exactly), with a live close-up.
+const SPRITE_FIELDS = { spriteTaper: 'Taper', spritePoints: 'Points', spriteGlow: 'Glow', spriteCore: 'Core', spriteSpin: 'Spin' };
+const SPRITE_HINTS = {
+  spriteTaper: 'tail length, point sharpness, stretch or thinness, by shape',
+  spritePoints: 'points, petals or sides', spriteGlow: 'soft halo', spriteCore: 'bright centre',
+  spriteSpin: '0 points along its motion; left/right tumbles that way'
+};
+let spritePreviewFrame = 0;
+function particleShapeSection() {
+  const sec = document.createElement('section');
+  sec.innerHTML = '<h2>Particle Shape</h2>';
+  const sprites = win()?.ParticleSprites;
+  if (!sprites) {
+    const note = document.createElement('p');
+    note.className = 'hint';
+    note.textContent = 'Particle shapes arrive with the site version that has them (js/particle-sprites.js). Reload once the preview has it.';
+    sec.append(note);
+    return sec;
+  }
+  for (const [f, v] of Object.entries(sprites.DEFAULTS)) {
+    if (!(f in current)) current[f] = v;
+    if (!(f in original)) original[f] = v;
+  }
+  const scene = current.particleShape || 'ellipse';
+  const note = document.createElement('p');
+  note.className = 'hint';
+  note.textContent = sprites.appliesTo(scene)
+    ? `Changes ${sprites.SCENES[scene]} in this scene.`
+    : 'This scene draws its own particles, so the shape will not show in it (the close-up still does).';
+
+  // Close-up: one large particle drifting in the middle, small ones circling around it,
+  // in this preset's colors.
+  const view = document.createElement('canvas');
+  view.width = 360; view.height = 200;
+  view.style.cssText = 'width:100%;max-width:360px;aspect-ratio:9/5;display:block;background:#000;border:1px solid var(--line);border-radius:8px;margin:4px 0 10px';
+  view.setAttribute('aria-label', 'Particle shape preview');
+
+  const it = item('Shape', 'particleSprite', () => show());
+  const sel = document.createElement('select');
+  sel.setAttribute('aria-label', 'Particle shape');
+  for (const sh of sprites.SHAPES) sel.add(new Option(sh.label, sh.key));
+  sel.onchange = () => { current.particleSprite = sel.value; show(); changedState(); };
+  it.el.append(sel);
+  const rows = Object.keys(SPRITE_FIELDS).map(f => {
+    const el = numberItem(f);
+    el.querySelector('.head .name').textContent = SPRITE_FIELDS[f];
+    el.title = SPRITE_HINTS[f];
+    return [f, el];
+  });
+  const show = () => {
+    sel.value = current.particleSprite || 'auto';
+    it.mark(original.particleSprite === 'auto' ? 'scene default' : undefined);
+    const shape = sprites.SHAPES.find(sh => sh.key === sel.value);
+    const isAuto = sel.value === 'auto';
+    for (const [f, el] of rows) {
+      const use = f === 'spriteTaper' ? 'taper' : f === 'spritePoints' ? 'points' : null;
+      el.hidden = isAuto || (use && !shape.uses.includes(use));
+    }
+  };
+  sec.append(note, view, it.el, ...rows.map(r => r[1]));
+  show();
+
+  const frame = ++spritePreviewFrame;
+  const g = view.getContext('2d');
+  const start = performance.now();
+  const tick = now => {
+    if (frame !== spritePreviewFrame || !view.isConnected) return;
+    const t = (now - start) / 1000;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.clearRect(0, 0, view.width, view.height);
+    const colors = current.colors?.length ? current.colors : ['#ffffff'];
+    const sprite = sprites.resolve(current) || sprites.resolve({ ...current, particleSprite: 'comet', spriteGlow: 0.6, spriteCore: 0.3 });
+    const auto = (current.particleSprite || 'auto') === 'auto';
+    g.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 8; i++) {
+      const a = t * 0.5 + (i * Math.PI * 2) / 8;
+      const x = 180 + Math.cos(a) * 140, y = 100 + Math.sin(a) * 72;
+      sprites.draw(g, x, y, 9, a + Math.PI / 2, colors[i % colors.length], auto ? 0.35 : 0.9, sprite, t, i * 0.13);
+    }
+    const hx = 180 + Math.sin(t * 0.7) * 22, hy = 100 + Math.cos(t * 0.9) * 10;
+    sprites.draw(g, hx, hy, 34, Math.atan2(-Math.sin(t * 0.9) * 9, Math.cos(t * 0.7) * 15.4), colors[0], auto ? 0.35 : 1, sprite, t, 0.4);
+    g.globalCompositeOperation = 'source-over';
+    if (auto) {
+      g.fillStyle = 'rgba(230,233,245,.75)';
+      g.font = '12px "Segoe UI", sans-serif';
+      g.fillText('Scene default (faded: pick a shape to use one)', 10, 192);
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  return sec;
 }
 
 // Flow extra effects, when the live presets.js predates FlowExtraEffects.
@@ -566,7 +667,7 @@ function renderFields() {
   for (const [title, fields] of GROUPS) section(title, fields);
   const extras = Object.keys(current).filter(f => !used.has(f) && !SKIP.has(f) && !isFlowField(f) && (typeof current[f] === 'number' || typeof current[f] === 'boolean'));
   section('Scene-specific', extras);
-  host.append(kaleidoSection(), colorsSection());
+  host.append(particleShapeSection(), kaleidoSection(), colorsSection());
   if (!current.particleShape || current.particleShape === 'ellipse') {
     const note = document.createElement('p');
     note.className = 'hint';
