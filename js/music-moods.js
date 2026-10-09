@@ -253,7 +253,7 @@ const MusicMoods = (() => {
             const q = (now - lastBeatAt) / period;
             if (Math.abs(q - Math.max(1, Math.round(q))) < 0.22) due = 0.45;
         }
-        const sharp = clamp(f.bassAttack, 0, 1) > 0.05 && bass > 0.3;
+        const sharp = clamp(f.bassAttack, 0, 1) > 0.12 && bass > 0.3;
         const swell = over > Math.max(0.010, bassDev * 2.6 * due) && rise > 0.001 && over >= lastOver && bass > 0.2;
         lastOver = over;
         if (bassOn && (sharp || swell) && now - lastBeatAt > 220) {

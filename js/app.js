@@ -4476,6 +4476,24 @@ document.addEventListener("DOMContentLoaded", () => {
     // (baseSettings and basePalette are declared in higher scope)
     let maxBassSeen = 0.4;
     let maxTrebleSeen = 0.4;
+    // Real music sits close to its own peak almost all the time, so dividing by the peak alone
+    // squashes every kick into a ~2% wiggle. Track a quiet floor too and spread floor..peak over 0..1.
+    function createLevelTracker(minRange) {
+        let floor = null, peak = null;
+        return {
+            next(db) {
+                if (!Number.isFinite(db)) return null;
+                if (floor === null) { floor = db - minRange / 2; peak = db + minRange / 2; }
+                floor += (db - floor) * (db < floor ? 0.25 : 0.004);
+                peak += (db - peak) * (db > peak ? 0.5 : 0.003);
+                const range = Math.max(minRange, peak - floor);
+                return Math.max(0, Math.min(1, (db - (peak - range)) / range));
+            },
+            reset() { floor = peak = null; }
+        };
+    }
+    const bassLevel = createLevelTracker(12);
+    const trebleLevel = createLevelTracker(12);
     let lastShockwaveTime = 0;
     let lastColorShiftTime = 0;
     
@@ -4499,6 +4517,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const analysis = window.CosmicSynth.getMusicAnalysis();
         if (!analysis) {
             if (window.MusicMoods) window.MusicMoods.reset();
+            bassLevel.reset(); trebleLevel.reset();
             // Restore settings if visualizer mode was deactivated
             if (baseSettings) {
                 for (const key in baseSettings) {
@@ -4555,9 +4574,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (analysis.treble > maxTrebleSeen) maxTrebleSeen = analysis.treble;
         else maxTrebleSeen = Math.max(0.1, maxTrebleSeen * 0.9995);
         
-        // Normalize raw levels relative to rolling peaks (0.0 to 1.0)
-        const normalizedBass = Math.min(1.0, analysis.bass / maxBassSeen);
-        const normalizedTreble = Math.min(1.0, analysis.treble / maxTrebleSeen);
+        // Normalize to 0..1: floor-to-peak on the kick/treble dB bands when available, else rolling peak.
+        const normalizedBass = bassLevel.next(analysis.bassDb) ?? Math.min(1.0, analysis.bass / maxBassSeen);
+        const normalizedTreble = trebleLevel.next(analysis.trebleDb) ?? Math.min(1.0, analysis.treble / maxTrebleSeen);
         
         // 2. Spectral Flux (Transients / Rate of change detection)
         // Tracks changes from previous frame to isolate beat attacks (onset) rather than raw volume level

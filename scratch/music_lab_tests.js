@@ -34,7 +34,7 @@ async function boot(store) {
         runScripts: "dangerously", resources: "usable", pretendToBeVisual: true, virtualConsole,
         beforeParse(window) {
             window.HTMLCanvasElement.prototype.getContext = function (type) { return type === "2d" ? fakeCtx() : null; };
-            window.AudioContext = class { createAnalyser() { return { fftSize: 0, frequencyBinCount: 128, getByteFrequencyData() {}, connect() {} }; } createMediaElementSource() { return { connect() {} }; } get destination() { return {}; } resume() {} };
+            window.AudioContext = class { createAnalyser() { return { fftSize: 0, frequencyBinCount: 128, getByteFrequencyData() {}, getFloatFrequencyData() {}, connect() {} }; } get sampleRate() { return 48000; } createMediaElementSource() { return { connect() {} }; } get destination() { return {}; } resume() {} };
             window.HTMLMediaElement.prototype.play = function () { this._played = (this._played || 0) + 1; return Promise.resolve(); };
             window.HTMLMediaElement.prototype.pause = () => {};
             Object.defineProperty(window, "localStorage", { value: store, configurable: true });

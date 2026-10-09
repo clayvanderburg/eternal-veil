@@ -560,6 +560,27 @@ class BinauralBeatEngine {
             this.musicAnalyser = this.ctx.createAnalyser();
             this.musicAnalyser.fftSize = 256; // 128 frequency bands
         }
+        // A finer, less smoothed analyser listens alongside for kicks: at 256 points the "bass" bins
+        // span 0-750 Hz and the 0.8 smoothing blurs every attack, so real music barely registers hits.
+        if (!this.beatAnalyser) {
+            this.beatAnalyser = this.ctx.createAnalyser();
+            this.beatAnalyser.fftSize = 2048;
+            this.beatAnalyser.smoothingTimeConstant = 0.4;
+            this.beatAnalyser.minDecibels = -100;
+            this.beatAnalyser.maxDecibels = -10;
+            this.beatBins = new Float32Array(this.beatAnalyser.frequencyBinCount);
+        }
+        // stopMusicReactivity() disconnects the music analyser, so re-link every time a source starts.
+        this.musicAnalyser.connect(this.beatAnalyser);
+    }
+
+    // Average level in dB between two frequencies on the beat analyser.
+    beatBandDb(lo, hi) {
+        const binHz = this.ctx.sampleRate / this.beatAnalyser.fftSize;
+        const from = Math.max(1, Math.round(lo / binHz)), to = Math.max(from, Math.round(hi / binHz));
+        let sum = 0;
+        for (let i = from; i <= to; i++) sum += Math.max(-100, Number.isFinite(this.beatBins[i]) ? this.beatBins[i] : -100);
+        return sum / (to - from + 1);
     }
 
     // Query bass and treble normalized levels
@@ -595,7 +616,15 @@ class BinauralBeatEngine {
         for (let i = 0; i < levelBins; i++) levelSum += dataArray[i];
         const levelVal = levelBins ? levelSum / levelBins / 255 : 0;
 
-        return { bass: bassVal, treble: trebleVal, mid: midVal, level: levelVal };
+        // Kick, mid and treble bands in dB for the app's floor-to-peak normalisation.
+        let bassDb, trebleDb;
+        if (this.beatAnalyser) {
+            this.beatAnalyser.getFloatFrequencyData(this.beatBins);
+            bassDb = this.beatBandDb(40, 160);
+            trebleDb = this.beatBandDb(2000, 6000);
+        }
+
+        return { bass: bassVal, treble: trebleVal, mid: midVal, level: levelVal, bassDb, trebleDb };
     }
 
     // Helper to glide master ambient sound gain smoothly
