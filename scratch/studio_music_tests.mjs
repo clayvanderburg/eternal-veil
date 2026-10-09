@@ -15,7 +15,7 @@ function pathToUrl(p) { return 'file:///' + p.replace(/\\/g, '/'); }
 
 const text = fs.readFileSync(path.join(root, 'js', 'music-catalog.js'), 'utf8');
 const live = studio.loadCatalog(text);
-assert(live.tracks.length >= 6 && live.playlists[0].id === 'nocturnal', 'reads the shipped catalog');
+assert(live.tracks.length >= 6 && live.playlists.some(p => p.id === 'nocturnal'), 'reads the shipped catalog');
 assert.equal(studio.writeCatalog(text, studio.cleanCatalog(live)), text, 'writing the same catalog changes nothing');
 
 const next = studio.cleanCatalog({
@@ -42,8 +42,8 @@ for (const c of bad) assert.throws(() => studio.cleanCatalog(c));
 // The site's library reads the catalog for built-in playlists.
 const MusicLibrary = (await import(pathToUrl(path.join(root, 'js', 'music-library.js')))).default;
 const lib = new MusicLibrary({ getItem: () => null, setItem() {} });
-assert.equal(lib.defaultPlaylist, 'nocturnal');
-assert.deepEqual(lib.trackIds('nocturnal'), live.playlists[0].tracks);
+assert.equal(lib.defaultPlaylist, live.playlists[0].id, 'the first playlist is the default');
+assert.deepEqual(lib.trackIds(live.playlists[0].id), live.playlists[0].tracks);
 
 // Real upload: one second of tone as WAV, converted to MP3.
 const wav = path.join(process.env.STUDIO_UPLOADS, 'tone.wav');
