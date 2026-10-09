@@ -373,30 +373,47 @@ function selectItem(field, options) {
   return it.el;
 }
 
-// Kaleidoscope: the preset's own setting plus Flow's chance and segment range.
+// Flow extra effects, when the live presets.js predates FlowExtraEffects.
+const FALLBACK_EFFECTS = [
+  { key: 'kaleidoscope', label: 'Kaleidoscope', desc: 'Still mirror' },
+  { key: 'spinningAxes', label: 'Spinning Mandala Axes', desc: 'Mirror lines sweep through the scene' },
+  { key: 'axesRings', label: 'Counter-turning Rings', desc: '2-4 rings turning against each other' },
+  { key: 'foldsGrowing', label: 'Growing Folds', desc: 'Rings add folds outward (6 / 8 / 10)' },
+  { key: 'foldsDoubling', label: 'Doubling Folds', desc: 'Rings double their folds (4 / 8 / 16)' },
+  { key: 'foldsAlternating', label: 'Alternating Folds', desc: 'Rings alternate folds (6 / 12 / 6)' }
+];
+const effectList = () => state.effects || FALLBACK_EFFECTS;
+const effectWeight = (weights, k) => Number.isFinite(weights?.[k]) ? Math.max(0, weights[k]) : 1;
+
+// Kaleidoscope: the preset's own setting plus Flow's extra effect chance, effect weights
+// and segment range.
 function kaleidoSection() {
   const sec = document.createElement('section');
-  sec.innerHTML = '<h2>Kaleidoscope</h2>';
+  sec.innerHTML = '<h2>Kaleidoscope &amp; Flow Extra Effects</h2>';
+  // flowKaleidoChance is flowEffectChance's old name (live site before the rename, older drafts).
+  for (const p of [original, current]) {
+    if ('flowKaleidoChance' in p) { if (!('flowEffectChance' in p)) p.flowEffectChance = p.flowKaleidoChance; delete p.flowKaleidoChance; }
+  }
   if (!('kaleidoscopeEnabled' in current)) { current.kaleidoscopeEnabled = false; original.kaleidoscopeEnabled = false; }
   if (!('kaleidoscopeSegments' in current)) { current.kaleidoscopeSegments = 6; original.kaleidoscopeSegments = 6; }
   sec.append(checkItem('kaleidoscopeEnabled', 'On when this preset is loaded'));
   sec.append(numberItem('kaleidoscopeSegments'));
   if ('spinningKaleido' in current) sec.append(checkItem('spinningKaleido', 'Spinning'));
 
-  // Flow chance
-  const chance = item('Flow chance', 'flowKaleidoChance', () => showChance());
-  const chanceCtl = slider([0, 100, 1], v => { current.flowKaleidoChance = clean(v / 100); showChance(); changedState(); });
-  chanceCtl.slider.setAttribute('aria-label', 'Flow kaleidoscope chance percent');
-  chanceCtl.box.setAttribute('aria-label', 'Flow kaleidoscope chance percent value');
+  // Flow extra effect chance
+  const chance = item('Flow extra effect chance', 'flowEffectChance', () => showChance());
+  const chanceCtl = slider([0, 100, 1], v => { current.flowEffectChance = clean(v / 100); showChance(); changedState(); });
+  chanceCtl.slider.setAttribute('aria-label', 'Flow extra effect chance percent');
+  chanceCtl.box.setAttribute('aria-label', 'Flow extra effect chance percent value');
   const autoLine = document.createElement('div');
   autoLine.className = 'flow';
   chance.el.append(chanceCtl.wrap, autoLine);
   const showChance = () => {
-    const v = current.flowKaleidoChance;
+    const v = current.flowEffectChance;
     const isAuto = !Number.isFinite(v);
     chanceCtl.set(isAuto ? 0 : v * 100);
     chanceCtl.wrap.style.opacity = isAuto ? 0.45 : 1;
-    chance.mark(Number.isFinite(original.flowKaleidoChance) ? `${Math.round(original.flowKaleidoChance * 100)}%` : 'auto');
+    chance.mark(Number.isFinite(original.flowEffectChance) ? `${Math.round(original.flowEffectChance * 100)}%` : 'auto');
     autoLine.replaceChildren();
     const text = document.createElement('span');
     text.className = 'auto';
@@ -404,15 +421,61 @@ function kaleidoSection() {
     const btn = document.createElement('button');
     btn.textContent = isAuto ? 'set %' : 'auto';
     btn.onclick = () => {
-      if (isAuto) current.flowKaleidoChance = 0.38;
-      else if (Number.isFinite(original.flowKaleidoChance) || original.flowKaleidoChance === null) current.flowKaleidoChance = null;
-      else delete current.flowKaleidoChance;
+      if (isAuto) current.flowEffectChance = 0.38;
+      else if (Number.isFinite(original.flowEffectChance) || original.flowEffectChance === null) current.flowEffectChance = null;
+      else delete current.flowEffectChance;
       showChance(); changedState();
     };
     autoLine.append(text, btn);
+    showWeights();
+  };
+
+  // Which effect, when Flow rolls one: weights (all 1 = even), shown with each one's share.
+  const weights = item('Effect weights', 'flowEffectWeights', () => showWeights());
+  const weightRows = document.createElement('div');
+  weights.el.append(weightRows);
+  const rows = effectList().map(e => {
+    const row = document.createElement('div');
+    const head = document.createElement('div');
+    head.className = 'flow';
+    const name = document.createElement('span');
+    name.className = 'label';
+    name.textContent = e.label;
+    name.title = e.desc || '';
+    const share = document.createElement('span');
+    share.className = 'auto';
+    head.append(name, share);
+    const ctl = slider([0, 10, 0.5], v => {
+      const next = { ...(current.flowEffectWeights || {}) };
+      next[e.key] = v;
+      // All even (every weight 1) is the default: store nothing.
+      const even = effectList().every(x => effectWeight(next, x.key) === 1);
+      if (even && original.flowEffectWeights === undefined) delete current.flowEffectWeights;
+      else current.flowEffectWeights = next;
+      showWeights(); changedState();
+    });
+    ctl.slider.setAttribute('aria-label', `${e.label} weight`);
+    ctl.box.setAttribute('aria-label', `${e.label} weight value`);
+    row.append(head, ctl.wrap);
+    weightRows.append(row);
+    return { e, ctl, share };
+  });
+  const showWeights = () => {
+    const w = current.flowEffectWeights;
+    const total = effectList().reduce((sum, e) => sum + effectWeight(w, e.key), 0);
+    const odds = Number.isFinite(current.flowEffectChance) ? current.flowEffectChance : null;
+    for (const r of rows) {
+      const wt = effectWeight(w, r.e.key);
+      r.ctl.set(wt);
+      const within = total > 0 ? wt / total : 0;
+      r.share.textContent = total > 0
+        ? `${Math.round(within * 100)}% of extra effects` + (odds !== null ? ` · ${Math.round(within * odds * 100)}% of visits` : '')
+        : 'off';
+    }
+    weights.mark(original.flowEffectWeights === undefined ? 'even' : undefined);
   };
   showChance();
-  sec.append(chance.el);
+  sec.append(chance.el, weights.el);
 
   // Flow segment range
   const segs = item('Flow segments', 'flowKaleidoMin', () => {});

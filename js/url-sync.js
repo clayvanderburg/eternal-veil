@@ -13,6 +13,7 @@ const UrlStateSync = {
     mouseModes: ["burst", "attract", "repel", "vortex", "paint"],
     lightingModes: ["glow", "reactive", "pearl", "metal"],
     binauralModes: ["delta", "theta", "alpha", "beta", "gamma"],
+    ringFoldModes: ["same", "growing", "doubling", "alternating", "custom"],
 
     // V2 packs the same fields as the legacy JSON link into about 60 bytes.
     packState(state) {
@@ -35,12 +36,21 @@ const UrlStateSync = {
         choice(this.lightingModes, state.pl); choice(this.binauralModes, state.bm);
         const flags = [state.ke, state.pm, state.mb, state.sk, state.se, state.be,
             state.ae, state.sm, state.ap, state.vm, state.vs === "dome"];
-        word(flags.reduce((bits, on, index) => bits | ((on ? 1 : 0) << index), 0));
+        // Bits 11-13: Axes Rings - 1 (older links carry 0 there, which reads back as 1 ring).
+        const rings = Math.max(1, Math.min(5, Math.round(state.kr) || 1));
+        word(flags.reduce((bits, on, index) => bits | ((on ? 1 : 0) << index), 0) | ((rings - 1) << 11));
         // Up to 8 colors (Chakra Alignment uses 7). Links with 1-6 colors are unchanged.
         const colors = state.p.slice(0, 8);
         byte(colors.length);
         colors.forEach(color);
         color(state.bg);
+        // Optional trailer for ring folds (fold mode, step, five custom counts). Left off
+        // when the folds are the default, so ordinary links are byte-for-byte unchanged.
+        const foldMode = this.ringFoldModes.indexOf(state.rf);
+        if (foldMode > 0) {
+            byte(foldMode); byte(state.rst);
+            for (let k = 0; k < 5; k++) byte(state.rc?.[k]);
+        }
         return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     },
 
@@ -66,10 +76,16 @@ const UrlStateSync = {
             state[key] = (flags >> index) & 1;
         });
         state.vs = flags & (1 << 10) ? "dome" : "native";
+        state.kr = Math.min(5, ((flags >> 11) & 7) + 1);
         const count = byte();
-        if (count < 1 || count > 8 || bytes.length !== offset + count * 3 + 3) return null;
+        const trailer = bytes.length - (offset + count * 3 + 3);
+        if (count < 1 || count > 8 || (trailer !== 0 && trailer !== 7)) return null;
         state.p = Array.from({ length: count }, color);
         state.bg = color();
+        if (trailer) {
+            state.rf = choice(this.ringFoldModes); state.rst = byte();
+            state.rc = Array.from({ length: 5 }, byte);
+        }
         return state;
     },
 
@@ -99,6 +115,10 @@ const UrlStateSync = {
                 pm: sim.settings.psychedelicMode ? 1 : 0,
                 mb: sim.settings.morphingBg ? 1 : 0,
                 sk: sim.settings.spinningKaleido ? 1 : 0,
+                kr: parseInt(sim.settings.kaleidoAxesRings || 1),
+                rf: sim.settings.kaleidoRingFolds || "same",
+                rst: parseInt(sim.settings.kaleidoRingStep || 2),
+                rc: Array.isArray(sim.settings.kaleidoRingCustom) ? sim.settings.kaleidoRingCustom.map(n => parseInt(n)) : undefined,
                 ps: sim.settings.particleShape,
                 pl: sim.settings.particleLighting || "glow",
                 se: sim.settings.shockwavesEnabled ? 1 : 0,
@@ -166,6 +186,10 @@ const UrlStateSync = {
                     psychedelicMode: state.pm === 1,
                     morphingBg: state.mb === 1,
                     spinningKaleido: state.sk === 1,
+                    kaleidoAxesRings: state.kr,
+                    kaleidoRingFolds: state.rf,
+                    kaleidoRingStep: state.rst,
+                    kaleidoRingCustom: state.rc,
                     particleShape: state.ps,
                     particleLighting: state.pl,
                     shockwavesEnabled: state.se !== 0, // default to true

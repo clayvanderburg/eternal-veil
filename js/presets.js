@@ -4,8 +4,39 @@
 
 // Presets built from another preset copy its look, not its Flow tuning or New! date.
 function ownLook(preset) {
-    const { flowKaleidoChance, flowKaleidoMin, flowKaleidoMax, flowRanges, addedOn, ...look } = preset;
+    const { flowEffectChance, flowEffectWeights, flowKaleidoMin, flowKaleidoMax, flowRanges, addedOn, ...look } = preset;
     return look;
+}
+
+// Flow extra effects. When Flow visits a scene it rolls the preset's flowEffectChance
+// (unset: the Flow personality's chance); on a hit it picks one of these by the preset's
+// flowEffectWeights (missing weights count as 1, so every effect starts equally likely;
+// 0 turns one off). Tuned per preset in the Studio. The effects themselves are applied
+// in js/app.js (applyFlowExtraEffect).
+const FlowExtraEffects = [
+    { key: "kaleidoscope", label: "Kaleidoscope", desc: "Still mirror" },
+    { key: "spinningAxes", label: "Spinning Mandala Axes", desc: "Mirror lines sweep through the scene" },
+    { key: "axesRings", label: "Counter-turning Rings", desc: "2-4 rings turning against each other" },
+    { key: "foldsGrowing", label: "Growing Folds", desc: "Rings add folds outward (6 / 8 / 10)" },
+    { key: "foldsDoubling", label: "Doubling Folds", desc: "Rings double their folds (4 / 8 / 16)" },
+    { key: "foldsAlternating", label: "Alternating Folds", desc: "Rings alternate folds (6 / 12 / 6)" }
+];
+
+function flowEffectWeight(weights, key) {
+    const w = weights && Number(weights[key]);
+    return Number.isFinite(w) ? Math.max(0, w) : 1;
+}
+
+// Weighted pick among the extra effects; null when every weight is 0.
+function pickFlowExtraEffect(weights, random = Math.random) {
+    const total = FlowExtraEffects.reduce((sum, e) => sum + flowEffectWeight(weights, e.key), 0);
+    if (!(total > 0)) return null;
+    let roll = random() * total;
+    for (const e of FlowExtraEffects) {
+        roll -= flowEffectWeight(weights, e.key);
+        if (roll < 0) return e.key;
+    }
+    return [...FlowExtraEffects].reverse().find(e => flowEffectWeight(weights, e.key) > 0).key;
 }
 
 const StylePresets = {
@@ -58,7 +89,7 @@ const StylePresets = {
     cosmic: {
         name: "Nebula Spark",
         desc: "Fine curling sparks drift through clouds that swell, ignite, and fade.",
-        flowKaleidoChance: 0.5,
+        flowEffectChance: 0.5,
         speed: 1.4,
         turbulence: 0.45,
         curl: 0.92,
@@ -78,7 +109,7 @@ const StylePresets = {
         name: "Solar Flare",
         desc: "Eclipsed suns with fire along their rims and flares lifting off into a thinner ember field.",
         flowKaleidoMin: 3,
-        flowKaleidoChance: 0.3,
+        flowEffectChance: 0.3,
         speed: 1.048,
         turbulence: 0.55,
         curl: 0.55,
@@ -143,7 +174,7 @@ const StylePresets = {
         addedOn: "2026-09-24",
         name: "Celtic Knotwork",
         desc: "Three tapered paint currents braid through each tight knot ring and the woven three-lobed center, traveling in opposing directions.",
-        flowKaleidoChance: 0.2,
+        flowEffectChance: 0.2,
         flowKaleidoMin: 3,
         kaleidoscopeSegments: 8,
         speed: 0.52,
@@ -172,7 +203,7 @@ const StylePresets = {
         desc: "Glowing sand gathers on the still lines of an unseen singing plate, then streams across the screen to form each new resonant figure.",
         flowKaleidoMax: 6,
         flowKaleidoMin: 3,
-        flowKaleidoChance: 0.3,
+        flowEffectChance: 0.3,
         kaleidoscopeSegments: 3,
         speed: 0.7,
         turbulence: 0.05,
@@ -198,7 +229,7 @@ const StylePresets = {
         addedOn: "2026-09-29",
         name: "Mandelbrot Dive",
         desc: "An endless dive through glowing fractal spirals toward a hidden mini-Mandelbrot, which becomes the whole set again for the next dive.",
-        flowKaleidoChance: 0.5,
+        flowEffectChance: 0.5,
         speed: 0.4,
         turbulence: 0.05,
         curl: 0.96,
@@ -225,7 +256,7 @@ const StylePresets = {
         desc: "Glowing molecules and shell-model atoms tumble in depth: bonds shimmer, electrons race their orbits, and each structure bursts apart as the next one assembles.",
         flowKaleidoMin: 3,
         flowKaleidoMax: 8,
-        flowKaleidoChance: 0.4,
+        flowEffectChance: 0.4,
         speed: 0.66,
         turbulence: 0.05,
         curl: 0.5,
@@ -327,7 +358,7 @@ const StylePresets = {
     strings: {
         name: "Cosmic Strings",
         desc: "Long, ultra-fine cyan and lilac filaments weave a dense web of curling light.",
-        flowKaleidoChance: 1, flowKaleidoMin: 8, flowKaleidoMax: 8,
+        flowEffectChance: 1, flowKaleidoMin: 8, flowKaleidoMax: 8,
         speed: 0.90,
         turbulence: 0.35,
         curl: 0.90,
@@ -347,7 +378,7 @@ const StylePresets = {
     hypno: {
         name: "Chaotic Spiral",
         desc: "A full-screen coil with 4–8 smaller spirals bouncing through it, plus thin zigzag particles.",
-        flowKaleidoChance: 0.58,
+        flowEffectChance: 0.58,
         speed: 0.32,
         turbulence: 0.16,
         curl: 0.94,
@@ -504,7 +535,7 @@ const StylePresets = {
     acid: {
         name: "Acid Rain",
         desc: "Torrential downpour of melting rainbow droplets shifting and warping dynamically.",
-        flowKaleidoChance: 0,
+        flowEffectChance: 0,
         speed: 1.80,
         turbulence: 0.95,
         curl: 0.55,
@@ -602,7 +633,7 @@ const StylePresets = {
     cluster: {
         name: "Cosmic Organelles",
         desc: "Rounded pink and cyan capsules drift through trailing light, with tiny dots tucked inside their glowing heads.",
-        flowKaleidoChance: 0.58,
+        flowEffectChance: 0.58,
         speed: 0.70,
         turbulence: 0.45,
         curl: 0.88,
@@ -727,7 +758,7 @@ const StylePresets = {
     neonConduits: {
         name: "Neon Conduits",
         desc: "Luminous energy pipes traverse a geometric labyrinth, snapping through deliberate 90° turns and glowing junctions.",
-        flowKaleidoChance: 0.58, flowKaleidoMin: 4, flowKaleidoMax: 8,
+        flowEffectChance: 0.58, flowKaleidoMin: 4, flowKaleidoMax: 8,
         speed: 0.48,
         turbulence: 0.0,
         curl: 1.0,
@@ -753,7 +784,7 @@ const StylePresets = {
     circuitCity: {
         name: "Circuit City",
         desc: "A dense living motherboard of tiny neon routes, rapid data pulses, and tightly packed right-angle streets.",
-        flowKaleidoChance: 0.58, flowKaleidoMin: 4, flowKaleidoMax: 8,
+        flowEffectChance: 0.58, flowKaleidoMin: 4, flowKaleidoMax: 8,
         speed: 0.62,
         turbulence: 0.0,
         curl: 1.0,
@@ -779,7 +810,7 @@ const StylePresets = {
     conduitCathedral: {
         name: "Conduit Cathedral",
         desc: "Monumental luminous frames rise like impossible architecture while slow energy pilgrims cross their vast corners.",
-        flowKaleidoChance: 0.58, flowKaleidoMin: 4, flowKaleidoMax: 8,
+        flowEffectChance: 0.58, flowKaleidoMin: 4, flowKaleidoMax: 8,
         speed: 0.28,
         turbulence: 0.0,
         curl: 1.0,
@@ -805,7 +836,7 @@ const StylePresets = {
     circuitShrine: {
         name: "Circuit Shrine",
         desc: "Nested square circuits breathe around a radiant center—part mandala, part machine-temple, all precise 90° motion.",
-        flowKaleidoChance: 0.58, flowKaleidoMin: 4, flowKaleidoMax: 8,
+        flowEffectChance: 0.58, flowKaleidoMin: 4, flowKaleidoMax: 8,
         speed: 0.38,
         turbulence: 0.0,
         curl: 1.0,
@@ -835,7 +866,7 @@ StylePresets.quantumGrid = {
     ...ownLook(StylePresets.quantum),
     name: "Quantum Grid",
     desc: "Streams of light travel through a rippling lattice, weaving across one another like a living energy fabric.",
-    flowKaleidoChance: 0,
+    flowEffectChance: 0,
     particleShape: "quantumLattice", particleLighting: "glow",
     speed: 3.5, turbulence: 0, density: 2200, dissipation: 0.07,
     size: 3, sizeVar: 0.6, stretch: 1, rotationSpeed: 0, wobble: 0,
@@ -845,7 +876,7 @@ StylePresets.mandalaZen = {
     ...ownLook(StylePresets.mandala),
     name: "Mandala Zen",
     desc: "Eleven twelve-petal rosettes counter-rotate and swell, from delicate inner blooms to vast painted ribbons sweeping beyond the screen.",
-    flowKaleidoChance: 0.58,
+    flowEffectChance: 0.58,
     particleShape: "zenMandala", particleLighting: "glow",
     speed: 0.15, turbulence: 0, density: 3000, dissipation: 0.026,
     size: 4.5, sizeVar: 0.5, stretch: 1, rotationSpeed: 0, wobble: 0,
@@ -900,7 +931,7 @@ const PresetOrder = [
 const PRESET_NEW_DAYS = 30;
 
 // Flow fields a preset may carry (all optional; tuned in tools/studio.html):
-//   flowKaleidoChance  0..1 chance Flow mirrors this scene (unset = Flow personality's chance)
+//   flowEffectChance  0..1 chance Flow mirrors this scene (unset = Flow personality's chance)
 //   flowKaleidoMin/Max segment range Flow picks from (unset = 4..10)
 //   flowRanges         { field: [min, max] } exact Flow range per value (unset = preset ± variation)
 

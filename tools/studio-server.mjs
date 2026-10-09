@@ -1,5 +1,5 @@
 // Eternal Void Studio server — LOCAL ONLY.
-//   node tools/studio-server.mjs        then open http://127.0.0.1:8820/tools/studio.html
+//   node tools/studio-server.mjs        then open http://127.0.0.1:8820/tools/ (menu of every tool)
 //
 // The preview runs from Studio's own copy of the site (.studio/preview), kept on the live
 // code (origin/main) or on an open pull request being reviewed, so it never depends on
@@ -35,8 +35,12 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '
 // ---------- reading ----------
 export function loadPresets(text) {
   const ctx = vm.createContext({});
-  vm.runInContext(text + ';globalThis.__P = StylePresets; globalThis.__O = getOrderedPresetKeys();', ctx);
-  return { presets: JSON.parse(JSON.stringify(ctx.__P)), order: [...ctx.__O] };
+  vm.runInContext(text + ';globalThis.__P = StylePresets; globalThis.__O = getOrderedPresetKeys();'
+    + 'globalThis.__E = typeof FlowExtraEffects === "undefined" ? null : FlowExtraEffects;', ctx);
+  const out = { presets: JSON.parse(JSON.stringify(ctx.__P)), order: [...ctx.__O] };
+  // Flow extra effects (key, label, desc), when this version of presets.js has them.
+  if (ctx.__E) out.effects = JSON.parse(JSON.stringify(ctx.__E));
+  return out;
 }
 export function loadMusic(text) {
   const ctx = vm.createContext({ window: {} });
@@ -61,8 +65,16 @@ function formatValue(value) {
   }
   if (typeof value === 'string' && /^[A-Za-z]{1,40}$/.test(value)) return `"${value}"`;
   if (value && typeof value === 'object') {
-    // flowRanges: { field: [min, max] }
     const entries = Object.entries(value);
+    // flowEffectWeights: { effect: weight }
+    if (entries.length && entries.every(([, w]) => typeof w === 'number')) {
+      if (entries.length > 40) throw new Error('Too many Flow effect weights');
+      return `{ ${entries.map(([k, w]) => {
+        if (!/^[A-Za-z][A-Za-z0-9]{0,40}$/.test(k) || !Number.isFinite(w) || w < 0 || w > 100) throw new Error(`Bad Flow effect weight for ${k}`);
+        return `${k}: ${formatValue(w)}`;
+      }).join(', ')} }`;
+    }
+    // flowRanges: { field: [min, max] }
     if (entries.length > 40) throw new Error('Too many Flow ranges');
     const parts = entries.map(([field, range]) => {
       if (!/^[A-Za-z][A-Za-z0-9]{0,40}$/.test(field) || !Array.isArray(range) || range.length !== 2 || !range.every(n => typeof n === 'number' && Number.isFinite(n))) {
@@ -117,7 +129,9 @@ function applyPresetChangesLf(text, key, changes) {
   for (const [field, value] of Object.entries(changes)) {
     const got = check[field];
     const ok = Array.isArray(value) ? JSON.stringify(got) === JSON.stringify(value.map(c => c.toLowerCase()))
-      : value && typeof value === 'object' ? Object.entries(value).every(([f, r]) => Math.abs(got?.[f]?.[0] - Math.min(...r)) < 1e-3 && Math.abs(got?.[f]?.[1] - Math.max(...r)) < 1e-3)
+      : value && typeof value === 'object' ? Object.entries(value).every(([f, r]) => typeof r === 'number'
+        ? Math.abs(got?.[f] - r) < 1e-3
+        : Math.abs(got?.[f]?.[0] - Math.min(...r)) < 1e-3 && Math.abs(got?.[f]?.[1] - Math.max(...r)) < 1e-3)
       : typeof value === 'number' ? Math.abs(got - value) < 1e-3 : got === value;
     if (!ok) throw new Error(`Couldn't write ${key}.${field} safely`);
   }
@@ -462,15 +476,19 @@ export function createStudioServer() {
         const body = JSON.parse(raw || '{}');
         return send(res, 200, openPullRequest(body));
       }
-      if (req.method !== 'GET') return send(res, 404, { error: 'Not found.' });
-      const rel = decodeURIComponent(url.pathname === '/' ? '/tools/studio.html' : url.pathname);
-      // Studio's own page and uploads come from this folder; the site itself from the preview copy.
-      const own = rel.startsWith('/tools/studio') || rel.startsWith('/.studio/uploads/');
+      if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 404, { error: 'Not found.' });
+      // One address for every tool: / and /tools go to the tools menu (tools/index.html).
+      if (url.pathname === '/' || url.pathname === '/tools') { res.writeHead(302, { Location: '/tools/' }); return res.end(); }
+      const rel = decodeURIComponent(url.pathname === '/tools/' ? '/tools/index.html' : url.pathname);
+      // Studio's own pages, the tools menu and uploads come from this folder; the site and its
+      // labs from the preview copy (the live code, or the pull request under review).
+      const own = rel.startsWith('/tools/studio') || rel === '/tools/index.html' || rel.startsWith('/.studio/uploads/');
       const base = own || !fs.existsSync(path.join(PREVIEW, 'index.html')) ? root : PREVIEW;
       const file = path.resolve(base, '.' + rel);
       if (!file.startsWith(base + path.sep) || file.includes(`${path.sep}.git${path.sep}`) || (base === root && !own && file.startsWith(path.join(root, '.studio')))) return send(res, 403, { error: 'Invalid path.' });
       if (!fs.existsSync(file) || !fs.statSync(file).isFile()) return send(res, 404, { error: 'Not found.' });
       res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
+      if (req.method === 'HEAD') return res.end();
       fs.createReadStream(file).pipe(res);
     } catch (error) {
       send(res, 400, { error: error.message || 'Request failed.' });
@@ -478,5 +496,5 @@ export function createStudioServer() {
   });
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  createStudioServer().listen(PORT, '127.0.0.1', () => console.log(`Eternal Void Studio: http://127.0.0.1:${PORT}/tools/studio.html`));
+  createStudioServer().listen(PORT, '127.0.0.1', () => console.log(`Eternal Void tools: http://127.0.0.1:${PORT}/tools/  (Studio: /tools/studio.html)`));
 }

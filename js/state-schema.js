@@ -118,6 +118,12 @@ const StateSchema = {
                 psychedelicMode: this.sanitizeBoolean(rawState.settings?.psychedelicMode, false),
                 morphingBg: this.sanitizeBoolean(rawState.settings?.morphingBg, false),
                 spinningKaleido: this.sanitizeBoolean(rawState.settings?.spinningKaleido, false),
+                kaleidoAxesRings: Math.round(this.sanitizeNumber(rawState.settings?.kaleidoAxesRings, 1, 1, 5)),
+                kaleidoRingFolds: ["same", "growing", "doubling", "alternating", "custom"].includes(rawState.settings?.kaleidoRingFolds)
+                    ? rawState.settings.kaleidoRingFolds : "same",
+                kaleidoRingStep: Math.round(this.sanitizeNumber(rawState.settings?.kaleidoRingStep, 2, 1, 6)),
+                kaleidoRingCustom: [6, 8, 10, 12, 14].map((fallback, k) =>
+                    Math.round(this.sanitizeNumber(rawState.settings?.kaleidoRingCustom?.[k], fallback, 3, 24))),
                 shockwavesEnabled: this.sanitizeBoolean(rawState.settings?.shockwavesEnabled, true),
                 
                 particleShape: this.VALID_PARTICLE_SHAPES.has(rawState.settings?.particleShape)

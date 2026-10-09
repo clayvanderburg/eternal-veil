@@ -653,6 +653,14 @@ document.addEventListener("DOMContentLoaded", () => {
         psychedelicToggle: document.getElementById("psychedelic-toggle"),
         morphingBgToggle: document.getElementById("morphing-bg-toggle"),
         spinningKaleidoToggle: document.getElementById("spinning-kaleido-toggle"),
+        kaleidoRingsSlider: document.getElementById("kaleido-rings-slider"),
+        kaleidoRingsVal: document.getElementById("kaleido-rings-val"),
+        kaleidoRingFoldControls: document.getElementById("kaleido-ring-fold-controls"),
+        kaleidoRingFoldsSelect: document.getElementById("kaleido-ring-folds-select"),
+        kaleidoRingStepControl: document.getElementById("kaleido-ring-step-control"),
+        kaleidoRingStepSlider: document.getElementById("kaleido-ring-step-slider"),
+        kaleidoRingStepVal: document.getElementById("kaleido-ring-step-val"),
+        kaleidoRingCustomControls: document.getElementById("kaleido-ring-custom-controls"),
         shockwavesToggle: document.getElementById("shockwaves-toggle"),
         particleShapeSelect: document.getElementById("particle-shape-select"),
         particleLightingSelect: document.getElementById("particle-lighting-select"),
@@ -1806,6 +1814,49 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    // Sets up the extra effect Flow picked (FlowExtraEffects in js/presets.js), or none.
+    // Each setting is left alone if the viewer set it by hand. Fold effects spin with
+    // the personality's usual odds; Comfort Mode never spins.
+    function applyFlowExtraEffect(effect, spinChance) {
+        const set = (key, value) => { if (isFlowEnabled(key)) sim.settings[key] = value; };
+        const rndInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
+        const foldMode = { foldsGrowing: "growing", foldsDoubling: "doubling", foldsAlternating: "alternating" }[effect];
+        const spin = effect === "spinningAxes" || effect === "axesRings" || (!!foldMode && Math.random() < spinChance);
+        set("spinningKaleido", !isComfortMode && !!effect && spin);
+        set("kaleidoAxesRings", effect === "axesRings" ? rndInt(2, 4) : foldMode ? rndInt(3, 4) : 1);
+        set("kaleidoRingFolds", foldMode || "same");
+        if (foldMode === "growing") set("kaleidoRingStep", rndInt(1, 3));
+        elements.spinningKaleidoToggle.checked = sim.settings.spinningKaleido;
+        syncRingControls();
+    }
+
+    // Rings panel: fold choices appear once there are rings, the step for "growing",
+    // and one slider per ring for "custom".
+    function syncRingControls() {
+        if (!elements.kaleidoRingsSlider) return;
+        const s = sim.settings;
+        const rings = Math.max(1, Math.min(5, Math.round(s.kaleidoAxesRings) || 1));
+        const mode = s.kaleidoRingFolds || "same";
+        elements.kaleidoRingsSlider.value = rings;
+        elements.kaleidoRingsVal.textContent = rings;
+        elements.kaleidoRingFoldControls.classList.toggle("hidden", rings < 2);
+        elements.kaleidoRingFoldsSelect.value = mode;
+        elements.kaleidoRingStepControl.classList.toggle("hidden", mode !== "growing");
+        elements.kaleidoRingStepSlider.value = s.kaleidoRingStep ?? 2;
+        elements.kaleidoRingStepVal.textContent = s.kaleidoRingStep ?? 2;
+        elements.kaleidoRingCustomControls.classList.toggle("hidden", mode !== "custom");
+        const custom = Array.isArray(s.kaleidoRingCustom) ? s.kaleidoRingCustom : [6, 8, 10, 12, 14];
+        elements.kaleidoRingCustomControls.querySelectorAll("[data-ring]").forEach(el => {
+            const k = Number(el.dataset.ring);
+            el.classList.toggle("hidden", k >= rings);
+            if (el.tagName === "INPUT") el.value = custom[k];
+        });
+        for (let k = 0; k < 5; k++) {
+            const val = document.getElementById(`kaleido-ring-custom-val-${k}`);
+            if (val) val.textContent = custom[k];
+        }
+    }
+
     function isFlowEnabled(key) {
         if (!isAutopilot) return false;
         return optionModes[key] !== "manual";
@@ -2677,11 +2728,13 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         const activeFlowShape = nextPatternShape || sim.settings.particleShape;
         const isProtectedAuthoredFlow = ["pendulumSpiral", "painterlyVortex", "chromeRibbon", "celticCurrent", "celticKnotwork", "cymaticResonance", "mandelbrotDive", "molecularDance", "stellarNursery", "tightTailVortex", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"].includes(activeFlowShape);
-        // Flow kaleidoscope odds and segment range come from the scene's preset
-        // (flowKaleidoChance, flowKaleidoMin/Max; tuned in the Studio). Unset means the
-        // Flow personality's chance and 4..10 segments.
+        // Flow extra effect odds, effect weights and segment range come from the scene's
+        // preset (flowEffectChance, flowEffectWeights, flowKaleidoMin/Max; tuned in the
+        // Studio). Unset means the Flow personality's chance, even weights and 4..10 segments.
         const kaleidoPreset = familyPreset || StylePresets[getPresetByShape(activeFlowShape)];
-        const presetKaleidoChance = Number.isFinite(kaleidoPreset?.flowKaleidoChance) ? kaleidoPreset.flowKaleidoChance : null;
+        // flowKaleidoChance is the field's old name (older Studio drafts).
+        const presetChanceValue = kaleidoPreset?.flowEffectChance ?? kaleidoPreset?.flowKaleidoChance;
+        const presetEffectChance = Number.isFinite(presetChanceValue) ? presetChanceValue : null;
         const kaleidoMinSegments = Math.max(3, Math.round(kaleidoPreset?.flowKaleidoMin ?? 4));
         const kaleidoMaxSegments = Math.max(kaleidoMinSegments, Math.round(kaleidoPreset?.flowKaleidoMax ?? 10));
         // Grid and circuit scenes keep their full density under the mirror.
@@ -2689,12 +2742,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const nextKaleidoEnabledFlow = isFlowEnabled("kaleidoscopeEnabled");
         const nextKaleidoSegmentsFlow = isFlowEnabled("kaleidoscopeSegments");
 
+        const spinChance = { serene: 0.55, alive: 0.72, wild: 0.8 }[effectivePersonality];
         let currentKaleidoEnabled = sim.settings.kaleidoscopeEnabled;
+        let flowEffect = null;
         if (nextKaleidoEnabledFlow) {
-            const kaleidoChance = { serene: 0.24, alive: 0.38, wild: 0.46 }[effectivePersonality];
-            currentKaleidoEnabled = !isComfortMode && Math.random() < (presetKaleidoChance ?? kaleidoChance);
+            const effectChance = { serene: 0.24, alive: 0.38, wild: 0.46 }[effectivePersonality];
+            flowEffect = !isComfortMode && Math.random() < (presetEffectChance ?? effectChance)
+                ? pickFlowExtraEffect(kaleidoPreset?.flowEffectWeights) : null;
+            currentKaleidoEnabled = !!flowEffect;
             elements.kaleidoscopeToggle.checked = currentKaleidoEnabled;
             sim.settings.kaleidoscopeEnabled = currentKaleidoEnabled;
+            applyFlowExtraEffect(flowEffect, spinChance);
         }
 
         if (currentKaleidoEnabled) {
@@ -2711,8 +2769,8 @@ document.addEventListener("DOMContentLoaded", () => {
             elements.kaleidoscopeSettings.classList.add("hidden");
         }
 
-        if (isFlowEnabled("spinningKaleido")) {
-            const spinChance = { serene: 0.55, alive: 0.72, wild: 0.8 }[effectivePersonality];
+        if (!nextKaleidoEnabledFlow && isFlowEnabled("spinningKaleido")) {
+            // Kaleidoscope held by hand: Flow only varies whether it spins.
             sim.settings.spinningKaleido = !isComfortMode && currentKaleidoEnabled
                 && Math.random() < spinChance;
             elements.spinningKaleidoToggle.checked = sim.settings.spinningKaleido;
@@ -3591,6 +3649,25 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         };
         bindSlider(elements.kaleidoSegmentsSlider, elements.kaleidoSegmentsVal, "kaleidoscopeSegments");
+        if (elements.kaleidoRingsSlider) {
+            bindSlider(elements.kaleidoRingsSlider, elements.kaleidoRingsVal, "kaleidoAxesRings");
+            elements.kaleidoRingsSlider.addEventListener("input", syncRingControls);
+            bindSlider(elements.kaleidoRingStepSlider, elements.kaleidoRingStepVal, "kaleidoRingStep");
+            elements.kaleidoRingFoldsSelect.onchange = () => {
+                updateActiveSetting("kaleidoRingFolds", elements.kaleidoRingFoldsSelect.value);
+                syncRingControls();
+            };
+            for (let k = 0; k < 5; k++) {
+                const slider = document.getElementById(`kaleido-ring-custom-slider-${k}`);
+                slider.oninput = () => {
+                    const custom = Array.isArray(sim.settings.kaleidoRingCustom) ? [...sim.settings.kaleidoRingCustom] : [6, 8, 10, 12, 14];
+                    custom[k] = Math.round(Number(slider.value));
+                    updateActiveSetting("kaleidoRingCustom", custom);
+                    syncRingControls();
+                };
+            }
+            syncRingControls();
+        }
 
         // Rotation & Wobble
         bindSlider(elements.rotationSlider, elements.rotationVal, "rotationSpeed");
@@ -3629,6 +3706,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 showToast("Comfort Mode keeps spinning reflections off.");
             }
             sim.settings.spinningKaleido = elements.spinningKaleidoToggle.checked;
+            // The axes turn the kaleidoscope's mirrors, so switching them on brings the mirror with them.
+            if (sim.settings.spinningKaleido && !sim.settings.kaleidoscopeEnabled) {
+                elements.kaleidoscopeToggle.checked = true;
+                elements.kaleidoscopeToggle.onchange();
+                showToast("Kaleidoscope Mirror on: the axes turn its mirrors.");
+            }
         };
         elements.shockwavesToggle.onchange = () => {
             if (isComfortMode && elements.shockwavesToggle.checked) {
@@ -4125,6 +4208,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 "eclipse-size-slider": "eclipseSize",
                 "veil-drift-toggle": "veilDriftEnabled",
                 "kaleido-segments-slider": "kaleidoscopeSegments",
+                "kaleido-rings-slider": "kaleidoAxesRings",
+                "kaleido-ring-step-slider": "kaleidoRingStep",
                 "kaleidoscope-toggle": "kaleidoscopeEnabled",
                 "psychedelic-toggle": "psychedelicMode",
                 "morphing-bg-toggle": "morphingBg",
@@ -4143,9 +4228,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 "psychedelic-toggle": "psychedelicMode",
                 "morphing-bg-toggle": "morphingBg",
                 "spinning-kaleido-toggle": "spinningKaleido",
+                "kaleido-ring-folds-select": "kaleidoRingFolds",
                 "particle-shape-select": "particleShape"
             };
-            const key = inputToKeyMap[id];
+            // Hand-set ring folds (any custom ring slider too) keep Flow from changing them.
+            const key = inputToKeyMap[id] || (id.startsWith("kaleido-ring-custom-slider-") ? "kaleidoRingFolds" : null);
             if (key) setOptionToManual(key);
             triggerHistoryCaptureDebounced();
         });
@@ -4351,6 +4438,7 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.kaleidoscopeToggle.checked = sim.settings.kaleidoscopeEnabled;
         if (sim.settings.kaleidoscopeEnabled) elements.kaleidoscopeSettings.classList.remove("hidden");
         elements.kaleidoSegmentsSlider.value = sim.settings.kaleidoscopeSegments;
+        syncRingControls();
         
         elements.rotationSlider.value = sim.settings.rotationSpeed;
         elements.wobbleSlider.value = sim.settings.wobble;
@@ -4449,6 +4537,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         elements.mouseInfluenceVal.textContent = sim.settings.mouseInfluence.toFixed(1);
         elements.kaleidoSegmentsVal.textContent = Math.floor(sim.settings.kaleidoscopeSegments);
+        syncRingControls();
         elements.rotationVal.textContent = sim.settings.rotationSpeed.toFixed(2);
         elements.wobbleVal.textContent = sim.settings.wobble.toFixed(2);
         elements.veilDriftRotationVal.textContent = sim.settings.veilDriftRotation.toFixed(2);

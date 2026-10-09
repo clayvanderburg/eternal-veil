@@ -25,16 +25,29 @@ assert.deepEqual(after.mandalaZen, before.mandalaZen, 'base preset untouched');
 assert.deepEqual(after.fractalNebula, before.fractalNebula, 'sibling preset untouched');
 
 // Flow fields: ranges object, chance and auto (null), including editing an existing range.
-out = applyPresetChanges(presetsText, 'mandalaZen', { flowRanges: { speed: [0.3, 0.1], size: [3, 5] }, flowKaleidoChance: 0.7, flowKaleidoMin: 5 });
+out = applyPresetChanges(presetsText, 'mandalaZen', { flowRanges: { speed: [0.3, 0.1], size: [3, 5] }, flowEffectChance: 0.7, flowKaleidoMin: 5 });
 after = loadPresets(out).presets;
 assert.deepEqual(after.mandalaZen.flowRanges, { speed: [0.1, 0.3], size: [3, 5] });
-assert.equal(after.mandalaZen.flowKaleidoChance, 0.7);
+assert.equal(after.mandalaZen.flowEffectChance, 0.7);
 assert.equal(after.mandalaZen.flowKaleidoMin, 5);
-out = applyPresetChanges(out, 'mandalaZen', { flowRanges: { speed: [0.12, 0.2] }, flowKaleidoChance: null });
+out = applyPresetChanges(out, 'mandalaZen', { flowRanges: { speed: [0.12, 0.2] }, flowEffectChance: null });
 after = loadPresets(out).presets;
 assert.deepEqual(after.mandalaZen.flowRanges, { speed: [0.12, 0.2] });
-assert.equal(after.mandalaZen.flowKaleidoChance, null);
+assert.equal(after.mandalaZen.flowEffectChance, null);
 assert.throws(() => applyPresetChanges(presetsText, 'mandalaZen', { flowRanges: { speed: [0.1] } }));
+
+// Flow extra effect weights: written as { effect: weight }, edited in place, bad ones refused;
+// Studio sees the effect list from presets.js.
+out = applyPresetChanges(presetsText, 'mandalaZen', { flowEffectWeights: { kaleidoscope: 0, foldsDoubling: 2.5 } });
+after = loadPresets(out).presets;
+assert.deepEqual(after.mandalaZen.flowEffectWeights, { kaleidoscope: 0, foldsDoubling: 2.5 });
+out = applyPresetChanges(out, 'mandalaZen', { flowEffectWeights: { kaleidoscope: 1, foldsDoubling: 4 } });
+assert.deepEqual(loadPresets(out).presets.mandalaZen.flowEffectWeights, { kaleidoscope: 1, foldsDoubling: 4 });
+assert.deepEqual(loadPresets(out).presets.blackHoleVortex.flowEffectWeights, undefined, 'presets built from Mandala Zen keep their own Flow tuning');
+assert.throws(() => applyPresetChanges(presetsText, 'mandalaZen', { flowEffectWeights: { kaleidoscope: -1 } }));
+assert.throws(() => applyPresetChanges(presetsText, 'mandalaZen', { flowEffectWeights: { 'bad key': 1 } }));
+assert.deepEqual(loadPresets(presetsText).effects.map(e => e.key),
+  ['kaleidoscope', 'spinningAxes', 'axesRings', 'foldsGrowing', 'foldsDoubling', 'foldsAlternating']);
 assert.throws(() => applyPresetChanges(presetsText, 'mandalaZen', { speed: null }));
 
 // Unsafe input is refused.
