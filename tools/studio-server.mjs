@@ -282,8 +282,9 @@ let candidatesCache = { at: 0, value: null };
 function listCandidates() {
   if (candidatesCache.value && Date.now() - candidatesCache.at < 30000) return candidatesCache.value;
   const prs = JSON.parse(gh('pr', 'list', '--repo', REPO, '--state', 'open', '--limit', '40', '--json', 'number,title,headRefName,isCrossRepository,files,labels,updatedAt'));
-  const watched = ['js/presets.js', 'js/music-moods.js', 'js/music-catalog.js'];
-  const value = prs.filter(pr => !pr.isCrossRepository && pr.files.some(f => watched.includes(f.path)))
+  // Anything that changes what the site looks or sounds like: scene code, presets, music, styles.
+  const visual = f => f.path.startsWith('js/') || f.path.startsWith('audio/') || /^(index\.html|[^/]+\.css)$/.test(f.path);
+  const value = prs.filter(pr => !pr.isCrossRepository && pr.files.some(visual))
     .map(pr => ({ number: pr.number, title: pr.title, branch: pr.headRefName, updatedAt: pr.updatedAt,
       reviewed: pr.labels.some(l => l.name === REVIEWED_LABEL), presets: pr.files.some(f => f.path === 'js/presets.js') }));
   candidatesCache = { at: Date.now(), value };

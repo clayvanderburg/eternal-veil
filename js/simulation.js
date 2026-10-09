@@ -23,9 +23,9 @@ const MINI_SPIRALS = [
 const SPIRAL_WANDER_FAMILY = 9;
 // Scenes whose kaleidoscope mirrors the whole drawn frame (their own module or
 // drawKaleidoscoped), so the particle mirror pass skips them.
-const LAYER_KALEIDOSCOPE_SHAPES = new Set(["mandelbrotDive", "molecularDance", "stellarNursery", "chromeRibbon", "celticCurrent", "celticKnotwork", "cymaticResonance", "quantumDrift"]);
+const LAYER_KALEIDOSCOPE_SHAPES = new Set(["mandelbrotDive", "molecularDance", "stellarNursery", "chromeRibbon", "celticCurrent", "celticKnotwork", "cymaticResonance", "quantumDrift", "solarFlare"]);
 // Evenly screen-filling scenes hide overlapping mirror copies; mirror one wedge instead.
-const WEDGE_KALEIDOSCOPE_SHAPES = new Set(["quantumDrift"]);
+const WEDGE_KALEIDOSCOPE_SHAPES = new Set(["quantumDrift", "solarFlare"]);
 // How large an authored composition is drawn relative to the screen (1 = original).
 const COMPOSITION_SCALE = { quantumLattice: 0.55 };
 

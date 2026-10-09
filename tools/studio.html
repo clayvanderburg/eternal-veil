@@ -87,7 +87,7 @@ button:disabled { opacity: .45; cursor: default; }
   <label for="target">Previewing</label>
   <select id="target"><option value="">Live site</option></select>
   <div id="review-bar" class="bar" style="margin-top:6px" hidden><a id="review-link" class="small" target="_blank" rel="noopener" style="color:var(--good);align-self:center">Open on GitHub</a><button id="review-mark" class="small">Mark reviewed</button></div>
-  <p class="hint" id="target-hint">Open pull requests that change presets or music show up here so you can try and tune them before they go live.</p>
+  <p class="hint" id="target-hint">Open pull requests that change the site's scenes, presets, music or styles show up here so you can try and tune them before they go live.</p>
   <div class="tabs" role="tablist">
     <button id="tab-scenes" role="tab" aria-selected="true" aria-controls="scenes-tab">Scenes</button>
     <button id="tab-music" role="tab" aria-selected="false" aria-controls="music-tab">Music playlists</button>
@@ -912,7 +912,7 @@ async function loadCandidates() {
   const sel = $('target');
   try {
     const { candidates } = await api('/api/studio/candidates');
-    for (const c of candidates) sel.add(new Option(`#${c.number} ${c.title}${c.reviewed ? ' ✓' : ''}${c.presets ? '' : ' (music)'}`, c.number));
+    for (const c of candidates) sel.add(new Option(`#${c.number} ${c.title}${c.reviewed ? ' ✓' : ''}`, c.number));
     if (TARGET !== 'live' && !candidates.some(c => c.number === TARGET)) sel.add(new Option(`#${TARGET}`, TARGET));
     if (!candidates.length && TARGET === 'live') $('target-hint').textContent = 'No pull requests are waiting for review. New presets from Claude or Codex will show up here.';
   } catch (error) {
