@@ -216,7 +216,7 @@ assert(byKey.carbonDioxide.bonds.every(b => b[2] === 2) && byKey.acetylene.bonds
     assert(html.includes('value="molecularDance"') && html.includes("js/molecular-dance.js"), "menu option and script tag");
     const sim = fs.readFileSync("js/simulation.js", "utf8");
     assert(sim.includes("window.MolecularDance.draw("), "simulation draws it");
-    assert(/LAYER_KALEIDOSCOPE_SHAPES = new Set\(\[[^\]]*"molecularDance"/.test(sim), "app particle mirror skips it (it mirrors itself)");
+    assert(fs.readFileSync("js/molecular-dance.js", "utf8").includes("window.drawWedgeKaleidoscope(ctx, layer.canvas"), "it mirrors its own layer with the shared true kaleidoscope");
     const app = fs.readFileSync("js/app.js", "utf8");
     assert(app.includes('nextShape === "molecularDance"'), "Random Config branch");
     assert(app.includes('nextPatternShape === "molecularDance"'), "authored Flow targets");

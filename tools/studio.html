@@ -49,6 +49,7 @@ button:disabled { opacity: .45; cursor: default; }
 .small { font-size: 11px; padding: 4px 8px; }
 .hint { color: var(--muted); font-size: 11px; margin: 4px 0 8px; }
 #drafts { display: flex; flex-wrap: wrap; gap: 6px; }
+#note { width: 100%; resize: vertical; background: #10121c; color: var(--ink); border: 1px solid var(--line); border-radius: 7px; padding: 7px 8px; font: inherit; }
 #drafts:empty::before { content: "No saved drafts yet."; color: var(--muted); font-size: 11px; }
 .chip { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--line); border-radius: 999px; font-size: 11px; background: #ffffff08; }
 .chip button { border: 0; background: none; padding: 3px 8px; font-size: 11px; border-radius: 999px; }
@@ -87,7 +88,7 @@ button:disabled { opacity: .45; cursor: default; }
   <label for="target">Previewing</label>
   <select id="target"><option value="">Live site</option></select>
   <div id="review-bar" class="bar" style="margin-top:6px" hidden><a id="review-link" class="small" target="_blank" rel="noopener" style="color:var(--good);align-self:center">Open on GitHub</a><button id="review-mark" class="small">Mark reviewed</button></div>
-  <p class="hint" id="target-hint">Open pull requests that change presets or music show up here so you can try and tune them before they go live.</p>
+  <p class="hint" id="target-hint">Open pull requests that change the site's scenes, presets, music or styles show up here so you can try and tune them before they go live.</p>
   <div class="tabs" role="tablist">
     <button id="tab-scenes" role="tab" aria-selected="true" aria-controls="scenes-tab">Scenes</button>
     <button id="tab-music" role="tab" aria-selected="false" aria-controls="music-tab">Music playlists</button>
@@ -130,8 +131,8 @@ button:disabled { opacity: .45; cursor: default; }
 <div id="footer">
   <div class="bar" id="scene-actions"><button id="reset">Reset preset</button><button id="save" disabled>Save</button></div>
   <div id="drafts" aria-label="Saved drafts"></div>
-  <label for="note" class="hint" style="margin:0">Note for the pull request (optional)</label>
-  <input id="note" type="text" maxlength="300" autocomplete="off">
+  <label for="note" class="hint" style="margin:0" id="note-label">Note for this preset (saved with its draft)</label>
+  <textarea id="note" rows="2" maxlength="500" autocomplete="off" placeholder="Anything to fix or check, e.g. kaleidoscope doesn't segment"></textarea>
   <button id="publish" class="primary" disabled>Publish</button>
   <div id="pending" class="hint" style="margin:0"></div>
   <div id="status" role="status" aria-live="polite"></div>
@@ -613,8 +614,17 @@ function applyChanges(base, changes) {
 // What this preset looks like once its open PRs and saved draft are applied.
 function savedPreset(k) { return applyChanges(applyChanges(state.presets[k], published.presets[k]), drafts.presets[k]); }
 function savedMusic(shape) { return copy(drafts.music[shape] ?? published.music[shape] ?? state.music.profiles[shape] ?? null); }
+const notes = () => (drafts.notes = drafts.notes || {});
+// The note box belongs to the preset in view, or to the music playlists on that tab.
+const noteKey = () => activeTab === 'music' ? 'catalog' : key;
+function showNote() {
+  $('note').value = notes()[noteKey()] || '';
+  $('note-label').textContent = activeTab === 'music' ? 'Note for the music playlists (saved with the draft)' : `Note for ${state.presets[key]?.name || 'this preset'} (saved with its draft)`;
+}
+const noteDirty = () => activeTab !== 'music' && ($('note').value.trim() !== (notes()[key] || ''));
 function unsaved() {
   if (!current) return false;
+  if (noteDirty()) return true;
   const saved = savedPreset(key);
   // Defaults the panel fills in (e.g. kaleidoscope segments) exist on current/original only.
   const value = (obj, f) => f in obj ? obj[f] : original[f];
@@ -632,7 +642,8 @@ function prunePublished() {
   if (!Object.keys(published.presets).length && !Object.keys(published.music).length && !published.catalog) published.prs = [];
   persist('evStudioPublished' + SUFFIX, published);
 }
-function draftCount() { return Object.keys(drafts.presets).length + Object.keys(drafts.music).length + (drafts.catalog ? 1 : 0); }
+const draftKeys = () => [...new Set([...Object.keys(drafts.presets), ...Object.keys(notes()).filter(k => k !== 'catalog' && state.presets[k])])];
+function draftCount() { return draftKeys().length + Object.keys(drafts.music).length + (drafts.catalog || notes().catalog ? 1 : 0); }
 function renderDrafts() {
   const host = $('drafts');
   host.replaceChildren();
@@ -648,12 +659,12 @@ function renderDrafts() {
     chip.append(btn, x);
     host.append(chip);
   };
-  for (const k of Object.keys(drafts.presets)) add(state.presets[k]?.name || k, () => switchTo(k), () => discardDraft('presets', k), k === key);
+  for (const k of draftKeys()) add(`${state.presets[k]?.name || k}${notes()[k] ? ' ✎' : ''}`, () => { showTab('scenes'); switchTo(k); }, () => discardDraft('presets', k), k === key && activeTab === 'scenes');
   for (const shape of Object.keys(drafts.music)) add(`${shape} music`, () => {
     const k = state.order.find(o => (state.presets[o].particleShape || 'ellipse') === shape);
     if (k) switchTo(k);
   }, () => discardDraft('music', shape), shape === musicShape);
-  if (drafts.catalog) add('Music playlists', () => showTab('music'), () => discardDraft('catalog'), activeTab === 'music');
+  if (drafts.catalog || notes().catalog) add(`Music playlists${notes().catalog ? ' ✎' : ''}`, () => showTab('music'), () => discardDraft('catalog'), activeTab === 'music');
   const n = draftCount();
   $('publish').disabled = n === 0;
   $('publish').textContent = !n ? 'Publish' : TARGET === 'live' ? `Publish ${n} draft${n === 1 ? '' : 's'} as one pull request` : `Add ${n} draft${n === 1 ? '' : 's'} to pull request #${TARGET}`;
@@ -665,12 +676,13 @@ function renderDrafts() {
 function discardDraft(kind, id) {
   if (!confirm('Discard this saved draft?')) return;
   if (kind === 'catalog') {
-    delete drafts.catalog;
+    delete drafts.catalog; delete notes().catalog;
     persist('evStudioDrafts' + SUFFIX, drafts);
     loadCatalogDraft(); renderSongs(); renderDrafts();
     return;
   }
   delete drafts[kind][id];
+  if (kind === 'presets') delete notes()[id];
   persist('evStudioDrafts' + SUFFIX, drafts);
   if ((kind === 'presets' && id === key) || (kind === 'music' && id === musicShape)) { current = null; loadKey(key); }
   else renderDrafts();
@@ -705,6 +717,7 @@ function loadKey(next) {
   musicCurrent = musicOriginal ? savedMusic(musicShape) : null;
   renderFields();
   renderMusic();
+  showNote();
   changedState();
   status('');
   selectInStage(key);
@@ -722,8 +735,12 @@ $('save').onclick = () => {
   const changes = presetChanges();
   if (Object.keys(changes).length) drafts.presets[key] = changes; else delete drafts.presets[key];
   if (musicCurrent && !same(musicCurrent, musicOriginal)) drafts.music[musicShape] = copy(musicCurrent); else delete drafts.music[musicShape];
+  const note = $('note').value.trim().slice(0, 500);
+  if (note) notes()[key] = note; else delete notes()[key];
   persist('evStudioDrafts' + SUFFIX, drafts);
-  status(Object.keys(changes).length || drafts.music[musicShape] ? `Saved ${state.presets[key].name} as a draft.` : `${state.presets[key].name} matches the live site; nothing to save.`);
+  const kept = Object.keys(changes).length || drafts.music[musicShape];
+  status(kept ? `Saved ${state.presets[key].name} as a draft${note ? ' with its note' : ''}.`
+    : note ? `Saved a note for ${state.presets[key].name} (no value changes).` : `${state.presets[key].name} matches the live site; nothing to save.`);
   changedState();
 };
 $('publish').onclick = async () => {
@@ -731,7 +748,7 @@ $('publish').onclick = async () => {
   $('publish').disabled = true;
   status('Creating one branch and pull request for all drafts…');
   try {
-    const result = await api('/api/studio/publish', { presets: drafts.presets, music: drafts.music, catalog: drafts.catalog || null, note: $('note').value, target: TARGET });
+    const result = await api('/api/studio/publish', { presets: drafts.presets, music: drafts.music, catalog: drafts.catalog || null, notes: notes(), target: TARGET });
     if (result.url !== 'dry-run') {
       Object.assign(published.presets, drafts.presets);
       Object.assign(published.music, drafts.music);
@@ -742,7 +759,6 @@ $('publish').onclick = async () => {
     drafts = { presets: {}, music: {} };
     persist('evStudioDrafts' + SUFFIX, drafts);
     loadCatalogDraft(); renderSongs();
-    $('note').value = '';
     current = null;
     loadKey(key);
     status(result.review
@@ -756,6 +772,7 @@ $('publish').onclick = async () => {
 // ---------- music playlists tab ----------
 let activeTab = 'scenes', songs = null, plId = null;
 function showTab(name) {
+  if (name !== activeTab && noteDirty() && !confirm('The note for this preset is not saved. Switch anyway?')) return;
   activeTab = name;
   $('scenes-tab').hidden = name !== 'scenes';
   $('music-tab').hidden = name !== 'music';
@@ -763,8 +780,17 @@ function showTab(name) {
   $('tab-scenes').setAttribute('aria-selected', name === 'scenes');
   $('tab-music').setAttribute('aria-selected', name === 'music');
   if (name !== 'music') { $('song-audio').pause(); }
+  if (state) showNote();
   renderDrafts();
 }
+$('note').addEventListener('input', () => {
+  if (activeTab === 'music') {
+    const v = $('note').value.trim().slice(0, 500);
+    if (v) notes().catalog = v; else delete notes().catalog;
+    persist('evStudioDrafts' + SUFFIX, drafts);
+    renderDrafts();
+  } else changedState();
+});
 $('tab-scenes').onclick = () => showTab('scenes');
 $('tab-music').onclick = () => showTab('music');
 // What a catalog will look like on the site (uploads become audio/library files).
@@ -912,7 +938,7 @@ async function loadCandidates() {
   const sel = $('target');
   try {
     const { candidates } = await api('/api/studio/candidates');
-    for (const c of candidates) sel.add(new Option(`#${c.number} ${c.title}${c.reviewed ? ' ✓' : ''}${c.presets ? '' : ' (music)'}`, c.number));
+    for (const c of candidates) sel.add(new Option(`#${c.number} ${c.title}${c.reviewed ? ' ✓' : ''}`, c.number));
     if (TARGET !== 'live' && !candidates.some(c => c.number === TARGET)) sel.add(new Option(`#${TARGET}`, TARGET));
     if (!candidates.length && TARGET === 'live') $('target-hint').textContent = 'No pull requests are waiting for review. New presets from Claude or Codex will show up here.';
   } catch (error) {

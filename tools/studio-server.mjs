@@ -282,8 +282,9 @@ let candidatesCache = { at: 0, value: null };
 function listCandidates() {
   if (candidatesCache.value && Date.now() - candidatesCache.at < 30000) return candidatesCache.value;
   const prs = JSON.parse(gh('pr', 'list', '--repo', REPO, '--state', 'open', '--limit', '40', '--json', 'number,title,headRefName,isCrossRepository,files,labels,updatedAt'));
-  const watched = ['js/presets.js', 'js/music-moods.js', 'js/music-catalog.js'];
-  const value = prs.filter(pr => !pr.isCrossRepository && pr.files.some(f => watched.includes(f.path)))
+  // Anything that changes what the site looks or sounds like: scene code, presets, music, styles.
+  const visual = f => f.path.startsWith('js/') || f.path.startsWith('audio/') || /^(index\.html|[^/]+\.css)$/.test(f.path);
+  const value = prs.filter(pr => !pr.isCrossRepository && pr.files.some(visual))
     .map(pr => ({ number: pr.number, title: pr.title, branch: pr.headRefName, updatedAt: pr.updatedAt,
       reviewed: pr.labels.some(l => l.name === REVIEWED_LABEL), presets: pr.files.some(f => f.path === 'js/presets.js') }));
   candidatesCache = { at: Date.now(), value };
@@ -324,13 +325,18 @@ function markReviewed(n) {
 }
 
 // One pull request for every drafted preset and music card.
-function openPullRequest({ presets = {}, music = {}, catalog = null, note, target = 'live' }) {
+function openPullRequest({ presets = {}, music = {}, catalog = null, notes = {}, note, target = 'live' }) {
+  // One note per draft (preset key, or 'catalog' for the music playlists).
+  const noteFor = k => typeof notes?.[k] === 'string' && notes[k].trim() ? notes[k].trim().slice(0, 500).replace(/\s*\n\s*/g, ' ') : '';
   const review = target === 'live' ? null : prMeta(target);
-  const presetKeys = Object.keys(presets).filter(k => presets[k] && Object.keys(presets[k]).length);
+  const changedKeys = Object.keys(presets).filter(k => presets[k] && Object.keys(presets[k]).length);
+  // Presets with only a note still get their own section in the pull request.
+  const noteKeys = Object.keys(notes || {}).filter(k => k !== 'catalog' && noteFor(k) && !changedKeys.includes(k));
+  const presetKeys = changedKeys;
   const shapes = Object.keys(music).filter(k => music[k]);
   const songs = catalog ? cleanCatalog(catalog) : null;
   if (songs) for (const t of songs.tracks) if (t.upload && !fs.existsSync(path.join(UPLOADS, `${t.upload}.mp3`))) throw new Error(`The upload for "${t.title}" is missing; add that song again`);
-  if (!presetKeys.length && !shapes.length && !songs) throw new Error('Nothing to publish');
+  if (!presetKeys.length && !shapes.length && !songs) throw new Error(noteKeys.length ? 'Notes travel with changes: tune at least one value (or add songs) before publishing' : 'Nothing to publish');
   if (presetKeys.length + shapes.length > 60) throw new Error('Too many drafts in one pull request');
   const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
   const branch = `studio/${stamp}-${presetKeys[0] || shapes[0] || 'music'}${presetKeys.length + shapes.length + (songs ? 1 : 0) > 1 ? '-and-more' : ''}`;
@@ -347,7 +353,12 @@ function openPullRequest({ presets = {}, music = {}, catalog = null, note, targe
     const lines = [];
     for (const key of presetKeys) {
       presetText = applyPresetChanges(presetText, key, presets[key]);
-      lines.push(`### ${names[key]?.name || key}`, ...Object.entries(presets[key]).map(([k, v]) => `- ${k}: ${JSON.stringify(v)}`), '');
+      lines.push(`### ${names[key]?.name || key}`, ...Object.entries(presets[key]).map(([k, v]) => `- ${k}: ${JSON.stringify(v)}`),
+        ...(noteFor(key) ? [`> Note: ${noteFor(key)}`] : []), '');
+    }
+    for (const key of noteKeys) {
+      if (!names[key]) continue;
+      lines.push(`### ${names[key].name} (note only)`, `> Note: ${noteFor(key)}`, '');
     }
     if (presetKeys.length) { fs.writeFileSync(presetFile, presetText); files.push('js/presets.js'); }
     if (shapes.length) {
@@ -389,7 +400,8 @@ function openPullRequest({ presets = {}, music = {}, catalog = null, note, targe
       lines.push('### Music playlists',
         ...(added.length ? [`- New songs: ${added.join(', ')}`] : []),
         ...(removed.length ? [`- Removed songs: ${removed.join(', ')}`] : []),
-        ...songs.playlists.map(p => `- ${p.name}: ${p.tracks.length} song${p.tracks.length === 1 ? '' : 's'}`), '');
+        ...songs.playlists.map(p => `- ${p.name}: ${p.tracks.length} song${p.tracks.length === 1 ? '' : 's'}`),
+        ...(noteFor('catalog') ? [`> Note: ${noteFor('catalog')}`] : []), '');
     }
     const titled = [...presetKeys.map(k => names[k]?.name || k), ...shapes.map(s => `${s} music`), ...(songs ? ['music playlists'] : [])];
     const title = `Studio: tune ${titled.length <= 3 ? titled.join(', ') : `${titled.slice(0, 3).join(', ')} and ${titled.length - 3} more`}${review ? ` (review of #${review.number})` : ''}`;
@@ -398,7 +410,7 @@ function openPullRequest({ presets = {}, music = {}, catalog = null, note, targe
     git(dir, 'commit', '-q', '-m', `${title}\n\n${lines.join('\n')}`);
     if (process.env.STUDIO_DRY_RUN) {
       // Test mode: everything up to the commit, then report the diff and discard the branch.
-      const diff = git(dir, 'show', '--stat', '--format=%s', 'HEAD');
+      const diff = git(dir, 'show', '--stat', '--format=%B', 'HEAD');
       const catalogAfter = songs ? fs.readFileSync(path.join(dir, 'js', 'music-catalog.js'), 'utf8') : null;
       git(root, 'worktree', 'remove', '--force', dir);
       if (!review) git(root, 'branch', '-D', branch);

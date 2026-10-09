@@ -603,15 +603,11 @@ const StellarNursery = (() => {
             render(layer.ctx, width, height, settings, palette, frame);
             const step = TAU / segments, spin = settings.spinningKaleido ? state.wallClock * 0.12 : 0;
             ctx.globalAlpha = 1;
-            ctx.drawImage(layer.canvas, 0, 0, width, height);
-            for (let seg = 1; seg < segments; seg++) {
-                ctx.save();
-                ctx.translate(width / 2, height / 2);
-                ctx.rotate(step * seg + spin);
-                if (seg % 2 === 1) ctx.scale(-1, 1);
-                ctx.translate(-width / 2, -height / 2);
+            if (typeof window !== "undefined" && window.drawWedgeKaleidoscope) {
+                // Same true kaleidoscope as every other scene (js/simulation.js).
+                window.drawWedgeKaleidoscope(ctx, layer.canvas, width, height, segments, spin);
+            } else {
                 ctx.drawImage(layer.canvas, 0, 0, width, height);
-                ctx.restore();
             }
         } else {
             render(ctx, width, height, settings, palette, frame);
