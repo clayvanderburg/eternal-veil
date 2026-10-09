@@ -35,7 +35,9 @@ const UrlStateSync = {
         choice(this.lightingModes, state.pl); choice(this.binauralModes, state.bm);
         const flags = [state.ke, state.pm, state.mb, state.sk, state.se, state.be,
             state.ae, state.sm, state.ap, state.vm, state.vs === "dome"];
-        word(flags.reduce((bits, on, index) => bits | ((on ? 1 : 0) << index), 0));
+        // Bits 11-13: Axes Rings - 1 (older links carry 0 there, which reads back as 1 ring).
+        const rings = Math.max(1, Math.min(5, Math.round(state.kr) || 1));
+        word(flags.reduce((bits, on, index) => bits | ((on ? 1 : 0) << index), 0) | ((rings - 1) << 11));
         // Up to 8 colors (Chakra Alignment uses 7). Links with 1-6 colors are unchanged.
         const colors = state.p.slice(0, 8);
         byte(colors.length);
@@ -66,6 +68,7 @@ const UrlStateSync = {
             state[key] = (flags >> index) & 1;
         });
         state.vs = flags & (1 << 10) ? "dome" : "native";
+        state.kr = Math.min(5, ((flags >> 11) & 7) + 1);
         const count = byte();
         if (count < 1 || count > 8 || bytes.length !== offset + count * 3 + 3) return null;
         state.p = Array.from({ length: count }, color);
@@ -99,6 +102,7 @@ const UrlStateSync = {
                 pm: sim.settings.psychedelicMode ? 1 : 0,
                 mb: sim.settings.morphingBg ? 1 : 0,
                 sk: sim.settings.spinningKaleido ? 1 : 0,
+                kr: parseInt(sim.settings.kaleidoAxesRings || 1),
                 ps: sim.settings.particleShape,
                 pl: sim.settings.particleLighting || "glow",
                 se: sim.settings.shockwavesEnabled ? 1 : 0,
@@ -166,6 +170,7 @@ const UrlStateSync = {
                     psychedelicMode: state.pm === 1,
                     morphingBg: state.mb === 1,
                     spinningKaleido: state.sk === 1,
+                    kaleidoAxesRings: state.kr,
                     particleShape: state.ps,
                     particleLighting: state.pl,
                     shockwavesEnabled: state.se !== 0, // default to true

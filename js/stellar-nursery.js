@@ -605,7 +605,7 @@ const StellarNursery = (() => {
             if (typeof window !== "undefined" && window.drawWedgeKaleidoscope) {
                 // Same true kaleidoscope as every other scene (js/simulation.js).
                 const axes = window.kaleidoscopeAxis ? window.kaleidoscopeAxis(settings.spinningKaleido === true) : { axis: 0 };
-                window.drawWedgeKaleidoscope(ctx, layer.canvas, width, height, segments, axes.axis);
+                window.drawWedgeKaleidoscope(ctx, layer.canvas, width, height, segments, axes.axis, settings.kaleidoAxesRings);
             } else {
                 ctx.drawImage(layer.canvas, 0, 0, width, height);
             }

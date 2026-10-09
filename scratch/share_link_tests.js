@@ -49,6 +49,21 @@ for (const shape of sync.shapes) {
     assert.equal(sync.parseUrlState().settings.particleShape, shape);
 }
 settings.particleShape = "celticCurrent";
+// Axes Rings ride in spare flag bits: same link length, and links without them read as 1 ring.
+assert.equal(loaded.settings.kaleidoAxesRings, 1);
+settings.spinningKaleido = true;
+for (const rings of [1, 2, 3, 4, 5]) {
+    settings.kaleidoAxesRings = rings;
+    const url = sync.generateShareUrl(sim, false, { is3DMode: true, style: "dome" });
+    assert.equal(url.length, shortUrl.length, "rings do not lengthen the link");
+    window.location.hash = url.slice(url.indexOf("#"));
+    const back = sync.parseUrlState();
+    assert.equal(back.settings.kaleidoAxesRings, rings);
+    assert.equal(back.settings.spinningKaleido, true);
+    assert.equal(back.presentation.style, "dome", "neighbouring flag bits untouched");
+}
+delete settings.kaleidoAxesRings;
+settings.spinningKaleido = false;
 
 const legacy = {
     v: 1, s: 1.23, t: 0.85, d: 2200, o: 0.72, dp: 0.0123, z: 1.75,

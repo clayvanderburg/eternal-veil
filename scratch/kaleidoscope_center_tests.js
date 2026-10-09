@@ -114,6 +114,45 @@ for (const [width, height] of [[1600, 900], [900, 1600], [1024, 1024], [390, 844
     }
 }
 
+// Axes Rings: n concentric tiers, the outermost unclipped and each inner one inside its own
+// circle, each sampled at its own axis (alternating direction, faster outward); the centre
+// tier follows the axes exactly. One ring, or axes at rest, stays a single plain tier.
+{
+    const kaleidoRingAxis = new Function(source.slice(source.indexOf('const KALEIDO_RING_SPEEDUP'), source.indexOf('function kaleidoRingRadius')) + '\nreturn kaleidoRingAxis;')();
+    const circles = [];
+    let depth = 0;
+    const ringCtx = { ...noopCtx, save() { depth++; }, restore() { depth--; }, beginPath() {}, arc(x, y, r) { circles.push([x, y, r]); }, clip() {} };
+    const tierTurns = (rings, axis) => {
+        const turns = [];
+        circles.length = 0; sliceTurn = 0; clips = 0;
+        const rotate = sliceCtx.rotate;
+        sliceCtx.rotate = a => turns.push(-a);
+        drawWedgeKaleidoscope(ringCtx, {}, 1600, 900, 6, axis, rings);
+        sliceCtx.rotate = rotate;
+        return turns;
+    };
+    assert.deepEqual(tierTurns(1, 0.8), [0.8], 'one ring: the plain sweep');
+    assert.deepEqual(tierTurns(4, 0), [], 'axes at rest: one plain tier, no rings');
+    assert.equal(clips, 1);
+    for (const rings of [2, 3, 5]) {
+        const turns = tierTurns(rings, 0.8);
+        assert.equal(turns.length, rings, `${rings} rings = ${rings} tiers`);
+        assert.equal(clips, rings, 'one slice per tier');
+        assert.equal(circles.length, rings - 1, 'every tier but the outermost sits inside a circle');
+        assert.equal(depth, 0, 'clips restored');
+        // Drawn outermost first, so turns[rings - 1 - k] is ring k.
+        turns.reverse().forEach((t, k) => assert(Math.abs(t - kaleidoRingAxis(0.8, k)) < 1e-12, `ring ${k} sweeps at its own axis`));
+        assert(Math.abs(turns[0] - 0.8) < 1e-12, 'the centre tier follows the axes');
+        assert(turns[1] < 0 && Math.abs(turns[1]) > 0.8, 'its neighbour turns the other way, a little faster');
+        circles.forEach(([x, y, r], i) => {
+            assert(x === 800 && y === 450, 'rings centred');
+            if (i) assert(r < circles[i - 1][2], 'drawn outside in');
+        });
+        assert(circles[0][2] < Math.hypot(800, 450), 'the outermost tier still reaches the corners');
+    }
+    assert.equal(tierTurns(9, 0.8).length, 5, 'at most 5 rings');
+}
+
 // The shared axes clock: still while off, eases in over ~1.5 s, turns ~0.12 rad/s, glides to a
 // stop where it is when switched off, and a long pause (hidden tab) cannot make it jump.
 clock = 1000;
@@ -137,5 +176,6 @@ before = a.axis;
 clock += 1000; a = kaleidoscopeAxis(false);
 assert.equal(a.axis, before, 'stopped where it was');
 
+console.log('Axes Rings: 1-5 concentric tiers, each sweeping its own way; one ring or axes at rest is the plain kaleidoscope.');
 console.log('Spinning Mandala Axes: mirror lines sweep through the scene with fixed stamps and fixed zoom; mirrored tiles fill past the edges; eased in/out.');
 console.log('Kaleidoscope: true mirrored slices on the centre for every aspect, segment count and spin; one clip per frame.');

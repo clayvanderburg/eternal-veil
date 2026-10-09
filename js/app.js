@@ -653,6 +653,8 @@ document.addEventListener("DOMContentLoaded", () => {
         psychedelicToggle: document.getElementById("psychedelic-toggle"),
         morphingBgToggle: document.getElementById("morphing-bg-toggle"),
         spinningKaleidoToggle: document.getElementById("spinning-kaleido-toggle"),
+        kaleidoRingsSlider: document.getElementById("kaleido-rings-slider"),
+        kaleidoRingsVal: document.getElementById("kaleido-rings-val"),
         shockwavesToggle: document.getElementById("shockwaves-toggle"),
         particleShapeSelect: document.getElementById("particle-shape-select"),
         particleLightingSelect: document.getElementById("particle-lighting-select"),
@@ -3591,6 +3593,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         };
         bindSlider(elements.kaleidoSegmentsSlider, elements.kaleidoSegmentsVal, "kaleidoscopeSegments");
+        if (elements.kaleidoRingsSlider) bindSlider(elements.kaleidoRingsSlider, elements.kaleidoRingsVal, "kaleidoAxesRings");
 
         // Rotation & Wobble
         bindSlider(elements.rotationSlider, elements.rotationVal, "rotationSpeed");
@@ -4357,6 +4360,7 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.kaleidoscopeToggle.checked = sim.settings.kaleidoscopeEnabled;
         if (sim.settings.kaleidoscopeEnabled) elements.kaleidoscopeSettings.classList.remove("hidden");
         elements.kaleidoSegmentsSlider.value = sim.settings.kaleidoscopeSegments;
+        if (elements.kaleidoRingsSlider) elements.kaleidoRingsSlider.value = sim.settings.kaleidoAxesRings ?? 1;
         
         elements.rotationSlider.value = sim.settings.rotationSpeed;
         elements.wobbleSlider.value = sim.settings.wobble;
@@ -4455,6 +4459,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         elements.mouseInfluenceVal.textContent = sim.settings.mouseInfluence.toFixed(1);
         elements.kaleidoSegmentsVal.textContent = Math.floor(sim.settings.kaleidoscopeSegments);
+        if (elements.kaleidoRingsVal) elements.kaleidoRingsVal.textContent = Math.round(sim.settings.kaleidoAxesRings ?? 1);
         elements.rotationVal.textContent = sim.settings.rotationSpeed.toFixed(2);
         elements.wobbleVal.textContent = sim.settings.wobble.toFixed(2);
         elements.veilDriftRotationVal.textContent = sim.settings.veilDriftRotation.toFixed(2);

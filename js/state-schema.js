@@ -118,6 +118,7 @@ const StateSchema = {
                 psychedelicMode: this.sanitizeBoolean(rawState.settings?.psychedelicMode, false),
                 morphingBg: this.sanitizeBoolean(rawState.settings?.morphingBg, false),
                 spinningKaleido: this.sanitizeBoolean(rawState.settings?.spinningKaleido, false),
+                kaleidoAxesRings: Math.round(this.sanitizeNumber(rawState.settings?.kaleidoAxesRings, 1, 1, 5)),
                 shockwavesEnabled: this.sanitizeBoolean(rawState.settings?.shockwavesEnabled, true),
                 
                 particleShape: this.VALID_PARTICLE_SHAPES.has(rawState.settings?.particleShape)

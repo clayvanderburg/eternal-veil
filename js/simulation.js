@@ -55,7 +55,41 @@ function kaleidoMirrorTiles(w, h, half, axis, radius) {
     }
     return tiles;
 }
-function drawWedgeKaleidoscope(ctx, image, w, h, segments, axis = 0) {
+// Axes Rings: the mandala splits into `rings` concentric tiers from the centre out; each
+// tier's mirror lines sweep on their own, alternating direction and a little faster outward,
+// so the tiers turn against each other. Ring 0 (the centre) always follows `axis` itself,
+// and the outermost ring reaches the screen corners. One ring, or axes at rest (every tier
+// lines up), is a single plain kaleidoscope.
+const KALEIDO_RING_SPEEDUP = 0.35;
+function kaleidoRingAxis(axis, ring) {
+    return axis * (ring % 2 ? -1 : 1) * (1 + KALEIDO_RING_SPEEDUP * ring);
+}
+// Outer edge of ring k of n (k < n - 1), in the same units as w × h. Mandelbrot Dive's
+// shader uses the same radii (in units of half the short side).
+function kaleidoRingRadius(w, h, ring, rings) {
+    return ((w / 2 + h / 2) / 2) * (ring + 1) / rings;
+}
+function drawWedgeKaleidoscope(ctx, image, w, h, segments, axis = 0, rings = 1) {
+    const count = Math.max(1, Math.min(5, Math.floor(rings) || 1));
+    if (count === 1 || !axis) {
+        drawWedgeKaleidoscopeTier(ctx, image, w, h, segments, axis);
+        return;
+    }
+    // Outermost first; each inner tier is laid over it inside its own circle.
+    for (let k = count - 1; k >= 0; k--) {
+        if (k === count - 1) {
+            drawWedgeKaleidoscopeTier(ctx, image, w, h, segments, kaleidoRingAxis(axis, k));
+            continue;
+        }
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(w / 2, h / 2, kaleidoRingRadius(w, h, k, count), 0, Math.PI * 2);
+        ctx.clip();
+        drawWedgeKaleidoscopeTier(ctx, image, w, h, segments, kaleidoRingAxis(axis, k));
+        ctx.restore();
+    }
+}
+function drawWedgeKaleidoscopeTier(ctx, image, w, h, segments, axis) {
     const slices = Math.max(3, Math.floor(segments)) * 2;
     const step = (Math.PI * 2) / slices;
     const half = step / 2;
@@ -120,12 +154,14 @@ function kaleidoscopeAxis(spinning) {
     s.mix = Math.min(1, Math.max(0, s.mix + (spinning ? dt : -dt) / 1.5));
     const eased = s.mix * s.mix * (3 - 2 * s.mix);
     // Switched off, the axes glide to a stop where they are (like letting go of the tube).
-    s.axis = (s.axis + KALEIDO_AXIS_SPEED * eased * dt) % (Math.PI * 2);
+    // Never wrapped: Axes Rings turn at non-whole multiples of it, so a wrap would make them jump.
+    s.axis += KALEIDO_AXIS_SPEED * eased * dt;
     return { axis: s.axis, mix: eased };
 }
 if (typeof window !== "undefined") {
     window.drawWedgeKaleidoscope = drawWedgeKaleidoscope;
     window.kaleidoscopeAxis = kaleidoscopeAxis;
+    window.kaleidoRingAxis = kaleidoRingAxis;
 }
 // How large an authored composition is drawn relative to the screen (1 = original).
 const COMPOSITION_SCALE = { quantumLattice: 0.55 };
@@ -2186,6 +2222,7 @@ class FlowSimulation {
             psychedelicMode: false,
             morphingBg: false,
             spinningKaleido: false,
+            kaleidoAxesRings: 1,    // Axes Rings: concentric tiers the spinning axes split into
             particleShape: "ellipse",
             particleLighting: "glow",
             shockwavesEnabled: true,
@@ -2235,7 +2272,7 @@ class FlowSimulation {
         const { axis } = kaleidoscopeAxis(this.settings.spinningKaleido === true);
         this.ctx.save();
         this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-        drawWedgeKaleidoscope(this.ctx, this.sceneLayer, w, h, segments, axis);
+        drawWedgeKaleidoscope(this.ctx, this.sceneLayer, w, h, segments, axis, this.settings.kaleidoAxesRings);
         this.ctx.restore();
     }
 
