@@ -3629,6 +3629,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 showToast("Comfort Mode keeps spinning reflections off.");
             }
             sim.settings.spinningKaleido = elements.spinningKaleidoToggle.checked;
+            // The axes turn the kaleidoscope's mirrors, so switching them on brings the mirror with them.
+            if (sim.settings.spinningKaleido && !sim.settings.kaleidoscopeEnabled) {
+                elements.kaleidoscopeToggle.checked = true;
+                elements.kaleidoscopeToggle.onchange();
+                showToast("Kaleidoscope Mirror on: the axes turn its mirrors.");
+            }
         };
         elements.shockwavesToggle.onchange = () => {
             if (isComfortMode && elements.shockwavesToggle.checked) {

@@ -855,11 +855,11 @@ const MolecularDance = (() => {
             layer.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             layer.ctx.clearRect(0, 0, width, height);
             render(layer.ctx, width, height, settings, palette, frame);
-            const step = TAU / segments, spin = settings.spinningKaleido ? state.wallClock * 0.12 : 0;
             ctx.globalAlpha = 1;
             if (typeof window !== "undefined" && window.drawWedgeKaleidoscope) {
                 // Same true kaleidoscope as every other scene (js/simulation.js).
-                window.drawWedgeKaleidoscope(ctx, layer.canvas, width, height, segments, spin);
+                const axes = window.kaleidoscopeAxis ? window.kaleidoscopeAxis(settings.spinningKaleido === true) : { axis: 0, mix: 0 };
+                window.drawWedgeKaleidoscope(ctx, layer.canvas, width, height, segments, axes.axis, axes.mix);
             } else {
                 ctx.drawImage(layer.canvas, 0, 0, width, height);
             }

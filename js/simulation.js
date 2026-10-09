@@ -28,14 +28,30 @@ const SPIRAL_WANDER_FAMILY = 9;
 // the slice reaches the corners.
 // Speed: the slice is clipped once into a small transparent canvas, then stamped around
 // the circle with plain drawImage calls (clipping every copy cost ~14x more per frame).
+// Spinning Mandala Axes: `axis` turns the mirror lines through the scene (the slice is
+// sampled at that angle) while the stamped mandala stays put, so the pattern keeps
+// re-forming, like Mandelbrot Dive's shader fold. `spinMix` (0–1) eases the zoom from
+// the still kaleidoscope's to one that keeps the slice inside the scene at every angle.
+// axis = 0 and spinMix = 0 is exactly the still kaleidoscope.
 let kaleidoSlice = null;
-function drawWedgeKaleidoscope(ctx, image, w, h, segments, spin = 0) {
+function kaleidoSliceZoom(w, h, half, axis) {
+    // Largest radius a slice of half-angle `half` pointing at `axis` can reach inside w × h.
+    const lo = axis - half, hi = axis + half;
+    const spans = (target) => Math.floor((hi - target) / Math.PI) >= Math.ceil((lo - target) / Math.PI);
+    const maxCos = spans(0) ? 1 : Math.max(Math.abs(Math.cos(lo)), Math.abs(Math.cos(hi)));
+    const maxSin = spans(Math.PI / 2) ? 1 : Math.max(Math.abs(Math.sin(lo)), Math.abs(Math.sin(hi)));
+    const available = Math.min(maxCos > 0 ? (w / 2) / maxCos : Infinity, maxSin > 0 ? (h / 2) / maxSin : Infinity);
+    return Math.max(1, Math.hypot(w / 2, h / 2) / available);
+}
+function drawWedgeKaleidoscope(ctx, image, w, h, segments, axis = 0, spinMix = 0) {
     const slices = Math.max(3, Math.floor(segments)) * 2;
     const step = (Math.PI * 2) / slices;
     const half = step / 2;
     const reach = Math.hypot(w / 2, h / 2) + 2;
-    const available = Math.min(w / 2, half < Math.PI / 2 ? (h / 2) / Math.sin(half) : h / 2);
-    const zoom = Math.max(1, Math.hypot(w / 2, h / 2) / available);
+    const mix = Math.min(1, Math.max(0, spinMix || 0));
+    const stillZoom = kaleidoSliceZoom(w, h, half, 0);
+    const spinZoom = Math.max(1, Math.hypot(w / 2, h / 2) / Math.min(w / 2, h / 2));
+    const zoom = Math.max(kaleidoSliceZoom(w, h, half, axis), stillZoom + (spinZoom - stillZoom) * mix);
     // Work at the real pixel density of the target so the slice is never blurrier than the scene.
     const m = (ctx.getTransform && ctx.getTransform()) || { a: 1, b: 0 };
     const res = Math.max(1, Math.hypot(m.a, m.b));
@@ -59,19 +75,39 @@ function drawWedgeKaleidoscope(ctx, image, w, h, segments, spin = 0) {
     sc.closePath();
     sc.clip();
     sc.scale(zoom, zoom);
+    if (axis) sc.rotate(-axis);
     sc.translate(-w / 2, -h / 2);
     sc.drawImage(image, 0, 0, w, h);
     sc.restore();
     for (let i = 0; i < slices; i++) {
         ctx.save();
         ctx.translate(w / 2, h / 2);
-        ctx.rotate(step * i + spin);
+        ctx.rotate(step * i);
         if (i % 2 === 1) ctx.scale(1, -1);
         ctx.drawImage(kaleidoSlice, 0, -sh / 2, sw, sh);
         ctx.restore();
     }
 }
-if (typeof window !== "undefined") window.drawWedgeKaleidoscope = drawWedgeKaleidoscope;
+// Shared clock for the axes so every scene sweeps the same way: the sweep and its zoom
+// ease in and out over about 1.5 s when the toggle flips, and a paused or hidden tab
+// cannot make the axes jump.
+const KALEIDO_AXIS_SPEED = 0.12; // radians per second, same as Mandelbrot Dive's fold
+const kaleidoAxisState = { axis: 0, mix: 0, last: 0 };
+function kaleidoscopeAxis(spinning) {
+    const now = (typeof performance !== "undefined" ? performance.now() : Date.now()) / 1000;
+    const dt = kaleidoAxisState.last ? Math.min(0.1, Math.max(0, now - kaleidoAxisState.last)) : 0;
+    kaleidoAxisState.last = now;
+    const s = kaleidoAxisState;
+    s.mix = Math.min(1, Math.max(0, s.mix + (spinning ? dt : -dt) / 1.5));
+    const eased = s.mix * s.mix * (3 - 2 * s.mix);
+    // Switched off, the axes glide to a stop where they are (like letting go of the tube).
+    s.axis = (s.axis + KALEIDO_AXIS_SPEED * eased * dt) % (Math.PI * 2);
+    return { axis: s.axis, mix: eased };
+}
+if (typeof window !== "undefined") {
+    window.drawWedgeKaleidoscope = drawWedgeKaleidoscope;
+    window.kaleidoscopeAxis = kaleidoscopeAxis;
+}
 // How large an authored composition is drawn relative to the screen (1 = original).
 const COMPOSITION_SCALE = { quantumLattice: 0.55 };
 
@@ -2177,10 +2213,10 @@ class FlowSimulation {
         layer.clearRect(0, 0, w, h);
         layer.setTransform(this.ctx.getTransform());
         draw(layer);
-        const spin = this.settings.spinningKaleido ? this.globalTime * 0.002 : 0;
+        const { axis, mix } = kaleidoscopeAxis(this.settings.spinningKaleido === true);
         this.ctx.save();
         this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-        drawWedgeKaleidoscope(this.ctx, this.sceneLayer, w, h, segments, spin);
+        drawWedgeKaleidoscope(this.ctx, this.sceneLayer, w, h, segments, axis, mix);
         this.ctx.restore();
     }
 
