@@ -30,28 +30,38 @@ const SPIRAL_WANDER_FAMILY = 9;
 // the circle with plain drawImage calls (clipping every copy cost ~14x more per frame).
 // Spinning Mandala Axes: `axis` turns the mirror lines through the scene (the slice is
 // sampled at that angle) while the stamped mandala stays put, so the pattern keeps
-// re-forming, like Mandelbrot Dive's shader fold. `spinMix` (0–1) eases the zoom from
-// the still kaleidoscope's to one that keeps the slice inside the scene at every angle.
-// axis = 0 and spinMix = 0 is exactly the still kaleidoscope.
+// re-forming, like Mandelbrot Dive's shader fold. The zoom never changes: where a turned
+// slice runs past the scene's edges, the scene continues as its own mirror image (like a
+// mirrored tile), so the mandala extends outward instead of zooming in.
+// axis = 0 is exactly the still kaleidoscope (one draw, nothing past the edges).
 let kaleidoSlice = null;
-function kaleidoSliceZoom(w, h, half, axis) {
-    // Largest radius a slice of half-angle `half` pointing at `axis` can reach inside w × h.
+// Which mirrored tiles of the w × h scene a slice of half-angle `half`, pointing at `axis`
+// and reaching `radius` from the centre, touches. Tile (0, 0) is the scene itself; odd
+// tiles are mirror images, so neighbouring tiles always meet seamlessly.
+function kaleidoMirrorTiles(w, h, half, axis, radius) {
     const lo = axis - half, hi = axis + half;
-    const spans = (target) => Math.floor((hi - target) / Math.PI) >= Math.ceil((lo - target) / Math.PI);
-    const maxCos = spans(0) ? 1 : Math.max(Math.abs(Math.cos(lo)), Math.abs(Math.cos(hi)));
-    const maxSin = spans(Math.PI / 2) ? 1 : Math.max(Math.abs(Math.sin(lo)), Math.abs(Math.sin(hi)));
-    const available = Math.min(maxCos > 0 ? (w / 2) / maxCos : Infinity, maxSin > 0 ? (h / 2) / maxSin : Infinity);
-    return Math.max(1, Math.hypot(w / 2, h / 2) / available);
+    const angles = [lo, hi];
+    for (let k = Math.ceil(lo / (Math.PI / 2)); k * (Math.PI / 2) <= hi; k++) angles.push(k * (Math.PI / 2));
+    let x0 = 0, x1 = 0, y0 = 0, y1 = 0;
+    for (const a of angles) {
+        const x = radius * Math.cos(a), y = radius * Math.sin(a);
+        x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+    }
+    // Half a pixel of tolerance: a slice that just touches an edge needs no extra tile.
+    const tol = 0.5;
+    const tiles = [];
+    for (let iy = Math.floor((h / 2 + y0 + tol) / h); iy <= Math.floor((h / 2 + y1 - tol) / h); iy++) {
+        for (let ix = Math.floor((w / 2 + x0 + tol) / w); ix <= Math.floor((w / 2 + x1 - tol) / w); ix++) tiles.push([ix, iy]);
+    }
+    return tiles;
 }
-function drawWedgeKaleidoscope(ctx, image, w, h, segments, axis = 0, spinMix = 0) {
+function drawWedgeKaleidoscope(ctx, image, w, h, segments, axis = 0) {
     const slices = Math.max(3, Math.floor(segments)) * 2;
     const step = (Math.PI * 2) / slices;
     const half = step / 2;
     const reach = Math.hypot(w / 2, h / 2) + 2;
-    const mix = Math.min(1, Math.max(0, spinMix || 0));
-    const stillZoom = kaleidoSliceZoom(w, h, half, 0);
-    const spinZoom = Math.max(1, Math.hypot(w / 2, h / 2) / Math.min(w / 2, h / 2));
-    const zoom = Math.max(kaleidoSliceZoom(w, h, half, axis), stillZoom + (spinZoom - stillZoom) * mix);
+    const available = Math.min(w / 2, half < Math.PI / 2 ? (h / 2) / Math.sin(half) : h / 2);
+    const zoom = Math.max(1, Math.hypot(w / 2, h / 2) / available);
     // Work at the real pixel density of the target so the slice is never blurrier than the scene.
     const m = (ctx.getTransform && ctx.getTransform()) || { a: 1, b: 0 };
     const res = Math.max(1, Math.hypot(m.a, m.b));
@@ -77,7 +87,16 @@ function drawWedgeKaleidoscope(ctx, image, w, h, segments, axis = 0, spinMix = 0
     sc.scale(zoom, zoom);
     if (axis) sc.rotate(-axis);
     sc.translate(-w / 2, -h / 2);
-    sc.drawImage(image, 0, 0, w, h);
+    const tiles = axis ? kaleidoMirrorTiles(w, h, half, axis, Math.hypot(w / 2, h / 2) / zoom) : [[0, 0]];
+    for (const [ix, iy] of tiles) {
+        if (!ix && !iy) { sc.drawImage(image, 0, 0, w, h); continue; }
+        // Even tiles are the scene shifted; odd tiles are its mirror image.
+        sc.save();
+        sc.translate((ix % 2 ? ix + 1 : ix) * w, (iy % 2 ? iy + 1 : iy) * h);
+        sc.scale(ix % 2 ? -1 : 1, iy % 2 ? -1 : 1);
+        sc.drawImage(image, 0, 0, w, h);
+        sc.restore();
+    }
     sc.restore();
     for (let i = 0; i < slices; i++) {
         ctx.save();
@@ -88,8 +107,8 @@ function drawWedgeKaleidoscope(ctx, image, w, h, segments, axis = 0, spinMix = 0
         ctx.restore();
     }
 }
-// Shared clock for the axes so every scene sweeps the same way: the sweep and its zoom
-// ease in and out over about 1.5 s when the toggle flips, and a paused or hidden tab
+// Shared clock for the axes so every scene sweeps the same way: the sweep eases
+// in and out over about 1.5 s when the toggle flips, and a paused or hidden tab
 // cannot make the axes jump.
 const KALEIDO_AXIS_SPEED = 0.12; // radians per second, same as Mandelbrot Dive's fold
 const kaleidoAxisState = { axis: 0, mix: 0, last: 0 };
@@ -2213,10 +2232,10 @@ class FlowSimulation {
         layer.clearRect(0, 0, w, h);
         layer.setTransform(this.ctx.getTransform());
         draw(layer);
-        const { axis, mix } = kaleidoscopeAxis(this.settings.spinningKaleido === true);
+        const { axis } = kaleidoscopeAxis(this.settings.spinningKaleido === true);
         this.ctx.save();
         this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-        drawWedgeKaleidoscope(this.ctx, this.sceneLayer, w, h, segments, axis, mix);
+        drawWedgeKaleidoscope(this.ctx, this.sceneLayer, w, h, segments, axis);
         this.ctx.restore();
     }
 
