@@ -1,3 +1,15 @@
+## 2026-10-09 Fire TV app + TV mode (Claude, PR #21 open)
+
+Fire TV app = private repo clayvanderburg/eternal-void-tv (C:\Users\MadKing\dev\eternal-void-tv):
+a full-screen WebView onto eternalvoid.io, so it keeps up with the site automatically.
+GitHub Actions builds the APK; sideload with adb (see that repo's README).
+Site side (this PR): js/device-mode.js tags <html data-device> tv/phone/tablet/desktop
+(Fire TV AFT* codes, app UA "EternalVoidTV/x", or ?device=tv); on TV the D-pad moves
+focus, Back closes the topmost layer then hides controls then exits; tv.css hides
+mic/upload/record/fullscreen/VR. New controls must stay reachable by D-pad: real
+<button>/<input> elements, not click-only divs. Test: ?device=tv at 960x540.
+Not yet tried on a real Fire Stick.
+
 ## 2026-10-07 live: compact presets (PR #3), kaleidoscope review (PR #5); Studio candidate
 
 Live on eternalvoid.io: searchable one-line preset list with expandable details and live
