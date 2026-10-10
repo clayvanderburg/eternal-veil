@@ -203,6 +203,57 @@ before = a.axis;
 clock += 1000; a = kaleidoscopeAxis(false);
 assert.equal(a.axis, before, 'stopped where it was');
 
+// The kaleidoscope keeps the scene's spin and zoom: the scene is mirrored as drawn before the
+// camera move (Veil Drift turn / breathing zoom / wander, global rotation), and the finished
+// mandala is then turned, zoomed and drifted by that camera.
+{
+    const methodStart = source.indexOf('    drawKaleidoscoped(draw) {');
+    const methodEnd = source.indexOf('\n    initCanvas() {');
+    assert(methodStart > 0 && methodEnd > methodStart, 'drawKaleidoscoped found');
+    const body = source.slice(methodStart, methodEnd).replace('    drawKaleidoscoped(draw) {', '').replace(/\}\s*$/, '');
+    const layerTransforms = [];
+    const mul = (m, [a, b, c, d, e, f]) => [m[0] * a + m[2] * b, m[1] * a + m[3] * b, m[0] * c + m[2] * d, m[1] * c + m[3] * d, m[0] * e + m[2] * f + m[4], m[1] * e + m[3] * f + m[5]];
+    const makeCtx = (onStamp) => {
+        let m = [1, 0, 0, 1, 0, 0];
+        const stack = [];
+        return {
+            canvas: { width: 1600, height: 900 },
+            getTransform: () => ({ a: m[0], b: m[1], c: m[2], d: m[3], e: m[4], f: m[5] }),
+            setTransform(a, b, c, d, e, f) { m = typeof a === 'object' ? [a.a, a.b, a.c, a.d, a.e, a.f] : [a, b, c, d, e, f]; },
+            save() { stack.push(m.slice()); }, restore() { m = stack.pop(); },
+            translate(x, y) { m = mul(m, [1, 0, 0, 1, x, y]); }, scale(x, y) { m = mul(m, [x, 0, 0, y, 0, 0]); },
+            rotate(a) { m = mul(m, [Math.cos(a), Math.sin(a), -Math.sin(a), Math.cos(a), 0, 0]); },
+            clearRect() {}, beginPath() {}, arc() {}, clip() {},
+            drawImage() { onStamp(m.slice()); }, get m() { return m; }
+        };
+    };
+    const stamps = [];
+    const main = makeCtx(t => stamps.push(t));
+    const layer = makeCtx(() => {});
+    const self = {
+        settings: { kaleidoscopeEnabled: true, kaleidoscopeSegments: 6, spinningKaleido: false, kaleidoAxesRings: 1 },
+        canvas: main.canvas, ctx: main, width: 800, height: 450,
+        sceneLayer: { width: 1600, height: 900 }, sceneLayerCtx: layer,
+        preCameraTransform: { a: 2, b: 0, c: 0, d: 2, e: 0, f: 0 }, // DPR 2, before the camera
+        camera: { x: 410, y: 220, scale: 1.4, angle: 0.6, cx: 400, cy: 225 }
+    };
+    const run = new Function('drawWedgeKaleidoscope', 'kaleidoscopeAxis', 'kaleidoRingFolds', 'document', `return function (draw) {${body}}`)(
+        (ctx) => { ctx.drawImage(); }, () => ({ axis: 0 }), () => [6], {});
+    run.call(self, l => layerTransforms.push(l.m.slice()));
+    assert.deepEqual(layerTransforms[0], [2, 0, 0, 2, 0, 0], 'the scene is mirrored as drawn before the camera move');
+    const t = stamps[0];
+    assert(Math.abs(Math.atan2(t[1], t[0]) - 0.6) < 1e-9, 'the mandala turns with the scene');
+    assert(Math.abs(Math.hypot(t[0], t[1]) - 2 * 1.4) < 1e-9, 'and zooms with it');
+    // The mandala's centre (400, 225) follows the camera's drifted centre (410, 220), in device pixels.
+    assert(Math.abs(t[0] * 400 + t[2] * 225 + t[4] - 2 * 410) < 1e-6 && Math.abs(t[1] * 400 + t[3] * 225 + t[5] - 2 * 220) < 1e-6, 'and drifts with it');
+    assert.deepEqual(main.m, [1, 0, 0, 1, 0, 0], 'main canvas transform put back');
+    // Turning the camera turns the mandala by the same amount, frame to frame.
+    stamps.length = 0; self.camera = { ...self.camera, angle: 1.1 };
+    run.call(self, () => {});
+    assert(Math.abs(Math.atan2(stamps[0][1], stamps[0][0]) - 1.1) < 1e-9, 'keeps spinning');
+}
+console.log('Kaleidoscope keeps the scene spin, zoom and drift (mirrors before the camera move, then moves the mandala).');
+
 console.log('Axes Rings: 1-5 concentric tiers, each sweeping its own way; one ring or axes at rest is the plain kaleidoscope.');
 console.log('Spinning Mandala Axes: mirror lines sweep through the scene with fixed stamps and fixed zoom; mirrored tiles fill past the edges; eased in/out.');
 console.log('Kaleidoscope: true mirrored slices on the centre for every aspect, segment count and spin; one clip per frame.');

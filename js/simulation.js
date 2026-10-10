@@ -2326,12 +2326,29 @@ class FlowSimulation {
         const layer = this.sceneLayerCtx;
         layer.setTransform(1, 0, 0, 1, 0, 0);
         layer.clearRect(0, 0, w, h);
-        layer.setTransform(this.ctx.getTransform());
-        draw(layer);
         const { axis } = kaleidoscopeAxis(this.settings.spinningKaleido === true);
+        const folds = kaleidoRingFolds(this.settings);
+        const cam = this.camera;
+        if (!cam || !this.preCameraTransform) {
+            layer.setTransform(this.ctx.getTransform());
+            draw(layer);
+            this.ctx.save();
+            this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+            drawWedgeKaleidoscope(this.ctx, this.sceneLayer, w, h, folds, axis, this.settings.kaleidoAxesRings);
+            this.ctx.restore();
+            return;
+        }
+        // Mirror the scene as it is before the camera move, then turn, zoom and drift the
+        // finished mandala with the camera: the kaleidoscope keeps the scene's spin and zoom.
+        layer.setTransform(this.preCameraTransform);
+        draw(layer);
         this.ctx.save();
-        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-        drawWedgeKaleidoscope(this.ctx, this.sceneLayer, w, h, kaleidoRingFolds(this.settings), axis, this.settings.kaleidoAxesRings);
+        this.ctx.setTransform(this.preCameraTransform);
+        this.ctx.translate(cam.x, cam.y);
+        this.ctx.scale(cam.scale, cam.scale);
+        this.ctx.rotate(cam.angle);
+        this.ctx.translate(-cam.cx, -cam.cy);
+        drawWedgeKaleidoscope(this.ctx, this.sceneLayer, this.width, this.height, folds, axis, this.settings.kaleidoAxesRings);
         this.ctx.restore();
     }
 
@@ -2769,6 +2786,11 @@ class FlowSimulation {
                 absCos + absSin * this.width / this.height + sourceOffsetY / cy
             ) * 1.08;
             const sceneScale = coverScale * breathingZoom;
+            // The kaleidoscope mirrors the scene as drawn before this camera move, then
+            // turns and zooms the finished mandala by it, so mirrored scenes keep their
+            // spin and breathing zoom (see drawKaleidoscoped).
+            this.preCameraTransform = this.ctx.getTransform();
+            this.camera = { x: cx + driftX, y: cy + driftY, scale: sceneScale, angle: sceneAngle, cx, cy };
             this.ctx.translate(cx + driftX, cy + driftY);
             this.ctx.scale(sceneScale, sceneScale);
             this.ctx.rotate(sceneAngle);
