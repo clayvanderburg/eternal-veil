@@ -13,12 +13,19 @@
   #bar button { background: rgba(20,24,40,.85); color: #dcefff; border: 1px solid #3a4a70; border-radius: 8px; padding: 6px 10px; font: inherit; cursor: pointer; }
   #bar button.on { background: #3b4fa0; border-color: #9fe8ff; }
   #bar button:focus { outline: 3px solid #9fe8ff; outline-offset: 2px; }
+  #ab { position: fixed; left: 40px; top: 32px; font: 700 64px/1 system-ui, sans-serif; letter-spacing: 4px; z-index: 4;
+    color: #fff; text-shadow: 0 0 18px #000, 0 0 4px #000; display: none; }
+  #ab small { display: block; font: 500 22px/1.4 system-ui, sans-serif; letter-spacing: 0; margin-top: 10px; color: #cfe9ff; }
+  #hint { position: fixed; left: 0; right: 0; bottom: 28px; text-align: center; font: 500 24px/1.4 system-ui, sans-serif; z-index: 4;
+    color: #fff; text-shadow: 0 0 12px #000, 0 0 3px #000; display: none; }
   #divider { position: fixed; top: 0; bottom: 0; width: 2px; background: rgba(159,232,255,.5); z-index: 2; }
 </style>
 </head>
 <body>
 <div id="label2d"></div><div id="labelgl"></div><div id="divider"></div>
 <div id="bar"></div>
+<div id="ab"></div>
+<div id="hint">Is NEW as good as TODAY? Watch the colours, the glow, how long the trails are, and how fast things move.<br>OK = switch now · ◀ ▶ = another preset</div>
 <script src="../js/presets.js"></script>
 <script src="../js/simulation.js"></script>
 <script src="../js/tvgl/core.js"></script>
@@ -27,7 +34,9 @@
 // Side-by-side check for the GPU TV renderer (TV_RENDERER.md, phase 1):
 // left = the 2D canvas renderer (js/simulation.js), right = js/tvgl, both
 // reading the SAME settings object, so any difference is the renderer.
-// ?mode=split|gl|2d  ?preset=ethereal|strings|chakra  ?res=<px per css px>
+// ?mode=split|gl|2d|ab  ?preset=ethereal|strings|chakra  ?res=<px per css px>
+// ab: one renderer full screen at a time, big TODAY / NEW label, switches every
+// 20 s; OK (Enter) switches now, Left/Right change preset. Made for the TV.
 // ?worker=0 runs the GL engine on the page instead of a worker.
 "use strict";
 const q = new URLSearchParams(location.search);
@@ -57,8 +66,39 @@ function layout() {
   return { w, h: H, left2d: 0, leftGl: half ? W - w : 0 };
 }
 
+let abShowing = "2d", abTimer = null;
 async function start() {
   stop();
+  const ab = state.mode === "ab";
+  const realMode = ab ? abShowing : state.mode;
+  const saved = state.mode;
+  state.mode = realMode;
+  try { await startMode(); } finally { state.mode = saved; }
+  document.getElementById("ab").style.display = ab ? "block" : "none";
+  document.getElementById("hint").style.display = ab ? "block" : "none";
+  document.getElementById("bar").style.display = ab ? "none" : "";
+  document.getElementById("label2d").style.visibility = ab ? "hidden" : "";
+  document.getElementById("labelgl").style.visibility = ab ? "hidden" : "";
+  if (ab) {
+    document.getElementById("ab").innerHTML = (abShowing === "2d" ? "TODAY" : "NEW") +
+      `<small>${StylePresets[state.preset].name} · ${abShowing === "2d" ? "the current renderer" : "the new GPU renderer"}</small>`;
+    clearTimeout(abTimer);
+    abTimer = setTimeout(abSwitch, 20000);
+  }
+}
+function abSwitch() { abShowing = abShowing === "2d" ? "gl" : "2d"; start(); }
+window.addEventListener("keydown", e => {
+  if (state.mode !== "ab") return;
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abSwitch(); }
+  else if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+    e.preventDefault();
+    const i = PRESETS.indexOf(state.preset) + (e.key === "ArrowRight" ? 1 : -1);
+    state.preset = PRESETS[(i + PRESETS.length) % PRESETS.length];
+    abShowing = "2d";
+    start();
+  }
+});
+async function startMode() {
   const L = layout();
   const settings = presetSettings(state.preset);
   const palette = [...StylePresets[state.preset].colors];
@@ -103,6 +143,7 @@ async function start() {
 }
 
 function stop() {
+  clearTimeout(abTimer);
   loop2d && loop2d.stop(); loop2d = null;
   gl && gl.destroy(); gl = null;
   sim2d = null;
@@ -124,7 +165,7 @@ function buildBar() {
   bar.innerHTML = "";
   const btn = (text, on, fn) => { const b = document.createElement("button"); b.textContent = text; b.className = on ? "on" : ""; b.onclick = fn; bar.appendChild(b); return b; };
   for (const k of PRESETS) btn(StylePresets[k].name, state.preset === k, () => { state.preset = k; start(); });
-  for (const m of ["split", "gl", "2d"]) btn(m === "split" ? "Side by side" : m === "gl" ? "GL only" : "2D only", state.mode === m, () => { state.mode = m; start(); });
+  for (const m of ["ab", "split", "gl", "2d"]) btn(m === "ab" ? "Today / New" : m === "split" ? "Side by side" : m === "gl" ? "GL only" : "2D only", state.mode === m, () => { state.mode = m; start(); });
   btn("Kaleido " + (currentSettings().kaleidoscopeEnabled ? "on" : "off"), false, () => toggle("kaleidoscopeEnabled"));
   btn("Spin " + (currentSettings().spinningKaleido ? "on" : "off"), false, () => toggle("spinningKaleido"));
   btn("Shockwave", false, () => {
