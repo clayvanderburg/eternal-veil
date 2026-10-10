@@ -14,6 +14,14 @@ const grad3 = [
 
 const ECLIPSED_SUNS = 66;
 
+// Clock for the draw-time animations (orb light, eclipse spin, twinkle...):
+// milliseconds since this page loaded, not since 1970. Same speeds; it only
+// moves the arbitrary starting phase. Date.now() times their speed factors
+// reached billions of radians, where Math.sin/cos are many times slower
+// (Supernova spent most of its frame there).
+const ANIM_EPOCH = Date.now();
+function animNow() { return Date.now() - ANIM_EPOCH; }
+
 const MINI_SPIRALS = [
     { minR: 0.010, maxR: 0.15, turns: 11, dir: -1, spin: 0.0062, travel: 0.00050 },
     { minR: 0.010, maxR: 0.12, turns: 13, dir: 1, spin: 0.0048, travel: 0.00042 },
@@ -1343,7 +1351,7 @@ class Particle {
 
     drawLitOrb(ctx, radius, alpha, settings) {
         const lighting = settings.particleLighting || "glow";
-        const time = Date.now() * 0.00008;
+        const time = animNow() * 0.00008;
         const lightX = Math.cos(time + this.effectPhase);
         const lightY = Math.sin(time * 0.73 + this.effectPhase);
         const accent = this.palette?.[(this.colorIndex + 1) % this.palette.length] || this.color;
@@ -1429,8 +1437,8 @@ class Particle {
     drawWavyEclipse(ctx, drawAlpha) {
         const r = this.sunBaseR || 40;
         const seed = this.index + 1;
-        const spinA = Date.now() * (this.sunSpinSpeed || 0.0015) + (this.effectPhase || 0);
-        const spinB = -Date.now() * ((this.sunSpinSpeed || 0.0015) * 1.35) + seed * 0.9;
+        const spinA = animNow() * (this.sunSpinSpeed || 0.0015) + (this.effectPhase || 0);
+        const spinB = -animNow() * ((this.sunSpinSpeed || 0.0015) * 1.35) + seed * 0.9;
         ctx.save();
 
         ctx.beginPath();
@@ -1550,7 +1558,7 @@ class Particle {
         if (shape === "aurora") {
             if (this.effectRole < 0.92) {
                 const curtainHeight = drawSize * (9 + this.effectLane * 18);
-                const bend = Math.sin(Date.now() * 0.00012 + this.effectPhase) * drawSize * 2.2;
+                const bend = Math.sin(animNow() * 0.00012 + this.effectPhase) * drawSize * 2.2;
                 ctx.strokeStyle = this.color;
                 ctx.lineCap = "round";
                 ctx.globalAlpha = drawAlpha * 0.10;
@@ -1990,7 +1998,7 @@ class Particle {
                 drawSize = size * 0.35; // make foreground stars tiny
                 // Star twinkling flicker frequency modulation (using Date.now() to avoid undefined globalTime references)
                 this.twinkleOffset = this.twinkleOffset || Math.random() * 100;
-                const timeSec = Date.now() * 0.001;
+                const timeSec = animNow() * 0.001;
                 const flicker = 0.10 + Math.sin(timeSec * 16.0 + this.twinkleOffset) * 0.90; // highly twinkly/blinky
                 drawAlpha = alpha * flicker * 0.95;
             }
@@ -2014,7 +2022,7 @@ class Particle {
                 this.drawLitOrb(ctx, drawSize * 1.5, drawAlpha * 0.95, settings);
             } else {
                 sprites.draw(ctx, this.x, this.y, drawSize * 1.5, angle, this.color, drawAlpha, sprite,
-                    Date.now() * 0.001, this.effectPhase || this.randomSizeOffset || 0);
+                    animNow() * 0.001, this.effectPhase || this.randomSizeOffset || 0);
             }
             return;
         }
@@ -2160,7 +2168,7 @@ class Particle {
             ctx.fill();
             
             // Circle D: moving palette-tinted reflection; no fixed white sticker.
-            const lightTime = Date.now() * 0.00008 + this.effectPhase;
+            const lightTime = animNow() * 0.00008 + this.effectPhase;
             const lightX = Math.cos(lightTime);
             const lightY = Math.sin(lightTime * 0.73);
             ctx.fillStyle = this.palette?.[(this.colorIndex + 1) % this.palette.length] || this.color;

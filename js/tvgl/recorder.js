@@ -231,6 +231,29 @@
         }
 
         // --- output ---
+        // Reserve one primitive slot; returns the buffer and float offset.
+        slot(type, size, a) {
+            const soft = a <= 0.3 && size >= 10;
+            const key = (this.inLayer ? 1 : 0) + (soft ? 2 : 0);
+            const cntName = key === 0 ? "n" : key === 1 ? "layerN" : key === 2 ? "softN" : "softLayerN";
+            const n = this[cntName];
+            if (n >= this.cap) this.grow();
+            this[cntName] = n + 1;
+            this._slotBuf = key === 0 ? this.buf : key === 1 ? this.layerBuf : key === 2 ? this.softBuf : this.softLayerBuf;
+            return n * PRIM_FLOATS;
+        }
+
+        // A stroke segment (TYPE.chain) written straight into the buffer.
+        pushChain(ax, ay, bx, by, px, py, nx, ny, color, a, width, code) {
+            const o = this.slot(TYPE.chain, width, a);
+            const b = this._slotBuf;
+            b[o] = ax; b[o + 1] = ay; b[o + 2] = bx; b[o + 3] = by;
+            b[o + 4] = px; b[o + 5] = py; b[o + 6] = nx; b[o + 7] = ny;
+            b[o + 8] = 0; b[o + 9] = 0; b[o + 10] = 0; b[o + 11] = 0; b[o + 12] = 0; b[o + 13] = 0; b[o + 14] = 0; b[o + 15] = 0;
+            b[o + 16] = color[0]; b[o + 17] = color[1]; b[o + 18] = color[2]; b[o + 19] = a > 1 ? 1 : a;
+            b[o + 20] = TYPE.chain; b[o + 21] = 4; b[o + 22] = width; b[o + 23] = code;
+        }
+
         push(type, pts, color, alpha, width, cap) {
             if (!color) return;
             const a = color[3] * alpha;
@@ -318,20 +341,24 @@
         // translucent stroke covers its joints once, like the canvas's.
         // Path ends get the cap; joints are round.
         strokePolyline(pts, closed, color, w, cap) {
+            if (!color) return;
+            const a = color[3] * this.globalAlpha;
+            if (a <= 0.001) return;
             if (pts.length === 2) {
                 // a single segment: tight oriented quad, caps at both ends
-                this.push(TYPE.chain, [pts[0], pts[1], pts[0], pts[1]], color, this.globalAlpha, w, cap + 3 * cap + 300);
+                const p0 = pts[0], p1 = pts[1];
+                this.pushChain(p0[0], p0[1], p1[0], p1[1], p0[0], p0[1], p1[0], p1[1], color, a, w, cap + 3 * cap + 300);
                 return;
             }
             const n = pts.length - 1;
             for (let i = 0; i < n; i++) {
-                const a = pts[i], b = pts[i + 1];
+                const p0 = pts[i], p1 = pts[i + 1];
                 const hasPrev = i > 0 || closed, hasNext = i < n - 1 || closed;
-                const prev = i > 0 ? pts[i - 1] : (closed ? pts[n - 1] : a);
-                const next = i < n - 1 ? pts[i + 2] : (closed ? pts[1] : b);
-                // cap code: start cap (0..2) + 3 * end cap; 9 = no neighbour on that side
+                const pv = i > 0 ? pts[i - 1] : (closed ? pts[n - 1] : p0);
+                const nx = i < n - 1 ? pts[i + 2] : (closed ? pts[1] : p1);
+                // cap code: start cap (0..2) + 3 * end cap, +100 no previous, +200 no next
                 const cs = hasPrev ? 0 : cap, ce = hasNext ? 0 : cap;
-                this.push(TYPE.chain, [a, b, prev, next], color, this.globalAlpha, w,
+                this.pushChain(p0[0], p0[1], p1[0], p1[1], pv[0], pv[1], nx[0], nx[1], color, a, w,
                     cs + 3 * ce + (hasPrev ? 0 : 100) + (hasNext ? 0 : 200));
             }
         }
@@ -360,13 +387,74 @@
             this.stroke();
             this.path = save;
         }
-        clearRect() {}
-        drawImage() { this.unsupported.add("drawImage"); }
+        clearRect(x, y, w, h) {
+            // Clearing a whole recording canvas (off-screen layer) drops its shapes.
+            if (this.canvas && this.canvas.isRecording && x <= 0 && y <= 0 && w >= this.canvas.width && h >= this.canvas.height) {
+                this.beginFrame();
+            }
+        }
+        // drawImage of another recording canvas (an off-screen layer a scene
+        // paints every other frame): replay its shapes, scaled into place.
+        drawImage(img, a1, a2, a3, a4, a5, a6, a7, a8) {
+            const src = img && img.isRecording ? img.getContext("2d") : null;
+            if (!src) { this.unsupported.add("drawImage"); return; }
+            let dx, dy, dw, dh;
+            if (a5 !== undefined) { dx = a5; dy = a6; dw = a7; dh = a8; }     // source rect ignored (whole layer)
+            else if (a3 !== undefined) { dx = a1; dy = a2; dw = a3; dh = a4; }
+            else { dx = a1; dy = a2; dw = img.width; dh = img.height; }
+            const kx = dw / Math.max(1, img.width), ky = dh / Math.max(1, img.height);
+            const m = this.m;
+            // layer pixel -> this canvas's pixels
+            const A = m[0] * kx, B = m[1] * kx, C = m[2] * ky, D = m[3] * ky;
+            const E = m[0] * dx + m[2] * dy + m[4], F = m[1] * dx + m[3] * dy + m[5];
+            const s = Math.sqrt(Math.abs(A * D - B * C));
+            const rot = Math.atan2(B, A);
+            const alpha = this.globalAlpha;
+            for (const [buf, n] of [[src.softBuf, src.softN], [src.buf, src.n]]) {
+                for (let i = 0; i < n; i++) {
+                    const o = i * PRIM_FLOATS;
+                    const type = buf[o + 20], a = buf[o + 19] * alpha;
+                    if (a <= 0.001) continue;
+                    const width = buf[o + 22] * s;
+                    const size = type === TYPE.ellipse ? 2 * Math.min(buf[o + 2], buf[o + 3]) * s : width;
+                    const t = this.slot(type, size, a);
+                    const b = this._slotBuf;
+                    if (type === TYPE.ellipse || type === TYPE.ring) {
+                        const x = buf[o], y = buf[o + 1];
+                        b[t] = A * x + C * y + E; b[t + 1] = B * x + D * y + F;
+                        b[t + 2] = buf[o + 2] * s; b[t + 3] = buf[o + 3] * s;
+                        b[t + 4] = type === TYPE.ellipse ? buf[o + 4] + rot : 0; b[t + 5] = 0;
+                        for (let k = 6; k < 16; k++) b[t + k] = 0;
+                    } else {
+                        for (let k = 0; k < 16; k += 2) {
+                            const x = buf[o + k], y = buf[o + k + 1];
+                            b[t + k] = A * x + C * y + E; b[t + k + 1] = B * x + D * y + F;
+                        }
+                    }
+                    b[t + 16] = buf[o + 16]; b[t + 17] = buf[o + 17]; b[t + 18] = buf[o + 18]; b[t + 19] = a > 1 ? 1 : a;
+                    b[t + 20] = type; b[t + 21] = buf[o + 21]; b[t + 22] = width; b[t + 23] = buf[o + 23];
+                }
+            }
+        }
         createLinearGradient() { this.unsupported.add("gradient"); return { addColorStop() {} }; }
         createRadialGradient() { this.unsupported.add("gradient"); return { addColorStop() {} }; }
         setLineDash() {}
         measureText() { return { width: 0 }; }
         fillText() {}
+    }
+
+    // An off-screen canvas that records instead of painting.
+    class RecCanvas {
+        constructor() {
+            this.width = 300;
+            this.height = 150;
+            this.isRecording = true;
+            this._ctx = null;
+        }
+        getContext() {
+            if (!this._ctx) { this._ctx = new Recorder(); this._ctx.canvas = this; }
+            return this._ctx;
+        }
     }
 
     // ---------------------------------------------------------------------
@@ -589,6 +677,10 @@ void main() {
             if (!doc.__tvglStub) {
                 const base = doc.getElementById ? doc.getElementById.bind(doc) : () => null;
                 doc.getElementById = id => id === "__tvgl_canvas" ? fakeCanvas : id === "bg-color-picker" ? picker : base(id);
+                // Scenes that paint an off-screen layer (Celtic Knotwork) get a
+                // recording canvas; its shapes are replayed when it is drawn.
+                const make = doc.createElement ? doc.createElement.bind(doc) : () => null;
+                doc.createElement = tag => String(tag).toLowerCase() === "canvas" ? new RecCanvas() : make(tag);
                 doc.__tvglStub = true;
             }
             if (!this.sim) {
@@ -753,5 +845,5 @@ void main() {
         "nebulaSpark", "violetUndertow", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"
     ]);
 
-    root.TvGLRecorder = { Recorder, RecEngine, PrimPass, parseColor, RECORDED_SHAPES, TYPE, CAP, PRIM_FLOATS };
+    root.TvGLRecorder = { Recorder, RecCanvas, RecEngine, PrimPass, parseColor, RECORDED_SHAPES, TYPE, CAP, PRIM_FLOATS };
 })(typeof self !== "undefined" ? self : globalThis);

@@ -57,5 +57,30 @@ for (const [key, p] of presets) {
     }
     report.push(`${key}(${p.particleShape}): ${prims} prims${eng.rec.unsupported.size ? " [approx: " + [...eng.rec.unsupported].join(", ") + "]" : ""}`);
 }
+// A 4K TV page (1920x1080 CSS): Celtic Knotwork paints an off-screen layer
+// every other frame; the recording canvas replays it scaled into place.
+new Function(fs.readFileSync(path.resolve(__dirname, "../js/celtic-knotwork.js"), "utf8"))();
+const big = Object.create(RecEngine.prototype);
+big.rec = new Recorder(); big.bg = "#000000"; big.lastPalette = "";
+big.ensureSim(1920, 1080, 2);
+Object.assign(big.sim.settings, { particleShape: "celticKnotwork", kaleidoscopeEnabled: false });
+big.setPaletteCss([...StylePresets.celticKnotwork.colors]);
+const perFrame = [];
+for (let f = 0; f < 4; f++) {
+    big.rec.beginFrame(); big.rec.resetState(); big.rec.setTransform(2, 0, 0, 2, 0, 0);
+    big.sim.lastFrameTime = Date.now() - 40;
+    big.sim.tick();
+    perFrame.push(big.rec.n + big.rec.softN);
+}
+assert.ok(perFrame.every(n => n > 1000), "4K Knotwork: every frame shows the knots, painted or replayed: " + perFrame);
+assert.ok(!big.rec.unsupported.has("drawImage"), "the off-screen layer replays on the GPU");
+let inside = 0, total = 0;
+for (let i = 0; i < big.rec.n; i++) {
+    const o = i * PRIM_FLOATS; total++;
+    if (big.rec.buf[o] > -2000 && big.rec.buf[o] < 5840 && big.rec.buf[o + 1] > -2000 && big.rec.buf[o + 1] < 4160) inside++;
+}
+assert.ok(total > 0 && inside / total > 0.95, "replayed knots land on the 3840x2160 canvas");
+report.push(`celticKnotwork @4K page: ${perFrame.join("/")} prims (layer painted every other frame, replayed between)`);
+
 console.log(report.join("\n"));
 console.log(`PASS: tvgl recorder (${presets.length} authored presets run the original simulation into GPU primitives).`);
