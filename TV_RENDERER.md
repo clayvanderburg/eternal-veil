@@ -53,7 +53,11 @@ to a worker (the Stick has 4 cores; the page uses one).
 
 ## Status
 
-**Phase 1 (core) — built, measured on the Stick, awaiting Clay's look review.**
+**Phase 1 (core) — done. Clay approved the look on the TV (2026-10-09: "much better"), and it
+is wired into TV mode** (`js/tvgl/tv-mode.js`, loaded by device-mode.js on TV only): scenes whose
+shape is in `TvGLCore.SUPPORTED_SHAPES` draw on the GPU; everything else stays 2D, with a
+0.7 s cross-fade at each switch. In Flow, most scenes use other shapes, so Phase 2 is where most
+of the gain is.
 `js/tvgl/core.js` (physics port, renderer, pacer), `js/tvgl/worker.js` (OffscreenCanvas
 worker), `js/tvgl/host.js` (page API, page fallback), `tools/tvgl-compare.html`
 (side by side / GL only / 2D only). `scratch/tvgl_core_tests.js` (in the release and mobile
@@ -72,7 +76,6 @@ Full screen on the Stick at native 1920×1080, 100% of each preset's particles:
 Known differences: the GL engine allows a 3.6/60 s step (the 2D renderer caps at 2/60 s, so
 at 25 fps 2D motion and trail fade run ~17% slow, and much slower when 2D drops to 8 fps).
 Not yet in GL: MusicMoods steering and treble sparkles, mouse/paint forces, meditation scaling.
-Not wired into the app yet.
 
 ## Rules
 
