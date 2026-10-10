@@ -51,6 +51,29 @@ to a worker (the Stick has 4 cores; the page uses one).
 6. **Platforms**: Fire TV (done), Android/Google TV (same APK, leanback), LG webOS (IPK of
    the same web app), Samsung Tizen (.wgt). Store submissions.
 
+## Status
+
+**Phase 1 (core) — built, measured on the Stick, awaiting Clay's look review.**
+`js/tvgl/core.js` (physics port, renderer, pacer), `js/tvgl/worker.js` (OffscreenCanvas
+worker), `js/tvgl/host.js` (page API, page fallback), `tools/tvgl-compare.html`
+(side by side / GL only / 2D only). `scratch/tvgl_core_tests.js` (in the release and mobile
+gates) checks the ports against `js/simulation.js`: noise, curl and kaleidoscope rules are
+identical, flow physics follows `Particle.update` step for step, and the kaleidoscope mesh maps
+screen → scene like the stamped slices.
+
+Full screen on the Stick at native 1920×1080, 100% of each preset's particles:
+
+| Preset | 2D canvas | GL (worker) | GL work/frame |
+|---|---|---|---|
+| Ethereal Aura (1,036) | 19 fps | 25 fps steady | 3 ms |
+| Cosmic Strings (2,590) | 8 fps | 25 fps steady | 17–19 ms |
+| Chakra Alignment (888) | 22 fps | 25 fps steady | 7 ms |
+
+Known differences: the GL engine allows a 3.6/60 s step (the 2D renderer caps at 2/60 s, so
+at 25 fps 2D motion and trail fade run ~17% slow, and much slower when 2D drops to 8 fps).
+Not yet in GL: MusicMoods steering and treble sparkles, mouse/paint forces, meditation scaling.
+Not wired into the app yet.
+
 ## Rules
 
 - Presets keep their look: every ported preset gets a side-by-side canvas/GL check and
