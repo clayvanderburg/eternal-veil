@@ -28,7 +28,9 @@
 <div id="hint">Is NEW as good as TODAY? Watch the colours, the glow, how long the trails are, and how fast things move.<br>OK = switch now · ◀ ▶ = another preset</div>
 <script src="../js/presets.js"></script>
 <script src="../js/simulation.js"></script>
+<script src="../js/preset-compositions.js"></script>
 <script src="../js/tvgl/core.js"></script>
+<script src="../js/tvgl/recorder.js"></script>
 <script src="../js/tvgl/host.js"></script>
 <script>
 // Side-by-side check for the GPU TV renderer (TV_RENDERER.md, phase 1):
@@ -41,8 +43,9 @@
 "use strict";
 const q = new URLSearchParams(location.search);
 // Every preset whose particle shape the GPU renderer draws.
-const PRESETS = Object.keys(StylePresets).filter(k => !StylePresets[k].hidden
-  && TvGLCore.SUPPORTED_SHAPES.has(StylePresets[k].particleShape || "ellipse"));
+const PRESETS = Object.keys(StylePresets).filter(k => !StylePresets[k].hidden && (
+  TvGLCore.SUPPORTED_SHAPES.has(StylePresets[k].particleShape || "ellipse")
+  || TvGLRecorder.RECORDED_SHAPES.has(StylePresets[k].particleShape)));
 const state = { mode: q.get("mode") || "split", preset: PRESETS.includes(q.get("preset")) ? q.get("preset") : "ethereal",
   res: Number(q.get("res")) || Math.min(2, window.devicePixelRatio || 1) };
 

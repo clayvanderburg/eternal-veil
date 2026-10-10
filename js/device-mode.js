@@ -70,12 +70,13 @@
     window.VoidDevice = VoidDevice;
     if (!isTV) return;
 
-    // Measured on a Fire TV Stick 4K Max (PowerVR GE9215), every preset at 30%
-    // particles: these nine draw too much to hold 25 fps at a sharp
-    // resolution (5-17 fps), so Flow skips them on TV; they can still be picked by hand.
+    // Measured on a Fire TV Stick 4K Max (PowerVR GE9215): these eight draw
+    // too much to hold 25 fps at a sharp resolution (5-17 fps) and the GPU
+    // renderer (js/tvgl) doesn't draw them yet (Fractal Nebula left the list
+    // once it did), so Flow skips them on TV; they can still be picked by hand.
     // Fold effects stop at two rings (3+ rings: 23-30 fps, 2 rings: 44-49).
     VoidDevice.flowSkip = new Set(["mandelbrotDive", "molecularDance", "celticKnotwork", "celticCurrent",
-        "cymaticResonance", "liquidChrome", "supernova", "fractalNebula", "stellarNursery"]);
+        "cymaticResonance", "liquidChrome", "supernova", "stellarNursery"]);
     VoidDevice.maxKaleidoRings = 2;
     document.addEventListener("DOMContentLoaded", () => {
         window.MandelbrotDive?.setTuning?.({ detail: 1.0, resolution: 0.5 });
@@ -226,12 +227,12 @@
     // The GPU (WebGL) TV renderer: loaded on TV only, after the page's own
     // scripts. It takes over the scenes it can draw (js/tvgl/tv-mode.js).
     document.addEventListener("DOMContentLoaded", () => {
-        const files = ["js/tvgl/core.js", "js/tvgl/host.js", "js/tvgl/tv-mode.js"];
+        const files = ["js/tvgl/core.js", "js/tvgl/recorder.js", "js/tvgl/host.js", "js/tvgl/tv-mode.js"];
         (function next() {
             const file = files.shift();
             if (!file) return;
             const el = document.createElement("script");
-            el.src = file + "?v=tvgl-2";
+            el.src = file + "?v=tvgl-3";
             el.onload = next;
             el.onerror = () => console.warn("TV renderer: could not load " + file);
             document.body.appendChild(el);

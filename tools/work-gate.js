@@ -20,12 +20,12 @@ const suites = {
     "node scratch/preset_integration_tests.js", "node scratch/music_moods_tests.js", "node scratch/music_lab_tests.js", "node scratch/url_tests.js"
   ],
   mobile: [
-    "node scratch/ui_fade_tests.js", "node scratch/device_mode_tests.js", "node scratch/tvgl_core_tests.js",
+    "node scratch/ui_fade_tests.js", "node scratch/device_mode_tests.js", "node scratch/tvgl_core_tests.js", "node scratch/tvgl_recorder_tests.js",
     "node --check js/app.js", "node --check js/simulation.js",
     "node scratch/url_tests.js", "node scratch/studio_tests.mjs", "node scratch/tools_menu_tests.mjs", "node scratch/preset_integration_tests.js"
   ],
   release: [
-    "node scratch/ui_fade_tests.js", "node scratch/device_mode_tests.js", "node scratch/tvgl_core_tests.js",
+    "node scratch/ui_fade_tests.js", "node scratch/device_mode_tests.js", "node scratch/tvgl_core_tests.js", "node scratch/tvgl_recorder_tests.js",
     "node tools/work-gate.js preset-2d", "node --check js/music-player.js", "node --check js/music-library.js", "node scratch/music_library_tests.js", "node scratch/music_source_tests.js", "node scratch/color_cycles_tests.js",
     "node scratch/color_theory_tests.js", "node scratch/meditation_mode_tests.js",
     "node --check js/feedback.js", "node scratch/feedback_tests.js", "node scratch/support_interest_tests.js",

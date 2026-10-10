@@ -987,9 +987,9 @@ void main() { uv = vec2(tc.x, 1.0 - tc.y); gl_Position = vec4(pos.x / px.x * 2.0
     class Engine {
         // gl: WebGL2 context. width/height: scene units (CSS px). resolution:
         // device pixels per scene unit.
-        constructor(gl) {
+        constructor(gl, renderer) {
             this.gl = gl;
-            this.renderer = new Renderer(gl);
+            this.renderer = renderer || new Renderer(gl);   // shared with the recorder engine
             this.field = new Field();
             // FlowSimulation's defaults; the page sends its own settings over these.
             this.settings = { speed: 1.0, density: 1200, turbulence: 0.65, flowOrganic: 0.85, dissipation: 0.012,

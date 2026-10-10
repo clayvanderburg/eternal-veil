@@ -20,7 +20,11 @@
     function supports(sim) {
         // A preset's own sprite shape (js/particle-sprites.js) isn't on the GPU yet.
         const sprite = window.ParticleSprites && ParticleSprites.resolve(sim.settings);
-        return !sim.isSolidMode && !sprite && TvGLCore.SUPPORTED_SHAPES.has(sim.settings.particleShape || "ellipse");
+        if (sim.isSolidMode || sprite) return false;
+        const shape = sim.settings.particleShape || "ellipse";
+        // Authored presets run in the worker's recorder engine (js/tvgl/recorder.js).
+        return TvGLCore.SUPPORTED_SHAPES.has(shape)
+            || (window.TvGLRecorder && TvGLRecorder.RECORDED_SHAPES.has(shape) && (!api || api.mode === "worker"));
     }
 
     function makeCanvas() {

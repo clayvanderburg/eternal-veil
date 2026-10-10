@@ -18,10 +18,10 @@
 (function () {
     "use strict";
 
-    const scriptBase = (() => {
-        const src = document.currentScript && document.currentScript.src;
-        return src ? src.slice(0, src.lastIndexOf("/") + 1) : "js/tvgl/";
-    })();
+    const scriptSrc = (document.currentScript && document.currentScript.src) || "";
+    const scriptBase = scriptSrc ? scriptSrc.slice(0, scriptSrc.lastIndexOf("/") + 1) : "js/tvgl/";
+    // The page's cache version (?v=...) travels to the worker and its imports.
+    const scriptVersion = scriptSrc.includes("?") ? scriptSrc.slice(scriptSrc.indexOf("?")) : "";
 
     // CSS colour -> [r, g, b, a] in 0..1, using the browser's own parser.
     let probe = null;
@@ -72,25 +72,27 @@
 
         if (useWorker) {
             const offscreen = canvas.transferControlToOffscreen();
-            const worker = new Worker(scriptBase + "worker.js");
+            const worker = new Worker(scriptBase + "worker.js" + scriptVersion);
             const send = (m, transfer) => worker.postMessage(m, transfer || []);
             await new Promise((resolve, reject) => {
                 worker.onmessage = (e) => {
                     const m = e.data;
                     if (m.type === "ready") resolve();
                     else if (m.type === "stats") { api.stats = m.stats; api.onStats && api.onStats(m.stats); }
+                    else if (m.type === "note") console.info("TvGL " + m.message);
                     else if (m.type === "error") { (api.onError || console.error)("TvGL worker: " + m.message); reject(new Error(m.message)); }
                 };
                 worker.onerror = (e) => reject(e);
                 send({ type: "init", canvas: offscreen, width, height, resolution, every,
                     settings: opts.settings && plain(opts.settings),
-                    palette: opts.palette && opts.palette.map(parseColor),
-                    background: opts.background && parseColor(opts.background).slice(0, 3) }, [offscreen]);
+                    palette: opts.palette && opts.palette.map(parseColor), paletteCss: opts.palette && opts.palette.map(String),
+                    background: opts.background && parseColor(opts.background).slice(0, 3),
+                    backgroundCss: opts.background && String(opts.background) }, [offscreen]);
             });
             Object.assign(api, {
                 setSettings: s => send({ type: "settings", settings: plain(s) }),
-                setPalette: colors => send({ type: "palette", palette: colors.map(parseColor) }),
-                setBackground: css => send({ type: "background", background: parseColor(css).slice(0, 3) }),
+                setPalette: colors => send({ type: "palette", palette: colors.map(parseColor), paletteCss: colors.map(String) }),
+                setBackground: css => send({ type: "background", background: parseColor(css).slice(0, 3), backgroundCss: String(css) }),
                 setParticleScale: value => send({ type: "particleScale", value }),
                 setPace: every => send({ type: "pace", every }),
                 shockwave: (x, y, force, speed, widthPx) => send({ type: "shockwave", x, y, force, speed, widthPx }),

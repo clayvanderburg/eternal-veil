@@ -2637,9 +2637,11 @@ class FlowSimulation {
         // Delta time calculator
         const now = Date.now();
         const elapsedSeconds = Math.max(0, (now - this.lastFrameTime) / 1000);
-        const delta = Math.min(elapsedSeconds, 0.05); // cap particle-physics steps at 50ms
+        // Step caps (50 ms, 2/60 s). The TV renderer's worker raises them so a
+        // steady 25 fps keeps full speed (js/tvgl/recorder.js).
+        const delta = Math.min(elapsedSeconds, this.maxStepSeconds || 0.05);
         this.lastFrameTime = now;
-        const dt = Math.min(delta * 60, 2.0); // normalized step, 1.0 at 60 FPS
+        const dt = Math.min(delta * 60, this.maxStepDt || 2.0); // normalized step, 1.0 at 60 FPS
         this.globalTime += delta * 60; // normalized speed steps
         if (this.settings.particleShape === "pendulumSpiral") this.syncMiniHosts(dt);
         const currentSpeed = Math.max(0, Number(this.settings.speed ?? 1.0));
