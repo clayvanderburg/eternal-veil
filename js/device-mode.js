@@ -231,7 +231,7 @@
             const file = files.shift();
             if (!file) return;
             const el = document.createElement("script");
-            el.src = file + "?v=tvgl-1";
+            el.src = file + "?v=tvgl-2";
             el.onload = next;
             el.onerror = () => console.warn("TV renderer: could not load " + file);
             document.body.appendChild(el);

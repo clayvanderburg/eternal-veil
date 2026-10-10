@@ -40,7 +40,9 @@
 // ?worker=0 runs the GL engine on the page instead of a worker.
 "use strict";
 const q = new URLSearchParams(location.search);
-const PRESETS = ["ethereal", "strings", "chakra"];
+// Every preset whose particle shape the GPU renderer draws.
+const PRESETS = Object.keys(StylePresets).filter(k => !StylePresets[k].hidden
+  && TvGLCore.SUPPORTED_SHAPES.has(StylePresets[k].particleShape || "ellipse"));
 const state = { mode: q.get("mode") || "split", preset: PRESETS.includes(q.get("preset")) ? q.get("preset") : "ethereal",
   res: Number(q.get("res")) || Math.min(2, window.devicePixelRatio || 1) };
 

@@ -84,6 +84,10 @@
         return curlOut;
     }
 
+    // Particle looks the shader draws (Particle.draw branches).
+    const KIND = { ellipse: 0, drop: 1, ring: 2, cluster: 3, brush: 4, litOrb: 5, star: 6, cloud: 7 };
+    const INSTANCE_FLOATS = 20;
+
     // ---------------------------------------------------------------------
     // Particles: struct-of-arrays port of Particle (flow path)
     // ---------------------------------------------------------------------
@@ -101,15 +105,20 @@
             // Positions and velocities in doubles like the 2D renderer: the flow
             // is chaotic, so float32 rounding visibly changes paths over time.
             for (const k of ["x", "y", "vx", "vy", "life", "maxLife"]) this[k] = grow(this[k], Float64Array);
+            // Previous position and headings (Particle.lastX/lastY/perpX/...): brush strokes
+            for (const k of ["lastX", "lastY", "perpX", "perpY", "lastPerpX", "lastPerpY"]) this[k] = grow(this[k], Float64Array);
             for (const k of ["sizeOff", "colorR", "phase", "typeR"]) this[k] = grow(this[k], Float32Array);
-            // Instance data for the GPU: x, y, vx, vy, lifeRatio, sizeOff, colorR, phase
-            this.gpu = new Float32Array(cap * 8);
+            // Instance data for the GPU, INSTANCE_FLOATS per particle (see pack()).
+            this.gpu = new Float32Array(cap * INSTANCE_FLOATS);
             this.cap = cap;
         }
 
         reset(i, w, h, initial) {
             this.x[i] = Math.random() * w;
             this.y[i] = Math.random() * h;
+            this.lastX[i] = this.x[i];
+            this.lastY[i] = this.y[i];
+            this.perpX[i] = this.perpY[i] = this.lastPerpX[i] = this.lastPerpY[i] = 0;
             this.vx[i] = (Math.random() - 0.5) * 0.5;
             this.vy[i] = (Math.random() - 0.5) * 0.5;
             const life = initial ? Math.random() * 80 + 40 : Math.random() * 60 + 80;
@@ -234,10 +243,26 @@
                     }
                 }
 
+                this.lastX[i] = x;
+                this.lastY[i] = y;
+                this.lastPerpX[i] = this.perpX[i];
+                this.lastPerpY[i] = this.perpY[i];
                 x += vx * dt;
                 y += vy * dt;
-                if (x < 0) { x = w; vx *= 0.5; } else if (x > w) { x = 0; vx *= 0.5; }
-                if (y < 0) { y = h; vy *= 0.5; } else if (y > h) { y = 0; vy *= 0.5; }
+                const heading = Math.atan2(vy, vx);
+                this.perpX[i] = -Math.sin(heading);
+                this.perpY[i] = Math.cos(heading);
+                if (this.lastPerpX[i] === 0 && this.lastPerpY[i] === 0) {
+                    this.lastPerpX[i] = this.perpX[i];
+                    this.lastPerpY[i] = this.perpY[i];
+                }
+                let wrapped = false;
+                if (x < 0) { x = w; vx *= 0.5; wrapped = true; } else if (x > w) { x = 0; vx *= 0.5; wrapped = true; }
+                if (y < 0) { y = h; vy *= 0.5; wrapped = true; } else if (y > h) { y = 0; vy *= 0.5; wrapped = true; }
+                if (wrapped) {
+                    this.lastX[i] = x; this.lastY[i] = y;
+                    this.lastPerpX[i] = this.perpX[i]; this.lastPerpY[i] = this.perpY[i];
+                }
                 X[i] = x; Y[i] = y; VX[i] = vx; VY[i] = vy;
 
                 this.life[i] -= dt;
@@ -245,15 +270,37 @@
             }
         }
 
-        // Pack the per-instance data the particle shader reads.
-        pack() {
+        // Pack the per-instance data the particle shader reads. The scene's
+        // shape picks each particle's look (Particle.draw): kind, size and
+        // alpha multipliers.
+        pack(settings) {
             const g = this.gpu;
-            for (let i = 0, o = 0; i < this.n; i++, o += 8) {
+            const scene = settings.particleShape || "ellipse";
+            this.hasBrush = scene === "brush" || scene === "aquatic";
+            this.hasCloud = scene === "nebula";
+            const lit = (settings.particleLighting || "glow") !== "glow";
+            for (let i = 0, o = 0; i < this.n; i++, o += INSTANCE_FLOATS) {
+                let kind = KIND.ellipse, sizeMul = 1, alphaMul = 1;
+                const r = this.typeR[i];
+                if (scene === "drop" || scene === "acid") kind = lit ? KIND.litOrb : KIND.drop;
+                else if (scene === "ring") kind = KIND.ring;
+                else if (scene === "cluster") kind = KIND.cluster;
+                else if (scene === "brush") kind = KIND.brush;
+                else if (scene === "aquatic") kind = r > 0.4 ? KIND.brush : KIND.ring;
+                else if (scene === "nebula") {
+                    if (r > 0.25) { kind = lit ? KIND.litOrb : KIND.star; sizeMul = 0.35; alphaMul = 0.95; }
+                    else { kind = KIND.cloud; sizeMul = 13.75; alphaMul = 0.012; }
+                }
                 g[o] = this.x[i]; g[o + 1] = this.y[i]; g[o + 2] = this.vx[i]; g[o + 3] = this.vy[i];
                 g[o + 4] = Math.max(0.1, this.life[i] / this.maxLife[i]);
                 g[o + 5] = this.sizeOff[i]; g[o + 6] = this.colorR[i]; g[o + 7] = this.phase[i];
+                g[o + 8] = kind; g[o + 9] = sizeMul; g[o + 10] = alphaMul; g[o + 11] = i;
+                g[o + 12] = this.lastX[i]; g[o + 13] = this.lastY[i];
+                g[o + 14] = this.perpX[i] || 0; g[o + 15] = this.perpY[i] || 0;
+                g[o + 16] = this.lastPerpX[i] || this.perpX[i] || 0; g[o + 17] = this.lastPerpY[i] || this.perpY[i] || 0;
+                g[o + 18] = 0; g[o + 19] = 0;
             }
-            return g.subarray(0, this.n * 8);
+            return g.subarray(0, this.n * INSTANCE_FLOATS);
         }
     }
 
@@ -360,78 +407,292 @@
     // ---------------------------------------------------------------------
     // Shaders
     // ---------------------------------------------------------------------
+    // Particle.draw for the flow shapes, one instanced draw. Each layer of a
+    // shape is composited "over" the previous ones exactly as the canvas's
+    // separate fills/strokes would be, and written premultiplied.
     const PARTICLE_VS = `#version 300 es
 precision highp float;
-layout(location=0) in vec2 corner;            // -1..1
-layout(location=1) in vec4 posVel;            // x, y, vx, vy (scene units)
-layout(location=2) in vec4 lifeSizeColorPhase;// lifeRatio, sizeOff, colorR, phase
-uniform mat3 sceneToClip;                     // scene units -> clip
-uniform float pxPerUnit;                      // device pixels per scene unit
-uniform vec4 sizing;                          // baseSize, sizeVariation, scaleRef, stretch
-uniform vec2 alphaScale;                      // glow scale, psychedelic flag
+layout(location=0) in vec2 corner;              // -1..1
+layout(location=1) in vec4 posVel;              // x, y, vx, vy (scene units)
+layout(location=2) in vec4 lifeSizeColorPhase;  // lifeRatio, sizeOff, colorR, phase
+layout(location=3) in vec4 kindSizeAlphaSeed;   // kind, sizeMul, alphaMul, index
+layout(location=4) in vec4 lastPerp;            // lastX, lastY, perpX, perpY
+layout(location=5) in vec4 lastPerp2;           // lastPerpX, lastPerpY
+uniform mat3 sceneToClip;
+uniform float pxPerUnit;
+uniform vec4 sizing;                            // baseSize, sizeVariation, scaleRef, stretch
+uniform vec2 alphaScale;                        // glow scale, psychedelic flag
 uniform float globalTime;
 uniform int paletteSize;
 uniform vec4 palette[8];
-out vec2 local;                               // scene units in the particle's frame
-flat out vec4 rHalo;                          // rx, ry of halo, body (xy, zw)
-flat out vec4 rCore;                          // rx, ry, offset, aaUnits
-flat out vec4 color;                          // rgb, alpha
+uniform int passMode;                           // 0 main (no clouds/brushes), 1 clouds only
+out vec2 local;                                 // particle-relative offset (see below)
+out vec2 scenePos;                              // scene units (brush)
+flat out int kind;
+flat out vec4 geo;                              // per kind: radii / widths
+flat out vec4 geo2;
+flat out vec4 color;                            // main colour, alpha = drawAlpha
+flat out vec3 accent;                           // next palette colour (cluster, lit orb)
+flat out vec4 brushA;                           // lastX, lastY, x, y
+flat out vec4 brushP;                           // lastPerp, perp
+flat out vec2 seedPhase;                        // index, phase
 vec3 hsl2rgb(float h, float s, float l) {
     vec3 k = mod(vec3(0.0, 8.0, 4.0) + h / 30.0, 12.0);
     float a = s * min(l, 1.0 - l);
     return l - a * max(min(min(k - 3.0, 9.0 - k), 1.0), -1.0);
 }
 void main() {
+    kind = int(kindSizeAlphaSeed.x + 0.5);
+    bool skip = passMode == 1 ? kind != 7 : (kind == 7 || kind == 4);
+    if (skip) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+    if (kind == 7) kind = 0;                      // clouds look like big ellipses
     float lifeRatio = lifeSizeColorPhase.x;
     float stretch = sizing.w;
     float size = max(0.4, (sizing.x + lifeSizeColorPhase.y * sizing.y) * (0.6 + lifeRatio * 0.5)) * sizing.z;
+    float ds = size * kindSizeAlphaSeed.y;      // drawSize
     vec2 v = posVel.zw;
     float speed = length(v);
     float dyn = 1.0 + min(2.5, speed) * 0.05 * stretch;
     vec2 dir = speed > 1e-6 ? v / speed : vec2(1.0, 0.0);
+    float aa = 1.5 / pxPerUnit;
+    seedPhase = vec2(kindSizeAlphaSeed.w, lifeSizeColorPhase.w);
+    brushA = vec4(lastPerp.xy, posVel.xy);
+    brushP = vec4(lastPerp2.xy, lastPerp.zw);
+    geo = vec4(0.0); geo2 = vec4(0.0);
+
+    vec2 ext;                                    // half extents of the quad
+    vec2 center = posVel.xy;
+    vec2 qdir = dir;                             // quad orientation
+    if (kind == 0) {                             // ellipse: halo, body, core
+        vec2 halo = ds * vec2(2.4 + stretch * 0.3, 1.1 + dyn * 0.15);
+        geo = vec4(halo, ds * vec2(1.7 + stretch * 0.25, 0.65 + dyn * 0.18));
+        geo2 = vec4(ds * vec2(0.7 + stretch * 0.1, 0.38 + dyn * 0.08), ds * 0.1, 0.0);
+        ext = halo;
+    } else if (kind == 1 || kind == 5 || kind == 6) { // drop / lit orb / star
+        geo = vec4(ds * 1.5, ds, 0.0, 0.0);
+        ext = vec2(ds * 1.5);
+    } else if (kind == 2) {                      // ring: two strokes on one circle
+        float R = ds * (1.3 + dyn * 0.2);
+        geo = vec4(R, ds * 1.35, ds * 0.45, 0.0);
+        ext = vec2(R + ds * 0.7);
+    } else if (kind == 3) {                      // cluster
+        geo = vec4(ds, 0.0, 0.0, 0.0);
+        ext = vec2(ds * 1.55);
+    } else {                                     // brush: segment last -> now
+        float B = ds * 4.2;
+        geo = vec4(B, 0.0, 0.0, 0.0);
+        vec2 seg = posVel.xy - lastPerp.xy;
+        float len = length(seg);
+        qdir = len > 1e-4 ? seg / len : dir;
+        center = (posVel.xy + lastPerp.xy) * 0.5;
+        float wide = B * 1.12;
+        ext = vec2(len * 0.5 + wide, wide);
+    }
+    ext += aa;
+    vec2 qn = vec2(-qdir.y, qdir.x);
+    vec2 corner2 = corner * ext;
+    vec2 p = center + qdir * corner2.x + qn * corner2.y;
+    scenePos = p;
+    vec2 d = p - posVel.xy;
+    // Offsets the fragment shader measures in: the heading's frame for the
+    // velocity-aligned shapes (ellipse, drop highlight), scene axes otherwise.
     vec2 nrm = vec2(-dir.y, dir.x);
-    vec2 halo = size * vec2(2.4 + stretch * 0.3, 1.1 + dyn * 0.15);
-    rHalo = vec4(halo, size * vec2(1.7 + stretch * 0.25, 0.65 + dyn * 0.18));
-    float aa = 1.0 / pxPerUnit;                   // one device pixel, in scene units
-    rCore = vec4(size * vec2(0.7 + stretch * 0.1, 0.38 + dyn * 0.08), size * 0.1, aa);
-    vec2 ext = halo + aa * 1.5;
-    local = corner * ext;
-    vec2 p = posVel.xy + dir * local.x + nrm * local.y;
+    local = (kind == 0 || kind == 1 || kind == 6) ? vec2(dot(d, dir), dot(d, nrm)) : d;
     gl_Position = vec4((sceneToClip * vec3(p, 1.0)).xy, 0.0, 1.0);
-    vec4 c;
+
+    int idx = min(paletteSize - 1, int(floor(lifeSizeColorPhase.z * float(paletteSize))));
+    vec4 c = palette[idx];
+    accent = palette[(idx + 1) % paletteSize].rgb;
     if (alphaScale.y > 0.5) {
         float hue = mod(globalTime * 1.8 + (posVel.x + posVel.y) * 0.1, 360.0);
         c = vec4(hsl2rgb(hue, 0.98, 0.62), 0.85);
-    } else {
-        int idx = min(paletteSize - 1, int(floor(lifeSizeColorPhase.z * float(paletteSize))));
-        c = palette[idx];
     }
-    color = vec4(c.rgb, c.a * lifeRatio * 0.78 * alphaScale.x);
+    color = vec4(c.rgb, c.a * lifeRatio * 0.78 * alphaScale.x * kindSizeAlphaSeed.z);
 }`;
 
-    // Particle.draw "ellipse": halo (0.35), body (0.9), core (0.75, nudged
-    // forward). Three same-colour source-over fills composite to one colour
-    // with alpha 1 - (1-a1)(1-a2)(1-a3): exactly what the canvas produces.
     const PARTICLE_FS = `#version 300 es
 precision highp float;
 in vec2 local;
-flat in vec4 rHalo;
-flat in vec4 rCore;
+in vec2 scenePos;
+flat in int kind;
+flat in vec4 geo;
+flat in vec4 geo2;
 flat in vec4 color;
-uniform float premultiply;
+flat in vec3 accent;
+flat in vec4 brushA;
+flat in vec4 brushP;
+flat in vec2 seedPhase;
+uniform vec4 clocks;          // light T mod 2pi, light T*0.73 mod 2pi, twinkle mod 2pi, frame
+uniform float lighting;       // 0 glow, 1 other, 2 pearl
 out vec4 frag;
-// Coverage with a one-device-pixel anti-aliased edge, like the canvas's.
-float ellipseCover(vec2 p, vec2 r) {
-    float d = length(p / r);
-    return clamp((1.0 - d) / max(fwidth(d), 1e-4) + 0.5, 0.0, 1.0);
+vec4 acc = vec4(0.0);         // premultiplied
+void over(vec3 c, float a) { a = clamp(a, 0.0, 1.0); acc = vec4(c * a + acc.rgb * (1.0 - a), a + acc.a * (1.0 - a)); }
+float aaStep(float d) { return clamp(0.5 - d / max(fwidth(d), 1e-4), 0.0, 1.0); }
+float disc(vec2 p, vec2 c, float r) { return aaStep(length(p - c) - r); }
+float ellipseCover(vec2 p, vec2 r) { float d = length(p / r); return clamp((1.0 - d) / max(fwidth(d), 1e-4) + 0.5, 0.0, 1.0); }
+float ringStroke(vec2 p, float R, float w) { return aaStep(abs(length(p) - R) - w * 0.5); }
+float segDist(vec2 p, vec2 a, vec2 b) {
+    vec2 ab = b - a; float l2 = dot(ab, ab);
+    float t = l2 > 1e-8 ? clamp(dot(p - a, ab) / l2, 0.0, 1.0) : 0.0;
+    return length(p - a - ab * t);
 }
+float hash(float n) { return fract(sin(n * 12.9898 + clocks.w * 78.233) * 43758.5453); }
 void main() {
-    float h = ellipseCover(local, rHalo.xy) * 0.35;
-    float b = ellipseCover(local, rHalo.zw) * 0.9;
-    float c = ellipseCover(local - vec2(rCore.z, 0.0), rCore.xy) * 0.75;
-    float a = (1.0 - (1.0 - h * color.a) * (1.0 - b * color.a) * (1.0 - c * color.a));
-    if (a <= 0.001) discard;
-    frag = premultiply > 0.5 ? vec4(color.rgb * a, a) : vec4(color.rgb, a);
+    vec3 c = color.rgb;
+    float A = color.a;
+    if (kind == 0) {
+        over(c, ellipseCover(local, geo.xy) * A * 0.35);
+        over(c, ellipseCover(local, geo.zw) * A * 0.9);
+        over(c, ellipseCover(local - vec2(geo2.z, 0.0), geo2.xy) * A * 0.75);
+    } else if (kind == 1 || kind == 6) {
+        if (kind == 6) {                          // nebula star twinkle
+            float flicker = 0.10 + sin(clocks.z + seedPhase.y / 6.2831853 * 100.0) * 0.90;
+            A *= max(0.0, flicker);
+        }
+        float ds = geo.y;
+        over(c, disc(local, vec2(0.0), geo.x) * A * 0.9);
+        over(vec3(1.0), disc(local, vec2(-0.25, -0.25) * ds, ds * 0.45) * A * 0.6);
+    } else if (kind == 2) {
+        over(c, ringStroke(local, geo.x, geo.y) * A * 0.25);
+        over(c, ringStroke(local, geo.x, geo.z) * A * 0.85);
+    } else if (kind == 3) {
+        float ds = geo.x;
+        over(c, disc(local, vec2(0.0), ds * 1.5) * A * 0.58);
+        over(c, disc(local, vec2(0.0), ds * 0.72) * A * 0.76);
+        over(c, disc(local, vec2(-0.55, -0.55) * ds, ds * 0.45) * A * 0.35);
+        over(c, disc(local, vec2(0.5, 0.45) * ds, ds * 0.58) * A * 0.62);
+        float lt = seedPhase.y;
+        vec2 L = vec2(cos(clocks.x + lt), sin(clocks.y + lt * 0.73));
+        over(accent, disc(local, L * ds * 0.48, ds * 0.22) * A * (lighting < 0.5 ? 0.42 : 0.72));
+    } else if (kind == 5) {                       // Particle.drawLitOrb (non-glow lighting)
+        float R = geo.x, a = A * 0.95;
+        float ph = seedPhase.y;
+        vec2 L = vec2(cos(clocks.x + ph), sin(clocks.y + ph));
+        bool pearl = lighting > 1.5;
+        over(c, disc(local, vec2(0.0), R) * a * 0.78);
+        over(vec3(0.0078, 0.0235, 0.0902), disc(local, -L * R * 0.22, R * 0.94) * a * (pearl ? 0.22 : 0.34));
+        over(accent, disc(local, L * R * 0.36, R * (pearl ? 0.19 : 0.14)) * a * (pearl ? 0.58 : 0.72));
+        over(accent, ringStroke(local, R * 0.91, max(1.0, R * (pearl ? 0.12 : 0.06))) * a * (pearl ? 0.72 : 0.34));
+    } else {                                      // brush: base stroke + 4 jittered bristles
+        float B = geo.x;
+        vec2 a0 = brushA.xy, a1 = brushA.zw;
+        over(c, aaStep(segDist(scenePos, a0, a1) - B * 0.75) * A * 0.38);
+        for (int i = 0; i < 4; i++) {
+            float o = i == 0 ? -0.60 : (i == 1 ? -0.20 : (i == 2 ? 0.20 : 0.60));
+            float sd = seedPhase.x * 4.0 + float(i);
+            float jitterPos = (hash(sd) - 0.5) * B * 0.07;
+            float off = o * B * 1.35 + jitterPos;
+            vec2 p0 = a0 + brushP.xy * off, p1 = a1 + brushP.zw * off;
+            float width = max(0.5, B * 0.46 * (0.90 - abs(o) * 0.45) + (hash(sd + 0.37) - 0.5) * B * 0.08);
+            float alpha = max(0.18, A * 0.88 * (1.0 - abs(o) * 0.30) + (hash(sd + 0.71) - 0.5) * 0.08);
+            over(c, aaStep(segDist(scenePos, p0, p1) - width * 0.5) * alpha);
+        }
+    }
+    if (acc.a <= 0.002) discard;
+    frag = acc;
+}`;
+
+    // Brush strokes (oil, aquatic paint): Particle.draw "brush". The bristle
+    // geometry and the per-frame jitter are worked out once per stroke here,
+    // so each pixel only measures five segment distances.
+    const BRUSH_VS = `#version 300 es
+precision highp float;
+layout(location=0) in vec2 corner;
+layout(location=1) in vec4 posVel;
+layout(location=2) in vec4 lifeSizeColorPhase;
+layout(location=3) in vec4 kindSizeAlphaSeed;
+layout(location=4) in vec4 lastPerp;            // lastX, lastY, perpX, perpY
+layout(location=5) in vec4 lastPerp2;           // lastPerpX, lastPerpY
+uniform mat3 sceneToClip;
+uniform float pxPerUnit;
+uniform vec4 sizing;
+uniform vec2 alphaScale;
+uniform float globalTime;
+uniform int paletteSize;
+uniform vec4 palette[8];
+uniform float frameNo;
+out vec2 scenePos;
+flat out vec4 seg0;            // base stroke a, b
+flat out vec4 b0; flat out vec4 b1; flat out vec4 b2; flat out vec4 b3;   // bristle a, b
+flat out vec4 halfWidths;      // bristle half widths
+flat out vec4 alphas;          // bristle alphas
+flat out vec4 colorBase;       // rgb, base stroke alpha
+flat out vec2 baseHalfAA;      // base half width, one device pixel (scene units)
+vec3 hsl2rgb(float h, float s, float l) {
+    vec3 k = mod(vec3(0.0, 8.0, 4.0) + h / 30.0, 12.0);
+    float a = s * min(l, 1.0 - l);
+    return l - a * max(min(min(k - 3.0, 9.0 - k), 1.0), -1.0);
+}
+float hash(float n) { return fract(sin(n * 12.9898 + frameNo * 78.233) * 43758.5453); }
+void main() {
+    if (int(kindSizeAlphaSeed.x + 0.5) != 4) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+    float lifeRatio = lifeSizeColorPhase.x;
+    float size = max(0.4, (sizing.x + lifeSizeColorPhase.y * sizing.y) * (0.6 + lifeRatio * 0.5)) * sizing.z;
+    float B = size * kindSizeAlphaSeed.y * 4.2;
+    vec2 a = lastPerp.xy, b = posVel.xy;
+    vec2 lp = lastPerp2.xy, pp = lastPerp.zw;
+    int idx = min(paletteSize - 1, int(floor(lifeSizeColorPhase.z * float(paletteSize))));
+    vec4 c = palette[idx];
+    if (alphaScale.y > 0.5) {
+        float hue = mod(globalTime * 1.8 + (posVel.x + posVel.y) * 0.1, 360.0);
+        c = vec4(hsl2rgb(hue, 0.98, 0.62), 0.85);
+    }
+    float A = c.a * lifeRatio * 0.78 * alphaScale.x * kindSizeAlphaSeed.z;
+    colorBase = vec4(c.rgb, A * 0.38);
+    baseHalfAA = vec2(B * 0.75, 1.0 / pxPerUnit);
+    seg0 = vec4(a, b);
+    vec4 offs = vec4(-0.60, -0.20, 0.20, 0.60);
+    vec4 hw, al; vec2 q0[4]; vec2 q1[4];
+    for (int i = 0; i < 4; i++) {
+        float o = offs[i];
+        float sd = kindSizeAlphaSeed.w * 4.0 + float(i);
+        float off = o * B * 1.35 + (hash(sd) - 0.5) * B * 0.07;
+        q0[i] = a + lp * off; q1[i] = b + pp * off;
+        hw[i] = 0.5 * max(0.5, B * 0.46 * (0.90 - abs(o) * 0.45) + (hash(sd + 0.37) - 0.5) * B * 0.08);
+        al[i] = max(0.18, A * 0.88 * (1.0 - abs(o) * 0.30) + (hash(sd + 0.71) - 0.5) * 0.08);
+    }
+    b0 = vec4(q0[0], q1[0]); b1 = vec4(q0[1], q1[1]); b2 = vec4(q0[2], q1[2]); b3 = vec4(q0[3], q1[3]);
+    halfWidths = hw; alphas = al;
+    // quad around the stroke
+    vec2 seg = b - a; float len = length(seg);
+    vec2 dir = len > 1e-4 ? seg / len : (length(posVel.zw) > 1e-6 ? normalize(posVel.zw) : vec2(1.0, 0.0));
+    vec2 nrm = vec2(-dir.y, dir.x);
+    float wide = B * 1.07 + 1.5 / pxPerUnit;
+    vec2 p = (a + b) * 0.5 + dir * corner.x * (len * 0.5 + wide) + nrm * corner.y * wide;
+    scenePos = p;
+    gl_Position = vec4((sceneToClip * vec3(p, 1.0)).xy, 0.0, 1.0);
+}`;
+
+    const BRUSH_FS = `#version 300 es
+precision highp float;
+in vec2 scenePos;
+flat in vec4 seg0;
+flat in vec4 b0; flat in vec4 b1; flat in vec4 b2; flat in vec4 b3;
+flat in vec4 halfWidths;
+flat in vec4 alphas;
+flat in vec4 colorBase;
+flat in vec2 baseHalfAA;
+out vec4 frag;
+float segDist(vec2 p, vec4 s) {
+    vec2 a = s.xy, ab = s.zw - s.xy; float l2 = dot(ab, ab);
+    float t = l2 > 1e-8 ? clamp(dot(p - a, ab) / l2, 0.0, 1.0) : 0.0;
+    return length(p - a - ab * t);
+}
+float aaw;
+float cover(float d, float hw) { return clamp(0.5 - (d - hw) / aaw, 0.0, 1.0); }
+void main() {
+    aaw = baseHalfAA.y;
+    float d0 = segDist(scenePos, seg0);
+    float a = cover(d0, baseHalfAA.x) * colorBase.a;
+    // source-over of the bristles, all the same colour: alpha union
+    float keep = 1.0 - a;
+    keep *= 1.0 - cover(segDist(scenePos, b0), halfWidths.x) * alphas.x;
+    keep *= 1.0 - cover(segDist(scenePos, b1), halfWidths.y) * alphas.y;
+    keep *= 1.0 - cover(segDist(scenePos, b2), halfWidths.z) * alphas.z;
+    keep *= 1.0 - cover(segDist(scenePos, b3), halfWidths.w) * alphas.w;
+    float A = 1.0 - keep;
+    if (A <= 0.002) discard;
+    frag = vec4(colorBase.rgb * A, A);
 }`;
 
     const QUAD_VS = `#version 300 es
@@ -485,7 +746,9 @@ void main() { uv = vec2(tc.x, 1.0 - tc.y); gl_Position = vec4(pos.x / px.x * 2.0
         constructor(gl) {
             this.gl = gl;
             this.particle = program(gl, PARTICLE_VS, PARTICLE_FS,
-                ["sceneToClip", "pxPerUnit", "sizing", "alphaScale", "globalTime", "paletteSize", "palette", "premultiply"]);
+                ["sceneToClip", "pxPerUnit", "sizing", "alphaScale", "globalTime", "paletteSize", "palette", "clocks", "lighting", "passMode"]);
+            this.brush = program(gl, BRUSH_VS, BRUSH_FS,
+                ["sceneToClip", "pxPerUnit", "sizing", "alphaScale", "globalTime", "paletteSize", "palette", "frameNo"]);
             this.fade = program(gl, QUAD_VS, FADE_FS, ["prev", "bg", "amount", "blackBg"]);
             this.copy = program(gl, QUAD_VS, COPY_FS, ["src"]);
             this.mesh = program(gl, MESH_VS, COPY_FS, ["px", "src"]);
@@ -506,12 +769,11 @@ void main() { uv = vec2(tc.x, 1.0 - tc.y); gl_Position = vec4(pos.x / px.x * 2.0
             gl.enableVertexAttribArray(0);
             gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
             gl.bindBuffer(gl.ARRAY_BUFFER, this.instBuf);
-            gl.enableVertexAttribArray(1);
-            gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 32, 0);
-            gl.vertexAttribDivisor(1, 1);
-            gl.enableVertexAttribArray(2);
-            gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 32, 16);
-            gl.vertexAttribDivisor(2, 1);
+            for (let a = 1; a <= 5; a++) {
+                gl.enableVertexAttribArray(a);
+                gl.vertexAttribPointer(a, 4, gl.FLOAT, false, INSTANCE_FLOATS * 4, (a - 1) * 16);
+                gl.vertexAttribDivisor(a, 1);
+            }
 
             this.meshBuf = gl.createBuffer();
             this.meshVAO = gl.createVertexArray();
@@ -552,12 +814,14 @@ void main() { uv = vec2(tc.x, 1.0 - tc.y); gl_Position = vec4(pos.x / px.x * 2.0
         resize(w, h) {
             const gl = this.gl;
             if (w === this.W && h === this.H) return;
-            for (const t of [...this.trails, this.layer]) {
+            for (const t of [...this.trails, this.layer, this.clouds]) {
                 if (t) { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fb); }
             }
             this.W = w; this.H = h;
             this.trails = [this.target(w, h, gl.CLAMP_TO_EDGE), this.target(w, h, gl.CLAMP_TO_EDGE)];
             this.layer = this.target(w, h, gl.MIRRORED_REPEAT);
+            // Nebula's huge, faint clouds are drawn at half resolution.
+            this.clouds = this.target(Math.max(1, w >> 1), Math.max(1, h >> 1), gl.CLAMP_TO_EDGE);
         }
 
         setPalette(colors) {
@@ -604,23 +868,12 @@ void main() { uv = vec2(tc.x, 1.0 - tc.y); gl_Position = vec4(pos.x / px.x * 2.0
                 gl.bindFramebuffer(gl.FRAMEBUFFER, this.layer.fb);
                 gl.clearColor(0, 0, 0, 0);
                 gl.clear(gl.COLOR_BUFFER_BIT);
-                gl.enable(gl.BLEND);
-                gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-            } else {
-                gl.enable(gl.BLEND);
-                gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
             }
+            // The particle shader writes premultiplied colour.
+            gl.enable(gl.BLEND);
+            gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
             if (f.count > 0) {
-                const p = this.particle;
-                gl.useProgram(p.p);
-                gl.uniformMatrix3fv(p.u.sceneToClip, false, f.sceneToClip);
-                gl.uniform1f(p.u.pxPerUnit, f.pxPerUnit);
-                gl.uniform4fv(p.u.sizing, f.sizing);
-                gl.uniform2f(p.u.alphaScale, f.glow, f.psychedelic ? 1 : 0);
-                gl.uniform1f(p.u.globalTime, f.globalTime);
-                gl.uniform1i(p.u.paletteSize, this.paletteSize);
-                gl.uniform4fv(p.u.palette, this.paletteData);
-                gl.uniform1f(p.u.premultiply, kaleido ? 1 : 0);
+                const into = kaleido ? this.layer.fb : dst.fb;
                 gl.bindBuffer(gl.ARRAY_BUFFER, this.instBuf);
                 if (f.instances.byteLength > this.instCap) {
                     this.instCap = f.instances.byteLength * 2;
@@ -628,6 +881,70 @@ void main() { uv = vec2(tc.x, 1.0 - tc.y); gl_Position = vec4(pos.x / px.x * 2.0
                 }
                 gl.bufferSubData(gl.ARRAY_BUFFER, 0, f.instances);
                 gl.bindVertexArray(this.particleVAO);
+                const common = (prog, pxPerUnit) => {
+                    gl.useProgram(prog.p);
+                    gl.uniformMatrix3fv(prog.u.sceneToClip, false, f.sceneToClip);
+                    gl.uniform1f(prog.u.pxPerUnit, pxPerUnit);
+                    gl.uniform4fv(prog.u.sizing, f.sizing);
+                    gl.uniform2f(prog.u.alphaScale, f.glow, f.psychedelic ? 1 : 0);
+                    gl.uniform1f(prog.u.globalTime, f.globalTime);
+                    gl.uniform1i(prog.u.paletteSize, this.paletteSize);
+                    gl.uniform4fv(prog.u.palette, this.paletteData);
+                };
+                // 1. Nebula clouds: half resolution, then laid over the target.
+                if (f.hasCloud) {
+                    gl.bindFramebuffer(gl.FRAMEBUFFER, this.clouds.fb);
+                    gl.viewport(0, 0, Math.max(1, W >> 1), Math.max(1, H >> 1));
+                    gl.clearColor(0, 0, 0, 0);
+                    gl.clear(gl.COLOR_BUFFER_BIT);
+                    common(this.particle, f.pxPerUnit / 2);
+                    gl.uniform4fv(this.particle.u.clocks, f.clocks);
+                    gl.uniform1f(this.particle.u.lighting, f.lighting);
+                    gl.uniform1i(this.particle.u.passMode, 1);
+                    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, f.count);
+                    gl.bindFramebuffer(gl.FRAMEBUFFER, into);
+                    gl.viewport(0, 0, W, H);
+                    gl.useProgram(this.copy.p);
+                    gl.activeTexture(gl.TEXTURE0);
+                    gl.bindTexture(gl.TEXTURE_2D, this.clouds.tex);
+                    gl.uniform1i(this.copy.u.src, 0);
+                    gl.bindVertexArray(this.quadVAO);
+                    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+                    gl.bindVertexArray(this.particleVAO);
+                }
+                gl.bindFramebuffer(gl.FRAMEBUFFER, into);
+                gl.viewport(0, 0, W, H);
+                // 2. Brush strokes (under the bubbles in Aquatic). Big, soft paint
+                //    covers the screen many times over, so like the clouds it is
+                //    painted at half resolution (VoidDevice-tunable) and laid over.
+                if (f.hasBrush) {
+                    const half = f.brushHalfRes !== false;
+                    if (half) {
+                        gl.bindFramebuffer(gl.FRAMEBUFFER, this.clouds.fb);
+                        gl.viewport(0, 0, Math.max(1, W >> 1), Math.max(1, H >> 1));
+                        gl.clearColor(0, 0, 0, 0);
+                        gl.clear(gl.COLOR_BUFFER_BIT);
+                    }
+                    common(this.brush, half ? f.pxPerUnit / 2 : f.pxPerUnit);
+                    gl.uniform1f(this.brush.u.frameNo, f.clocks[3]);
+                    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, f.count);
+                    if (half) {
+                        gl.bindFramebuffer(gl.FRAMEBUFFER, into);
+                        gl.viewport(0, 0, W, H);
+                        gl.useProgram(this.copy.p);
+                        gl.activeTexture(gl.TEXTURE0);
+                        gl.bindTexture(gl.TEXTURE_2D, this.clouds.tex);
+                        gl.uniform1i(this.copy.u.src, 0);
+                        gl.bindVertexArray(this.quadVAO);
+                        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+                        gl.bindVertexArray(this.particleVAO);
+                    }
+                }
+                // 3. Everything else.
+                common(this.particle, f.pxPerUnit);
+                gl.uniform4fv(this.particle.u.clocks, f.clocks);
+                gl.uniform1f(this.particle.u.lighting, f.lighting);
+                gl.uniform1i(this.particle.u.passMode, 0);
                 gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, f.count);
             }
             if (kaleido) {
@@ -799,8 +1116,19 @@ void main() { uv = vec2(tc.x, 1.0 - tc.y); gl_Position = vec4(pos.x / px.x * 2.0
                 kaleido = kaleidoMesh(W, H, s, axis);
             }
 
+            // Wall-clock timers the 2D renderer reads from Date.now(), reduced
+            // to small angles so the GPU's floats stay precise.
+            const T = Date.now() * 0.00008;
+            this.frameNo = ((this.frameNo || 0) + 1) % 997;
+            const clocks = [T % TAU, (T * 0.73) % TAU, (Date.now() * 0.016) % TAU, this.frameNo];
+            const lighting = s.particleLighting === "pearl" ? 2 : (s.particleLighting && s.particleLighting !== "glow" ? 1 : 0);
+
             this.renderer.draw({
-                instances: this.field.pack(),
+                clocks, lighting,
+                instances: this.field.pack(s),
+                hasBrush: this.field.hasBrush,
+                brushHalfRes: this.brushHalfRes !== false,
+                hasCloud: this.field.hasCloud,
                 count: this.field.n,
                 sceneToClip: m,
                 pxPerUnit: scale * r,
@@ -874,7 +1202,7 @@ void main() { uv = vec2(tc.x, 1.0 - tc.y); gl_Position = vec4(pos.x / px.x * 2.0
     }
 
     // Shapes the GL path can draw so far (everything else stays 2D).
-    const SUPPORTED_SHAPES = new Set(["ellipse"]);
+    const SUPPORTED_SHAPES = new Set(["ellipse", "drop", "ring", "cluster", "brush", "acid", "aquatic", "nebula"]);
 
     root.TvGLCore = {
         simplexNoise, curlNoise, Field, Renderer, Engine, Pacer, runLoop, SUPPORTED_SHAPES,

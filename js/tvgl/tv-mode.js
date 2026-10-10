@@ -18,7 +18,9 @@
     let lastPalette = "", lastBg = "", hooked = null;
 
     function supports(sim) {
-        return !sim.isSolidMode && TvGLCore.SUPPORTED_SHAPES.has(sim.settings.particleShape || "ellipse");
+        // A preset's own sprite shape (js/particle-sprites.js) isn't on the GPU yet.
+        const sprite = window.ParticleSprites && ParticleSprites.resolve(sim.settings);
+        return !sim.isSolidMode && !sprite && TvGLCore.SUPPORTED_SHAPES.has(sim.settings.particleShape || "ellipse");
     }
 
     function makeCanvas() {
