@@ -1,3 +1,13 @@
+## 2026-10-10 GPU TV renderer (Claude, PR #21 open)
+
+TV mode draws scenes with a WebGL2 renderer in a worker (js/tvgl/, plan + status in
+TV_RENDERER.md): plain flow shapes are ported to shaders; authored presets run their ORIGINAL
+simulation code against a recording canvas whose draws become GPU primitives. On a Fire TV
+Stick 4K Max the whole Flow runs at ~25 fps, native 1080p, near-full density (2D was 4–20 fps at
+reduced quality). Still 2D: Celtic Knotwork, Supernova, Molecular Dance, Stellar Nursery, Liquid
+Chrome, Mandelbrot, sprite-shape presets. Changing js/simulation.js: run
+scratch/tvgl_core_tests.js and scratch/tvgl_recorder_tests.js (both in the gates).
+
 ## 2026-10-09 Fire TV app + TV mode (Claude, PR #21 open)
 
 Fire TV app = private repo clayvanderburg/eternal-void-tv (C:\Users\MadKing\dev\eternal-void-tv):
