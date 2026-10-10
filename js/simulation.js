@@ -14,6 +14,14 @@ const grad3 = [
 
 const ECLIPSED_SUNS = 66;
 
+// Clock for the draw-time animations (orb light, eclipse spin, twinkle...):
+// milliseconds since this page loaded, not since 1970. Same speeds; it only
+// moves the arbitrary starting phase. Date.now() times their speed factors
+// reached billions of radians, where Math.sin/cos are many times slower
+// (Supernova spent most of its frame there).
+const ANIM_EPOCH = Date.now();
+function animNow() { return Date.now() - ANIM_EPOCH; }
+
 const MINI_SPIRALS = [
     { minR: 0.010, maxR: 0.15, turns: 11, dir: -1, spin: 0.0062, travel: 0.00050 },
     { minR: 0.010, maxR: 0.12, turns: 13, dir: 1, spin: 0.0048, travel: 0.00042 },
@@ -1343,7 +1351,7 @@ class Particle {
 
     drawLitOrb(ctx, radius, alpha, settings) {
         const lighting = settings.particleLighting || "glow";
-        const time = Date.now() * 0.00008;
+        const time = animNow() * 0.00008;
         const lightX = Math.cos(time + this.effectPhase);
         const lightY = Math.sin(time * 0.73 + this.effectPhase);
         const accent = this.palette?.[(this.colorIndex + 1) % this.palette.length] || this.color;
@@ -1408,18 +1416,46 @@ class Particle {
         return base * (1 + amp * (0.38 * w1 + 0.28 * w2 + 0.20 * w3 + 0.16 * w4) + spike * amp * 1.8);
     }
 
-    strokeEclipseRim(ctx, base, spin, amp, seed, color, alpha, width) {
-        const steps = 80;
+    // The eclipseRimRadius outline as a path. Each wave is sin(k*a + phase)
+    // over evenly spaced angles, so it is stepped by rotation instead of a
+    // sin() per point; small suns use fewer points (segments stay ~1.5 px).
+    traceEclipseRim(ctx, base, spin, amp, seed) {
+        const steps = Math.max(40, Math.min(80, Math.round(base * 4)));
+        const da = (Math.PI * 2) / steps;
+        const k1 = 2.7 + (seed % 3) * 0.4, p1 = spin + seed;
+        const k2 = 4.6 + seed * 0.35, p2 = -spin * 1.41 + seed * 1.7;
+        const k3 = 7.3 + (seed % 5) * 0.2, p3 = spin * 0.58;
+        const k4 = 11.1 - seed * 0.15, p4 = spin * 2.05 + seed * 0.6;
+        const k5 = 2.15 + seed * 0.18, p5 = spin * 1.85 + seed * 2.1;
+        const power = 5 + (seed % 4);
+        let s1 = Math.sin(p1), c1 = Math.cos(p1); const r1c = Math.cos(k1 * da), r1s = Math.sin(k1 * da);
+        let s2 = Math.sin(p2), c2 = Math.cos(p2); const r2c = Math.cos(k2 * da), r2s = Math.sin(k2 * da);
+        let s3 = Math.sin(p3), c3 = Math.cos(p3); const r3c = Math.cos(k3 * da), r3s = Math.sin(k3 * da);
+        let s4 = Math.sin(p4), c4 = Math.cos(p4); const r4c = Math.cos(k4 * da), r4s = Math.sin(k4 * da);
+        let s5 = Math.sin(p5), c5 = Math.cos(p5); const r5c = Math.cos(k5 * da), r5s = Math.sin(k5 * da);
+        let sa = 0, ca = 1; const rac = Math.cos(da), ras = Math.sin(da);
         ctx.beginPath();
         for (let i = 0; i <= steps; i++) {
-            const a = (i / steps) * Math.PI * 2;
-            const rr = this.eclipseRimRadius(a, base, spin, amp, seed);
-            const x = this.x + Math.cos(a) * rr;
-            const y = this.y + Math.sin(a) * rr;
+            let spike = s5 > 0 ? s5 : 0, sp = spike;
+            for (let n = 1; n < power; n++) sp *= spike;
+            const rr = base * (1 + amp * (0.38 * s1 + 0.28 * s2 + 0.20 * s3 + 0.16 * s4) + sp * amp * 1.8);
+            const x = this.x + ca * rr;
+            const y = this.y + sa * rr;
             if (i === 0) ctx.moveTo(x, y);
             else ctx.lineTo(x, y);
+            let t;
+            t = s1 * r1c + c1 * r1s; c1 = c1 * r1c - s1 * r1s; s1 = t;
+            t = s2 * r2c + c2 * r2s; c2 = c2 * r2c - s2 * r2s; s2 = t;
+            t = s3 * r3c + c3 * r3s; c3 = c3 * r3c - s3 * r3s; s3 = t;
+            t = s4 * r4c + c4 * r4s; c4 = c4 * r4c - s4 * r4s; s4 = t;
+            t = s5 * r5c + c5 * r5s; c5 = c5 * r5c - s5 * r5s; s5 = t;
+            t = sa * rac + ca * ras; ca = ca * rac - sa * ras; sa = t;
         }
         ctx.closePath();
+    }
+
+    strokeEclipseRim(ctx, base, spin, amp, seed, color, alpha, width) {
+        this.traceEclipseRim(ctx, base, spin, amp, seed);
         ctx.strokeStyle = color;
         ctx.globalAlpha = alpha;
         ctx.lineWidth = width;
@@ -1429,21 +1465,11 @@ class Particle {
     drawWavyEclipse(ctx, drawAlpha) {
         const r = this.sunBaseR || 40;
         const seed = this.index + 1;
-        const spinA = Date.now() * (this.sunSpinSpeed || 0.0015) + (this.effectPhase || 0);
-        const spinB = -Date.now() * ((this.sunSpinSpeed || 0.0015) * 1.35) + seed * 0.9;
+        const spinA = animNow() * (this.sunSpinSpeed || 0.0015) + (this.effectPhase || 0);
+        const spinB = -animNow() * ((this.sunSpinSpeed || 0.0015) * 1.35) + seed * 0.9;
         ctx.save();
 
-        ctx.beginPath();
-        const steps = 80;
-        for (let i = 0; i <= steps; i++) {
-            const a = (i / steps) * Math.PI * 2;
-            const rr = this.eclipseRimRadius(a, r * 1.06, spinA, 0.16, seed);
-            const x = this.x + Math.cos(a) * rr;
-            const y = this.y + Math.sin(a) * rr;
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
+        this.traceEclipseRim(ctx, r * 1.06, spinA, 0.16, seed);
         ctx.fillStyle = this.color;
         ctx.globalAlpha = drawAlpha * 0.22;
         ctx.fill();
@@ -1550,7 +1576,7 @@ class Particle {
         if (shape === "aurora") {
             if (this.effectRole < 0.92) {
                 const curtainHeight = drawSize * (9 + this.effectLane * 18);
-                const bend = Math.sin(Date.now() * 0.00012 + this.effectPhase) * drawSize * 2.2;
+                const bend = Math.sin(animNow() * 0.00012 + this.effectPhase) * drawSize * 2.2;
                 ctx.strokeStyle = this.color;
                 ctx.lineCap = "round";
                 ctx.globalAlpha = drawAlpha * 0.10;
@@ -1990,7 +2016,7 @@ class Particle {
                 drawSize = size * 0.35; // make foreground stars tiny
                 // Star twinkling flicker frequency modulation (using Date.now() to avoid undefined globalTime references)
                 this.twinkleOffset = this.twinkleOffset || Math.random() * 100;
-                const timeSec = Date.now() * 0.001;
+                const timeSec = animNow() * 0.001;
                 const flicker = 0.10 + Math.sin(timeSec * 16.0 + this.twinkleOffset) * 0.90; // highly twinkly/blinky
                 drawAlpha = alpha * flicker * 0.95;
             }
@@ -2014,7 +2040,7 @@ class Particle {
                 this.drawLitOrb(ctx, drawSize * 1.5, drawAlpha * 0.95, settings);
             } else {
                 sprites.draw(ctx, this.x, this.y, drawSize * 1.5, angle, this.color, drawAlpha, sprite,
-                    Date.now() * 0.001, this.effectPhase || this.randomSizeOffset || 0);
+                    animNow() * 0.001, this.effectPhase || this.randomSizeOffset || 0);
             }
             return;
         }
@@ -2160,7 +2186,7 @@ class Particle {
             ctx.fill();
             
             // Circle D: moving palette-tinted reflection; no fixed white sticker.
-            const lightTime = Date.now() * 0.00008 + this.effectPhase;
+            const lightTime = animNow() * 0.00008 + this.effectPhase;
             const lightX = Math.cos(lightTime);
             const lightY = Math.sin(lightTime * 0.73);
             ctx.fillStyle = this.palette?.[(this.colorIndex + 1) % this.palette.length] || this.color;
@@ -2222,6 +2248,9 @@ class FlowSimulation {
         
         // Viewport scale factor (derived relative to standard 1600px desktop width)
         this.viewportScale = Math.min(2.0, Math.max(0.42, this.width / 1600));
+        // Device budget on top of the preset's density (1 = full). TV mode lowers
+        // it while the frame rate is low; see VoidDevice.onFps in device-mode.js.
+        this.particleScale = 1;
         
         this.particles = [];
         this.customForces = []; // Drawn vectors field paint
@@ -2437,7 +2466,7 @@ class FlowSimulation {
         this.particles = [];
         // Scale particle count slightly based on screen width so mobile isn't overloaded
         const scaleRef = Math.max(0.42, this.viewportScale || 1.0);
-        const count = Math.round(this.settings.density * (0.35 + scaleRef * 0.65));
+        const count = Math.round(this.settings.density * (0.35 + scaleRef * 0.65) * this.particleScale);
         for (let i = 0; i < count; i++) {
             const p = new Particle(this.width, this.height, this.palette);
             p.index = i;
@@ -2448,9 +2477,14 @@ class FlowSimulation {
         window.particleArray = this.particles;
     }
 
+    setParticleScale(scale) {
+        this.particleScale = scale;
+        this.updateDensity();
+    }
+
     updateDensity() {
         const scaleRef = Math.max(0.42, this.viewportScale || 1.0);
-        const target = Math.round(this.settings.density * (0.35 + scaleRef * 0.65));
+        const target = Math.round(this.settings.density * (0.35 + scaleRef * 0.65) * this.particleScale);
         while (this.particles.length < target) {
             const p = new Particle(this.width, this.height, this.palette);
             p.index = this.particles.length;
@@ -2559,7 +2593,7 @@ class FlowSimulation {
     }
 
     triggerBurst(x, y, count = 10) {
-        const maxLimit = this.settings.density * 1.5; // caps absolute overheads
+        const maxLimit = this.settings.density * 1.5 * this.particleScale; // caps absolute overheads
         if (this.particles.length >= maxLimit) return;
         
         const countToSpawn = Math.min(count, Math.max(0, maxLimit - this.particles.length));
@@ -2629,9 +2663,11 @@ class FlowSimulation {
         // Delta time calculator
         const now = Date.now();
         const elapsedSeconds = Math.max(0, (now - this.lastFrameTime) / 1000);
-        const delta = Math.min(elapsedSeconds, 0.05); // cap particle-physics steps at 50ms
+        // Step caps (50 ms, 2/60 s). The TV renderer's worker raises them so a
+        // steady 25 fps keeps full speed (js/tvgl/recorder.js).
+        const delta = Math.min(elapsedSeconds, this.maxStepSeconds || 0.05);
         this.lastFrameTime = now;
-        const dt = Math.min(delta * 60, 2.0); // normalized step, 1.0 at 60 FPS
+        const dt = Math.min(delta * 60, this.maxStepDt || 2.0); // normalized step, 1.0 at 60 FPS
         this.globalTime += delta * 60; // normalized speed steps
         if (this.settings.particleShape === "pendulumSpiral") this.syncMiniHosts(dt);
         const currentSpeed = Math.max(0, Number(this.settings.speed ?? 1.0));
@@ -2838,7 +2874,7 @@ class FlowSimulation {
                     this.particles.splice(i, 1);
                 }
             }
-            const targetCount = this.settings.density;
+            const targetCount = this.settings.density * this.particleScale;
             if (this.particles.length > targetCount) {
                 // If we are still over the target density limit, trim recycled particles
                 for (let i = this.particles.length - 1; i >= targetCount; i--) {

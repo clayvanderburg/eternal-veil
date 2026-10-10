@@ -24,7 +24,8 @@ const CelticKnotwork = (() => {
             const sine = Math.sin(angle);
             // A rounded-square contour gives the familiar four-sided knot
             // silhouette; the sinusoidal radial offset interlaces its strands.
-            const square = 1 / Math.sqrt(Math.sqrt(cosine ** 4 + sine ** 4));
+            const c2 = cosine * cosine, s2 = sine * sine;
+            const square = 1 / Math.sqrt(Math.sqrt(c2 * c2 + s2 * s2));
             const x = cosine * r * square;
             const y = sine * r * square;
             if (i === 0) ctx.moveTo(x, y);
@@ -46,7 +47,8 @@ const CelticKnotwork = (() => {
             + strandOffset(wave, folds, phase, strand, angle);
         const cosine = Math.cos(angle);
         const sine = Math.sin(angle);
-        const square = 1 / Math.sqrt(Math.sqrt(cosine ** 4 + sine ** 4));
+        const c2 = cosine * cosine, s2 = sine * sine;
+        const square = 1 / Math.sqrt(Math.sqrt(c2 * c2 + s2 * s2));
         return [cosine * r * square, sine * r * square];
     }
 

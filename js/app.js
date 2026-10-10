@@ -1824,8 +1824,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const rndInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
         const foldMode = { foldsGrowing: "growing", foldsDoubling: "doubling", foldsAlternating: "alternating" }[effect];
         const spin = effect === "spinningAxes" || effect === "axesRings" || (!!foldMode && Math.random() < spinChance);
+        // Each ring costs a full-canvas copy; a TV's GPU manages two.
+        const maxRings = globalThis.VoidDevice?.maxKaleidoRings ?? 4;
         set("spinningKaleido", !isComfortMode && !!effect && spin);
-        set("kaleidoAxesRings", effect === "axesRings" ? rndInt(2, 4) : foldMode ? rndInt(3, 4) : 1);
+        set("kaleidoAxesRings", Math.min(maxRings, effect === "axesRings" ? rndInt(2, 4) : foldMode ? rndInt(3, 4) : 1));
         set("kaleidoRingFolds", foldMode || "same");
         if (foldMode === "growing") set("kaleidoRingStep", rndInt(1, 3));
         elements.spinningKaleidoToggle.checked = sim.settings.spinningKaleido;
@@ -2468,7 +2470,7 @@ document.addEventListener("DOMContentLoaded", () => {
             : (effectivePersonality === "wild" ? wildPatterns : alivePatterns);
         const availablePool = pool.filter(shape => {
             const presetKey = FLOW_PRESET_PATTERNS[shape]?.preset || getPresetByShape(shape);
-            return !presetKey || !excludedPresetKeys.has(presetKey);
+            return !presetKey || (!excludedPresetKeys.has(presetKey) && !globalThis.VoidDevice?.flowSkip?.has(presetKey));
         });
         if (!availablePool.length) return null;
         // Mandala Zen is one of Flow's strongest visual identities. Give it
@@ -4106,11 +4108,13 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                     break;
                 case "arrowleft":
+                    if (window.VoidDevice?.isTV) break; // remote D-pad moves focus instead
                     e.preventDefault();
                     const prevState = ConfigHistory.back();
                     if (prevState) applyHistoryState(prevState);
                     break;
                 case "arrowright":
+                    if (window.VoidDevice?.isTV) break;
                     e.preventDefault();
                     const nextState = ConfigHistory.forward();
                     if (nextState) applyHistoryState(nextState);
@@ -4930,6 +4934,12 @@ document.addEventListener("DOMContentLoaded", () => {
     
     function tickLoop() {
         if (is3DMode) return;
+        // TV mode paces frames evenly (e.g. every 2nd refresh) to buy each
+        // frame more time for resolution and detail; motion is time-based.
+        if (globalThis.VoidDevice?.skipFrame?.()) {
+            requestAnimationFrame(tickLoop);
+            return;
+        }
         
         // Run real-time music reactivity modulation
         processMusicReactivity();
@@ -4938,8 +4948,9 @@ document.addEventListener("DOMContentLoaded", () => {
         // Run physics morph morph transitions
         processMorphs();
         
-        // Tick particle movements on canvas
-        sim.tick();
+        // Tick particle movements on canvas (on TV the GPU renderer may draw
+        // this scene instead: js/tvgl/tv-mode.js)
+        if (!globalThis.VoidDevice?.tvgl?.frame(sim)) sim.tick();
         window.VisualPlaylists?.dissolveFrame(sim);
         
         // Diagnostic updates in HUD (FPS Counter limit updates to every 500ms)
@@ -4949,10 +4960,12 @@ document.addEventListener("DOMContentLoaded", () => {
             updateSignatureControlsVisibility();
             const fps = Math.round((frameCount * 1000) / (now - lastFpsTime));
             elements.hudFps.textContent = fps;
-            elements.hudParticles.textContent = sim.particles.length;
-            
+            elements.hudParticles.textContent = globalThis.VoidDevice?.tvgl?.active
+                ? (VoidDevice.tvglStats?.count ?? sim.particles.length) : sim.particles.length;
+
             updatePerfDiagnosticConsole(fps);
-            
+            window.VoidDevice?.onFps?.(fps, sim);
+
             // Track low performance runs (FPS < 32 for 3 consecutive readings = 1.5 seconds)
             if (fps < 32) {
                 window.lowFpsTicks = (window.lowFpsTicks || 0) + 1;

@@ -1,0 +1,55 @@
+/* ==========================================================================
+   ETERNAL VOID - TV MODE
+   Applies when js/device-mode.js tags <html data-device="tv"> (Fire TV app,
+   smart-TV browsers, or ?device=tv). Remote-friendly focus, and no controls
+   a TV can't use.
+   ========================================================================== */
+
+/* A focus ring you can see from the couch. */
+[data-device="tv"] :focus {
+    outline: 3px solid #9fe8ff !important;
+    outline-offset: 3px;
+    box-shadow: 0 0 0 6px rgba(120, 200, 255, 0.28), 0 0 22px rgba(140, 210, 255, 0.55) !important;
+    border-radius: 8px;
+}
+[data-device="tv"] input[type="range"]:focus {
+    outline-offset: 6px;
+}
+
+/* Hover tooltips never show on a remote; the focus ring replaces them. */
+[data-device="tv"] .tool-tip::before,
+[data-device="tv"] .tool-tip::after {
+    display: none !important;
+}
+
+/* Nothing to plug in, upload, record or go fullscreen with on a TV. */
+[data-device="tv"] #mic-react-btn,
+[data-device="tv"] #system-react-btn,
+[data-device="tv"] #upload-react-btn,
+[data-device="tv"] #capture-snapshot-btn,
+[data-device="tv"] #record-flow-btn,
+[data-device="tv"] #fullscreen-toggle-btn,
+[data-device="tv"] #enter-vr-btn,
+[data-device="tv"] #hud-share-native {
+    display: none !important;
+}
+
+/* The control panel scrolls with the D-pad; keep the focused row clear of
+   the TV's edges. */
+[data-device="tv"] .control-panel {
+    scroll-padding: 48px 0;
+}
+
+/* Glass blur re-blurs the moving scene every frame: on a Fire TV Stick the
+   frame rate fell from 42 to 27 fps whenever the controls showed. On TV the
+   panels are solid and a little darker instead, so text stays readable. */
+[data-device="tv"] * {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+[data-device="tv"] {
+    --bg-panel: rgba(8, 8, 12, 0.9);
+}
+[data-device="tv"] .hud-container {
+    background: rgba(8, 8, 12, 0.82);
+}

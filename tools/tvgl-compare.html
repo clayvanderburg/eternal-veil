@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TV Renderer Compare</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font: 13px/1.4 system-ui, sans-serif; color: #cfe9ff; }
+  canvas { position: fixed; top: 0; display: block; }
+  #label2d, #labelgl { position: fixed; top: 8px; padding: 4px 8px; background: rgba(0,0,0,.6); border-radius: 6px; font-family: monospace; z-index: 2; }
+  #label2d { left: 8px; } #labelgl { right: 8px; }
+  #bar { position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%); display: flex; gap: 6px; z-index: 3; flex-wrap: wrap; justify-content: center; }
+  #bar button { background: rgba(20,24,40,.85); color: #dcefff; border: 1px solid #3a4a70; border-radius: 8px; padding: 6px 10px; font: inherit; cursor: pointer; }
+  #bar button.on { background: #3b4fa0; border-color: #9fe8ff; }
+  #bar button:focus { outline: 3px solid #9fe8ff; outline-offset: 2px; }
+  #ab { position: fixed; left: 40px; top: 32px; font: 700 64px/1 system-ui, sans-serif; letter-spacing: 4px; z-index: 4;
+    color: #fff; text-shadow: 0 0 18px #000, 0 0 4px #000; display: none; }
+  #ab small { display: block; font: 500 22px/1.4 system-ui, sans-serif; letter-spacing: 0; margin-top: 10px; color: #cfe9ff; }
+  #hint { position: fixed; left: 0; right: 0; bottom: 28px; text-align: center; font: 500 24px/1.4 system-ui, sans-serif; z-index: 4;
+    color: #fff; text-shadow: 0 0 12px #000, 0 0 3px #000; display: none; }
+  #divider { position: fixed; top: 0; bottom: 0; width: 2px; background: rgba(159,232,255,.5); z-index: 2; }
+</style>
+</head>
+<body>
+<div id="label2d"></div><div id="labelgl"></div><div id="divider"></div>
+<div id="bar"></div>
+<div id="ab"></div>
+<div id="hint">Is NEW as good as TODAY? Watch the colours, the glow, how long the trails are, and how fast things move.<br>OK = switch now · ◀ ▶ = another preset</div>
+<script src="../js/presets.js"></script>
+<script src="../js/simulation.js"></script>
+<script src="../js/preset-compositions.js"></script>
+<script src="../js/celtic-currents.js"></script>
+<script src="../js/cymatic-resonance.js"></script>
+<script src="../js/celtic-knotwork.js"></script>
+<script src="../js/tvgl/core.js"></script>
+<script src="../js/tvgl/recorder.js"></script>
+<script src="../js/tvgl/host.js"></script>
+<script>
+// Side-by-side check for the GPU TV renderer (TV_RENDERER.md, phase 1):
+// left = the 2D canvas renderer (js/simulation.js), right = js/tvgl, both
+// reading the SAME settings object, so any difference is the renderer.
+// ?mode=split|gl|2d|ab  ?preset=ethereal|strings|chakra  ?res=<px per css px>
+// ab: one renderer full screen at a time, big TODAY / NEW label, switches every
+// 20 s; OK (Enter) switches now, Left/Right change preset. Made for the TV.
+// ?worker=0 runs the GL engine on the page instead of a worker.
+"use strict";
+const q = new URLSearchParams(location.search);
+// Every preset whose particle shape the GPU renderer draws.
+const PRESETS = Object.keys(StylePresets).filter(k => !StylePresets[k].hidden && (
+  TvGLCore.SUPPORTED_SHAPES.has(StylePresets[k].particleShape || "ellipse")
+  || TvGLRecorder.RECORDED_SHAPES.has(StylePresets[k].particleShape)));
+const state = { mode: q.get("mode") || "split", preset: PRESETS.includes(q.get("preset")) ? q.get("preset") : "ethereal",
+  res: Number(q.get("res")) || Math.min(2, window.devicePixelRatio || 1) };
+
+// Preset -> settings, as js/app.js loadPreset does (without the morph).
+function presetSettings(key) {
+  const p = StylePresets[key];
+  return {
+    speed: p.speed, turbulence: p.turbulence, flowOrganic: p.curl, density: p.density, dissipation: p.dissipation,
+    zoom: p.zoom, baseSize: p.size, sizeVariation: p.sizeVar, stretch: p.stretch, interaction: p.interaction,
+    rotationSpeed: p.rotationSpeed, wobble: p.wobble, psychedelicMode: p.psychedelicMode === true,
+    morphingBg: p.morphingBg === true, spinningKaleido: p.spinningKaleido === true,
+    particleShape: p.particleShape || "ellipse", kaleidoscopeEnabled: p.kaleidoscopeEnabled === true,
+    kaleidoscopeSegments: p.kaleidoscopeSegments || 6
+  };
+}
+
+let sim2d = null, gl = null, loop2d = null, stats2d = { fps: 0 };
+const W = innerWidth, H = innerHeight;
+
+function layout() {
+  const half = state.mode === "split";
+  const w = half ? Math.floor(W / 2) : W;
+  return { w, h: H, left2d: 0, leftGl: half ? W - w : 0 };
+}
+
+let abShowing = "2d", abTimer = null;
+async function start() {
+  stop();
+  const ab = state.mode === "ab";
+  const realMode = ab ? abShowing : state.mode;
+  const saved = state.mode;
+  state.mode = realMode;
+  try { await startMode(); } finally { state.mode = saved; }
+  document.getElementById("ab").style.display = ab ? "block" : "none";
+  document.getElementById("hint").style.display = ab ? "block" : "none";
+  document.getElementById("bar").style.display = ab ? "none" : "";
+  document.getElementById("label2d").style.visibility = ab ? "hidden" : "";
+  document.getElementById("labelgl").style.visibility = ab ? "hidden" : "";
+  if (ab) {
+    document.getElementById("ab").innerHTML = (abShowing === "2d" ? "TODAY" : "NEW") +
+      `<small>${StylePresets[state.preset].name} · ${abShowing === "2d" ? "the current renderer" : "the new GPU renderer"}</small>`;
+    clearTimeout(abTimer);
+    abTimer = setTimeout(abSwitch, 20000);
+  }
+}
+function abSwitch() { abShowing = abShowing === "2d" ? "gl" : "2d"; start(); }
+window.addEventListener("keydown", e => {
+  if (state.mode !== "ab") return;
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abSwitch(); }
+  else if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+    e.preventDefault();
+    const i = PRESETS.indexOf(state.preset) + (e.key === "ArrowRight" ? 1 : -1);
+    state.preset = PRESETS[(i + PRESETS.length) % PRESETS.length];
+    abShowing = "2d";
+    start();
+  }
+});
+async function startMode() {
+  const L = layout();
+  const settings = presetSettings(state.preset);
+  const palette = [...StylePresets[state.preset].colors];
+  document.getElementById("divider").style.display = state.mode === "split" ? "" : "none";
+  document.getElementById("divider").style.left = (L.leftGl - 1) + "px";
+
+  if (state.mode !== "gl") {
+    const c = document.createElement("canvas");
+    c.id = "c2d";
+    c.style.left = L.left2d + "px"; c.style.width = L.w + "px"; c.style.height = L.h + "px";
+    document.body.appendChild(c);
+    sim2d = new FlowSimulation("c2d");
+    Object.assign(sim2d.settings, settings);
+    sim2d.palette = palette;
+    sim2d.resize(L.w, L.h, state.res);
+    sim2d.spawnParticles();
+    const pacer = new TvGLCore.Pacer(2);
+    let frames = 0, t0 = 0, running = true;
+    (function tick(now) {
+      if (!running) return;
+      requestAnimationFrame(tick);
+      if (!pacer.tick(now)) return;
+      sim2d.tick();
+      frames++;
+      if (!t0) t0 = now;
+      if (now - t0 >= 1000) { stats2d = { fps: +(frames * 1000 / (now - t0)).toFixed(1), count: sim2d.particles.length }; frames = 0; t0 = now; label(); }
+    })(performance.now());
+    loop2d = { stop() { running = false; } };
+  }
+  if (state.mode !== "2d") {
+    const c = document.createElement("canvas");
+    c.id = "cgl";
+    c.style.left = L.leftGl + "px"; c.style.width = L.w + "px"; c.style.height = L.h + "px";
+    document.body.appendChild(c);
+    // Both renderers start from the same settings (the 2D sim's own object when it runs).
+    gl = await TvGL.create(c, { width: L.w, height: L.h, resolution: state.res, every: 2,
+      worker: q.get("worker") !== "0", settings: sim2d ? sim2d.settings : settings, palette, background: "#000000" });
+    gl.onStats = label;
+  }
+  label();
+  buildBar();
+}
+
+function stop() {
+  clearTimeout(abTimer);
+  loop2d && loop2d.stop(); loop2d = null;
+  gl && gl.destroy(); gl = null;
+  sim2d = null;
+  document.querySelectorAll("canvas").forEach(c => c.remove());
+  stats2d = { fps: 0 };
+}
+
+function label() {
+  const l2 = document.getElementById("label2d"), lg = document.getElementById("labelgl");
+  l2.style.display = state.mode === "gl" ? "none" : "";
+  lg.style.display = state.mode === "2d" ? "none" : "";
+  l2.textContent = `2D canvas  ${stats2d.fps} fps  n=${stats2d.count ?? "-"}`;
+  const s = gl && gl.stats;
+  lg.textContent = gl ? `GL (${gl.mode})  ${s ? s.fps : 0} fps  n=${s ? s.count : "-"}  ${s ? s.workMs + " ms" : ""}` : "";
+}
+
+function buildBar() {
+  const bar = document.getElementById("bar");
+  bar.innerHTML = "";
+  const btn = (text, on, fn) => { const b = document.createElement("button"); b.textContent = text; b.className = on ? "on" : ""; b.onclick = fn; bar.appendChild(b); return b; };
+  for (const k of PRESETS) btn(StylePresets[k].name, state.preset === k, () => { state.preset = k; start(); });
+  for (const m of ["ab", "split", "gl", "2d"]) btn(m === "ab" ? "Today / New" : m === "split" ? "Side by side" : m === "gl" ? "GL only" : "2D only", state.mode === m, () => { state.mode = m; start(); });
+  btn("Kaleido " + (currentSettings().kaleidoscopeEnabled ? "on" : "off"), false, () => toggle("kaleidoscopeEnabled"));
+  btn("Spin " + (currentSettings().spinningKaleido ? "on" : "off"), false, () => toggle("spinningKaleido"));
+  btn("Shockwave", false, () => {
+    const L = layout();
+    sim2d && sim2d.triggerShockwave(L.w / 2, L.h / 2);
+    gl && gl.shockwave(L.w / 2, L.h / 2);
+  });
+}
+
+function currentSettings() { return sim2d ? sim2d.settings : (window.__glSettings ||= presetSettings(state.preset)); }
+function toggle(key) {
+  const s = currentSettings();
+  s[key] = !s[key];
+  gl && gl.setSettings(s);
+  buildBar();
+}
+
+// For measuring from DevTools: await compare.measure(4000)
+window.compare = {
+  state, start,
+  measure(ms = 4000) { return new Promise(r => setTimeout(() => r({ mode: state.mode, preset: state.preset, res: state.res,
+    d2: state.mode === "gl" ? null : stats2d, gl: gl ? { ...gl.stats, mode: gl.mode } : null }), ms)); },
+  set(o) { Object.assign(state, o); return start(); },
+  settings: currentSettings,
+  push() { gl && gl.setSettings(currentSettings()); }
+};
+start();
+</script>
+</body>
+</html>
