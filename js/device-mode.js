@@ -70,13 +70,13 @@
     window.VoidDevice = VoidDevice;
     if (!isTV) return;
 
-    // Measured on a Fire TV Stick 4K Max (PowerVR GE9215): these eight draw
+    // Measured on a Fire TV Stick 4K Max (PowerVR GE9215): these seven draw
     // too much to hold 25 fps at a sharp resolution (5-17 fps) and the GPU
-    // renderer (js/tvgl) doesn't draw them yet (Fractal Nebula left the list
-    // once it did), so Flow skips them on TV; they can still be picked by hand.
+    // renderer (js/tvgl) doesn't hold 25 fps on them yet (Fractal Nebula and
+    // Cymatic Resonance left the list once it did; Celtic Current is 21 fps), so Flow skips them on TV; they can still be picked by hand.
     // Fold effects stop at two rings (3+ rings: 23-30 fps, 2 rings: 44-49).
     VoidDevice.flowSkip = new Set(["mandelbrotDive", "molecularDance", "celticKnotwork", "celticCurrent",
-        "cymaticResonance", "liquidChrome", "supernova", "stellarNursery"]);
+        "liquidChrome", "supernova", "stellarNursery"]);
     VoidDevice.maxKaleidoRings = 2;
     document.addEventListener("DOMContentLoaded", () => {
         window.MandelbrotDive?.setTuning?.({ detail: 1.0, resolution: 0.5 });
@@ -232,7 +232,7 @@
             const file = files.shift();
             if (!file) return;
             const el = document.createElement("script");
-            el.src = file + "?v=tvgl-3";
+            el.src = file + "?v=tvgl-4";
             el.onload = next;
             el.onerror = () => console.warn("TV renderer: could not load " + file);
             document.body.appendChild(el);

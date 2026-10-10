@@ -77,6 +77,25 @@ Known differences: the GL engine allows a 3.6/60 s step (the 2D renderer caps at
 at 25 fps 2D motion and trail fade run ~17% slow, and much slower when 2D drops to 8 fps).
 Not yet in GL: MusicMoods steering and treble sparkles, mouse/paint forces, meditation scaling.
 
+**Phase 2 (flow shapes) — done** (e2ca093): drop, ring, cluster, brush, lit orb, nebula, aquatic,
+acid. Nebula clouds and brush strokes at half resolution. All 9 presets 25 fps at full density.
+
+**Phase 3 (authored presets) — done** (38af4c0 + module scenes): `js/tvgl/recorder.js` runs the
+ORIGINAL simulation in the worker against a recording canvas; draws become GPU primitives (oriented
+ellipses, rings, per-segment polyline strokes that keep only their nearest pixels, polygons). Big
+faint shapes at half resolution. A worker governor lowers a scene's particle count only when it
+can't hold 25 fps (resolution stays native) and remembers the level per shape.
+On the Stick: 22 authored presets mostly 25 fps at full density (Mandala Zen 25 vs 2D 9; Aurora
+holds 25 at ~30% density; Prism Drift/Quantum Grid/Fractal Nebula at reduced density). Module
+scenes Cymatic Resonance (25 fps) and Celtic Current (21 fps) also run through the recorder. A
+3-minute in-app Flow run was entirely on the GPU, no errors.
+
+**Still 2D** (and on the TV Flow skip list where slow): Celtic Knotwork and Supernova (fit the
+recorder but emit thousands of tiny path points: 2–4 fps in the worker; needs outline thinning and
+a leaner recorder), Molecular Dance (sprites, gradients, additive blending), Stellar Nursery
+(pixel data), Liquid Chrome (gradients), Mandelbrot Dive (port its shader into the worker), and
+presets using a sprite shape (`particleSprite`).
+
 ## Rules
 
 - Presets keep their look: every ported preset gets a side-by-side canvas/GL check and

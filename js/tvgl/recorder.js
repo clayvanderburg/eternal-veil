@@ -738,10 +738,16 @@ void main() {
         this.cur = 1 - this.cur;
     };
 
-    // Authored scenes the recorder draws (Particle-based, canvas subset only).
-    // The module scenes (Celtic, Molecular, Cymatic, Stellar, Chrome, Mandelbrot)
-    // use gradients/images and stay 2D for now; Supernova's 66 eclipses too.
+    // Scenes the recorder draws: the Particle-based authored presets, and the
+    // module scenes whose drawing stays inside the canvas subset and runs
+    // well on the Stick: Cymatic Resonance (25 fps, 2D 6-18), Celtic Current
+    // (21 fps, 2D 5). Celtic Knotwork and Supernova fit the subset but emit
+    // thousands of tiny path points a frame (2-4 fps in the worker): 2D until
+    // the recorder thins dense outlines. Molecular Dance (sprites, gradients,
+    // additive), Stellar Nursery (pixel data), Liquid Chrome (gradients) and
+    // Mandelbrot Dive (its own WebGL) stay 2D.
     const RECORDED_SHAPES = new Set([
+        "celticCurrent", "cymaticResonance",
         "ocean", "aurora", "orbitals", "lotus", "spiral", "pendulumSpiral", "tightTailVortex", "painterlyVortex",
         "pipes", "pipesTight", "pipesCathedral", "pipesShrine", "jadeCurrents", "quantumDrift", "prismDrift",
         "nebulaSpark", "violetUndertow", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"

@@ -121,7 +121,7 @@ assert.equal(w.VoidDevice.quality.level, 7, "returning to a scene starts at the 
 w.VoidDevice.governor = false;
 for (let i = 0; i < 6; i++) w.VoidDevice.onFps(5, sim);
 assert.equal(w.VoidDevice.quality.level, 7, "governor = false holds the level");
-assert.ok(w.VoidDevice.flowSkip.has("mandelbrotDive") && w.VoidDevice.flowSkip.size === 8 && w.VoidDevice.maxKaleidoRings === 2, "TV Flow limits");
+assert.ok(w.VoidDevice.flowSkip.has("mandelbrotDive") && w.VoidDevice.flowSkip.size === 7 && w.VoidDevice.maxKaleidoRings === 2, "TV Flow limits");
 
 // Wiring: loaded in <head> before the simulation, TV stylesheet linked.
 const head = html.slice(0, html.indexOf("</head>"));

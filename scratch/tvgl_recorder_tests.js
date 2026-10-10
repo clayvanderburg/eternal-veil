@@ -13,6 +13,8 @@ load("js/presets.js"); // eslint-disable-line
 global.StylePresets = new Function(fs.readFileSync(path.resolve(__dirname, "../js/presets.js"), "utf8") + "; return StylePresets;")();
 require(path.resolve(__dirname, "../js/tvgl/core.js"));
 global.PresetCompositions = new Function(fs.readFileSync(path.resolve(__dirname, "../js/preset-compositions.js"), "utf8") + "; return PresetCompositions;")();
+// the module scenes the worker imports (js/tvgl/worker.js)
+for (const f of ["celtic-currents", "cymatic-resonance"]) new Function(fs.readFileSync(path.resolve(__dirname, "../js/" + f + ".js"), "utf8"))();
 global.FlowSimulation = new Function(fs.readFileSync(path.resolve(__dirname, "../js/simulation.js"), "utf8") + "; return FlowSimulation;")();
 require(path.resolve(__dirname, "../js/tvgl/recorder.js"));
 const { RecEngine, Recorder, RECORDED_SHAPES, PRIM_FLOATS } = global.TvGLRecorder;
