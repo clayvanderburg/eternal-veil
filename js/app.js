@@ -4948,8 +4948,9 @@ document.addEventListener("DOMContentLoaded", () => {
         // Run physics morph morph transitions
         processMorphs();
         
-        // Tick particle movements on canvas
-        sim.tick();
+        // Tick particle movements on canvas (on TV the GPU renderer may draw
+        // this scene instead: js/tvgl/tv-mode.js)
+        if (!globalThis.VoidDevice?.tvgl?.frame(sim)) sim.tick();
         window.VisualPlaylists?.dissolveFrame(sim);
         
         // Diagnostic updates in HUD (FPS Counter limit updates to every 500ms)
@@ -4959,7 +4960,8 @@ document.addEventListener("DOMContentLoaded", () => {
             updateSignatureControlsVisibility();
             const fps = Math.round((frameCount * 1000) / (now - lastFpsTime));
             elements.hudFps.textContent = fps;
-            elements.hudParticles.textContent = sim.particles.length;
+            elements.hudParticles.textContent = globalThis.VoidDevice?.tvgl?.active
+                ? (VoidDevice.tvglStats?.count ?? sim.particles.length) : sim.particles.length;
 
             updatePerfDiagnosticConsole(fps);
             window.VoidDevice?.onFps?.(fps, sim);

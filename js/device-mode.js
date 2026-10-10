@@ -223,6 +223,21 @@
             if (layer !== document.body) focusFirst(layer);
         }, 300);
     });
+    // The GPU (WebGL) TV renderer: loaded on TV only, after the page's own
+    // scripts. It takes over the scenes it can draw (js/tvgl/tv-mode.js).
+    document.addEventListener("DOMContentLoaded", () => {
+        const files = ["js/tvgl/core.js", "js/tvgl/host.js", "js/tvgl/tv-mode.js"];
+        (function next() {
+            const file = files.shift();
+            if (!file) return;
+            const el = document.createElement("script");
+            el.src = file + "?v=tvgl-1";
+            el.onload = next;
+            el.onerror = () => console.warn("TV renderer: could not load " + file);
+            document.body.appendChild(el);
+        })();
+    });
+
     // Opening the console moves focus into it, so the next press is already there.
     document.addEventListener("DOMContentLoaded", () => {
         const panel = document.getElementById("control-panel");
@@ -391,7 +406,8 @@
         if (!isTV) return; // desktop/phone keep the preset's full density
         VoidDevice.sim = sim;
         if (!applied) applyLevel(sim);
-        if (VoidDevice.governor === false || document.hidden) return;
+        // Held while the GPU renderer draws the scene (js/tvgl/tv-mode.js).
+        if (VoidDevice.governor === false || VoidDevice.governorHeld || document.hidden) return;
         const target = targetFps();
 
         const key = keyFor(sim);
