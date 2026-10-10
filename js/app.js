@@ -1824,8 +1824,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const rndInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
         const foldMode = { foldsGrowing: "growing", foldsDoubling: "doubling", foldsAlternating: "alternating" }[effect];
         const spin = effect === "spinningAxes" || effect === "axesRings" || (!!foldMode && Math.random() < spinChance);
+        // Each ring costs a full-canvas copy; a TV's GPU manages two.
+        const maxRings = globalThis.VoidDevice?.maxKaleidoRings ?? 4;
         set("spinningKaleido", !isComfortMode && !!effect && spin);
-        set("kaleidoAxesRings", effect === "axesRings" ? rndInt(2, 4) : foldMode ? rndInt(3, 4) : 1);
+        set("kaleidoAxesRings", Math.min(maxRings, effect === "axesRings" ? rndInt(2, 4) : foldMode ? rndInt(3, 4) : 1));
         set("kaleidoRingFolds", foldMode || "same");
         if (foldMode === "growing") set("kaleidoRingStep", rndInt(1, 3));
         elements.spinningKaleidoToggle.checked = sim.settings.spinningKaleido;
@@ -2468,7 +2470,7 @@ document.addEventListener("DOMContentLoaded", () => {
             : (effectivePersonality === "wild" ? wildPatterns : alivePatterns);
         const availablePool = pool.filter(shape => {
             const presetKey = FLOW_PRESET_PATTERNS[shape]?.preset || getPresetByShape(shape);
-            return !presetKey || !excludedPresetKeys.has(presetKey);
+            return !presetKey || (!excludedPresetKeys.has(presetKey) && !globalThis.VoidDevice?.flowSkip?.has(presetKey));
         });
         if (!availablePool.length) return null;
         // Mandala Zen is one of Flow's strongest visual identities. Give it
@@ -4952,9 +4954,10 @@ document.addEventListener("DOMContentLoaded", () => {
             const fps = Math.round((frameCount * 1000) / (now - lastFpsTime));
             elements.hudFps.textContent = fps;
             elements.hudParticles.textContent = sim.particles.length;
-            
+
             updatePerfDiagnosticConsole(fps);
-            
+            window.VoidDevice?.onFps?.(fps, sim);
+
             // Track low performance runs (FPS < 32 for 3 consecutive readings = 1.5 seconds)
             if (fps < 32) {
                 window.lowFpsTicks = (window.lowFpsTicks || 0) + 1;

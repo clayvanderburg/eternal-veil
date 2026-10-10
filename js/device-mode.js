@@ -69,10 +69,24 @@
         isShell: !!shellMatch,
         shellVersion: shellMatch ? shellMatch[1] : null,
         handleBack,
-        remote
+        remote,
+        onFps
     };
     window.VoidDevice = VoidDevice;
     if (!isTV) return;
+
+    // Measured on a Fire TV Stick 4K Max (PowerVR GE9215). Four scenes draw
+    // too much for a TV stick at any setting (Mandelbrot Dive 2-12 fps, Molecular
+    // Dance 10-20, Celtic Knotwork 6-16, Cymatic Resonance 6-18), so Flow skips
+    // them on TV while everything else holds 30-50 fps; they can still
+    // be picked by hand, with lighter settings below. Flow's fold effects stop
+    // at two rings (3+ rings: 23-30 fps, 2 rings: 44-49).
+    VoidDevice.flowSkip = new Set(["mandelbrotDive", "molecularDance", "celticKnotwork", "cymaticResonance"]);
+    VoidDevice.maxKaleidoRings = 2;
+    document.addEventListener("DOMContentLoaded", () => {
+        window.MandelbrotDive?.setTuning?.({ detail: 1.0, resolution: 0.5 });
+        window.MolecularDance?.setTuning?.({ quality: 0.5 });
+    });
 
     // ----------------------------------------------------------------------
     // Remote-control navigation (TV only)
@@ -264,6 +278,62 @@
             return true;
         }
         return false;
+    }
+
+    // ----------------------------------------------------------------------
+    // Frame-rate governor (TV only). app.js reports fps twice a second. While
+    // it stays low we step down: first the particle budget, then (for scenes
+    // that draw their own heavy effects) the canvas resolution. With headroom
+    // we step back up. Presets keep their look, just lighter.
+    // Measured on a Fire TV Stick 4K Max: most particle presets run 35-50 fps
+    // at 30% particles versus 5-18 fps at full density.
+    // Set VoidDevice.governor = false to hold the current level (testing).
+    // ----------------------------------------------------------------------
+
+    const LEVELS = [
+        { particles: 1, resolution: 1 },
+        { particles: 0.75, resolution: 1 },
+        { particles: 0.55, resolution: 1 },
+        { particles: 0.4, resolution: 1 },
+        { particles: 0.3, resolution: 1 },
+        { particles: 0.22, resolution: 0.85 },
+        { particles: 0.16, resolution: 0.7 },
+        { particles: 0.16, resolution: 0.55 }
+    ];
+    const START_LEVEL = 3; // start light; climbs back up when there's headroom
+    let level = START_LEVEL, applied = null, lowReadings = 0, highReadings = 0;
+
+    function applyLevel(sim) {
+        const target = LEVELS[level];
+        if (!applied || applied.particles !== target.particles) sim.setParticleScale(target.particles);
+        if (sim.dpr !== target.resolution) sim.resize(window.innerWidth, window.innerHeight, target.resolution);
+        applied = target;
+        VoidDevice.quality = { level, ...target };
+    }
+
+    // app.js resizes the canvas at full resolution on window resize; put the
+    // governor's resolution back afterwards.
+    window.addEventListener("resize", () => {
+        setTimeout(() => { if (applied && VoidDevice.sim) applyLevel(VoidDevice.sim); }, 250);
+    });
+
+    function onFps(fps, sim) {
+        if (!isTV) return; // desktop/phone keep the preset's full density
+        VoidDevice.sim = sim;
+        if (!applied) applyLevel(sim);
+        if (VoidDevice.governor === false || document.hidden) return;
+        if (fps < 26) { lowReadings++; highReadings = 0; }
+        else if (fps > 44) { highReadings++; lowReadings = 0; }
+        else { lowReadings = highReadings = 0; }
+
+        let next = level;
+        if (lowReadings >= 3) next = Math.min(LEVELS.length - 1, level + (fps < 14 ? 2 : 1));
+        else if (highReadings >= 16) next = Math.max(0, level - 1);
+        if (next !== level) {
+            level = next;
+            lowReadings = highReadings = 0;
+            applyLevel(sim);
+        }
     }
 
     // Shortcuts reuse the existing keyboard shortcuts in app.js.

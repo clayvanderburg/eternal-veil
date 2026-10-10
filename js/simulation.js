@@ -2222,6 +2222,9 @@ class FlowSimulation {
         
         // Viewport scale factor (derived relative to standard 1600px desktop width)
         this.viewportScale = Math.min(2.0, Math.max(0.42, this.width / 1600));
+        // Device budget on top of the preset's density (1 = full). TV mode lowers
+        // it while the frame rate is low; see VoidDevice.onFps in device-mode.js.
+        this.particleScale = 1;
         
         this.particles = [];
         this.customForces = []; // Drawn vectors field paint
@@ -2437,7 +2440,7 @@ class FlowSimulation {
         this.particles = [];
         // Scale particle count slightly based on screen width so mobile isn't overloaded
         const scaleRef = Math.max(0.42, this.viewportScale || 1.0);
-        const count = Math.round(this.settings.density * (0.35 + scaleRef * 0.65));
+        const count = Math.round(this.settings.density * (0.35 + scaleRef * 0.65) * this.particleScale);
         for (let i = 0; i < count; i++) {
             const p = new Particle(this.width, this.height, this.palette);
             p.index = i;
@@ -2448,9 +2451,14 @@ class FlowSimulation {
         window.particleArray = this.particles;
     }
 
+    setParticleScale(scale) {
+        this.particleScale = scale;
+        this.updateDensity();
+    }
+
     updateDensity() {
         const scaleRef = Math.max(0.42, this.viewportScale || 1.0);
-        const target = Math.round(this.settings.density * (0.35 + scaleRef * 0.65));
+        const target = Math.round(this.settings.density * (0.35 + scaleRef * 0.65) * this.particleScale);
         while (this.particles.length < target) {
             const p = new Particle(this.width, this.height, this.palette);
             p.index = this.particles.length;
@@ -2559,7 +2567,7 @@ class FlowSimulation {
     }
 
     triggerBurst(x, y, count = 10) {
-        const maxLimit = this.settings.density * 1.5; // caps absolute overheads
+        const maxLimit = this.settings.density * 1.5 * this.particleScale; // caps absolute overheads
         if (this.particles.length >= maxLimit) return;
         
         const countToSpawn = Math.min(count, Math.max(0, maxLimit - this.particles.length));
@@ -2838,7 +2846,7 @@ class FlowSimulation {
                     this.particles.splice(i, 1);
                 }
             }
-            const targetCount = this.settings.density;
+            const targetCount = this.settings.density * this.particleScale;
             if (this.particles.length > targetCount) {
                 // If we are still over the target density limit, trim recycled particles
                 for (let i = this.particles.length - 1; i >= targetCount; i--) {

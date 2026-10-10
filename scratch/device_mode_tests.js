@@ -85,10 +85,37 @@ w.VoidDevice.remote("menu");
 assert.deepEqual(seen, [" ", "g", "m"]);
 assert.equal(w.VoidDevice.remote("nope"), false);
 
+// Frame-rate governor: TV only, starts light, steps down when slow, back up with headroom.
+function fakeSim() {
+    return { particleScale: 1, dpr: 1, resized: 0,
+        setParticleScale(v) { this.particleScale = v; },
+        resize(w, h, d) { this.dpr = d; this.resized++; } };
+}
+let sim = fakeSim();
+boot({ ua: DESKTOP }).VoidDevice.onFps(5, sim);
+assert.equal(sim.particleScale, 1, "desktop never touches the particle budget");
+assert.equal(boot({ ua: DESKTOP }).VoidDevice.flowSkip, undefined, "desktop Flow skips nothing");
+
+w = boot({ ua: SHELL });
+sim = fakeSim();
+w.VoidDevice.onFps(50, sim);
+assert.deepEqual({ ...w.VoidDevice.quality }, { level: 3, particles: 0.4, resolution: 1 }, "TV starts at 40% particles");
+for (let i = 0; i < 3; i++) w.VoidDevice.onFps(20, sim);
+assert.equal(sim.particleScale, 0.3, "1.5 s under 26 fps steps down one level");
+for (let i = 0; i < 3; i++) w.VoidDevice.onFps(8, sim);
+assert.equal(sim.particleScale, 0.16, "very slow frames step down two levels");
+assert.equal(sim.dpr, 0.7, "resolution drops once particles are already low");
+for (let i = 0; i < 16; i++) w.VoidDevice.onFps(50, sim);
+assert.equal(w.VoidDevice.quality.level, 5, "8 s of headroom steps back up");
+w.VoidDevice.governor = false;
+for (let i = 0; i < 6; i++) w.VoidDevice.onFps(5, sim);
+assert.equal(w.VoidDevice.quality.level, 5, "governor = false holds the level");
+assert.ok(w.VoidDevice.flowSkip.has("mandelbrotDive") && w.VoidDevice.maxKaleidoRings === 2, "TV Flow limits");
+
 // Wiring: loaded in <head> before the simulation, TV stylesheet linked.
 const head = html.slice(0, html.indexOf("</head>"));
 assert.ok(head.includes('src="js/device-mode.js'), "device-mode.js loads in <head>");
 assert.ok(head.indexOf("device-mode.js") < html.indexOf("js/simulation.js"), "before the simulation reads devicePixelRatio");
 assert.ok(head.includes('href="tv.css'), "tv.css linked");
 
-console.log("PASS: device mode (desktop/phone/tablet/TV/Fire TV app detection, override, TV pixel cap, Back order, remote keys, wiring).");
+console.log("PASS: device mode (desktop/phone/tablet/TV/Fire TV app detection, override, TV pixel cap, Back order, remote keys, frame-rate governor, TV Flow limits, wiring).");
