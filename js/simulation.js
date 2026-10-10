@@ -1416,18 +1416,46 @@ class Particle {
         return base * (1 + amp * (0.38 * w1 + 0.28 * w2 + 0.20 * w3 + 0.16 * w4) + spike * amp * 1.8);
     }
 
-    strokeEclipseRim(ctx, base, spin, amp, seed, color, alpha, width) {
-        const steps = 80;
+    // The eclipseRimRadius outline as a path. Each wave is sin(k*a + phase)
+    // over evenly spaced angles, so it is stepped by rotation instead of a
+    // sin() per point; small suns use fewer points (segments stay ~1.5 px).
+    traceEclipseRim(ctx, base, spin, amp, seed) {
+        const steps = Math.max(40, Math.min(80, Math.round(base * 4)));
+        const da = (Math.PI * 2) / steps;
+        const k1 = 2.7 + (seed % 3) * 0.4, p1 = spin + seed;
+        const k2 = 4.6 + seed * 0.35, p2 = -spin * 1.41 + seed * 1.7;
+        const k3 = 7.3 + (seed % 5) * 0.2, p3 = spin * 0.58;
+        const k4 = 11.1 - seed * 0.15, p4 = spin * 2.05 + seed * 0.6;
+        const k5 = 2.15 + seed * 0.18, p5 = spin * 1.85 + seed * 2.1;
+        const power = 5 + (seed % 4);
+        let s1 = Math.sin(p1), c1 = Math.cos(p1); const r1c = Math.cos(k1 * da), r1s = Math.sin(k1 * da);
+        let s2 = Math.sin(p2), c2 = Math.cos(p2); const r2c = Math.cos(k2 * da), r2s = Math.sin(k2 * da);
+        let s3 = Math.sin(p3), c3 = Math.cos(p3); const r3c = Math.cos(k3 * da), r3s = Math.sin(k3 * da);
+        let s4 = Math.sin(p4), c4 = Math.cos(p4); const r4c = Math.cos(k4 * da), r4s = Math.sin(k4 * da);
+        let s5 = Math.sin(p5), c5 = Math.cos(p5); const r5c = Math.cos(k5 * da), r5s = Math.sin(k5 * da);
+        let sa = 0, ca = 1; const rac = Math.cos(da), ras = Math.sin(da);
         ctx.beginPath();
         for (let i = 0; i <= steps; i++) {
-            const a = (i / steps) * Math.PI * 2;
-            const rr = this.eclipseRimRadius(a, base, spin, amp, seed);
-            const x = this.x + Math.cos(a) * rr;
-            const y = this.y + Math.sin(a) * rr;
+            let spike = s5 > 0 ? s5 : 0, sp = spike;
+            for (let n = 1; n < power; n++) sp *= spike;
+            const rr = base * (1 + amp * (0.38 * s1 + 0.28 * s2 + 0.20 * s3 + 0.16 * s4) + sp * amp * 1.8);
+            const x = this.x + ca * rr;
+            const y = this.y + sa * rr;
             if (i === 0) ctx.moveTo(x, y);
             else ctx.lineTo(x, y);
+            let t;
+            t = s1 * r1c + c1 * r1s; c1 = c1 * r1c - s1 * r1s; s1 = t;
+            t = s2 * r2c + c2 * r2s; c2 = c2 * r2c - s2 * r2s; s2 = t;
+            t = s3 * r3c + c3 * r3s; c3 = c3 * r3c - s3 * r3s; s3 = t;
+            t = s4 * r4c + c4 * r4s; c4 = c4 * r4c - s4 * r4s; s4 = t;
+            t = s5 * r5c + c5 * r5s; c5 = c5 * r5c - s5 * r5s; s5 = t;
+            t = sa * rac + ca * ras; ca = ca * rac - sa * ras; sa = t;
         }
         ctx.closePath();
+    }
+
+    strokeEclipseRim(ctx, base, spin, amp, seed, color, alpha, width) {
+        this.traceEclipseRim(ctx, base, spin, amp, seed);
         ctx.strokeStyle = color;
         ctx.globalAlpha = alpha;
         ctx.lineWidth = width;
@@ -1441,17 +1469,7 @@ class Particle {
         const spinB = -animNow() * ((this.sunSpinSpeed || 0.0015) * 1.35) + seed * 0.9;
         ctx.save();
 
-        ctx.beginPath();
-        const steps = 80;
-        for (let i = 0; i <= steps; i++) {
-            const a = (i / steps) * Math.PI * 2;
-            const rr = this.eclipseRimRadius(a, r * 1.06, spinA, 0.16, seed);
-            const x = this.x + Math.cos(a) * rr;
-            const y = this.y + Math.sin(a) * rr;
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
+        this.traceEclipseRim(ctx, r * 1.06, spinA, 0.16, seed);
         ctx.fillStyle = this.color;
         ctx.globalAlpha = drawAlpha * 0.22;
         ctx.fill();

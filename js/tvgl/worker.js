@@ -14,7 +14,7 @@ self.window = self;
 self.document = { getElementById: () => null, createElement: () => ({ getContext: () => null }) };
 const v = self.location.search || "";
 importScripts("core.js" + v, "../preset-compositions.js" + v, "../celtic-currents.js" + v,
-    "../cymatic-resonance.js" + v, "../simulation.js" + v, "recorder.js" + v);
+    "../cymatic-resonance.js" + v, "../celtic-knotwork.js" + v, "../simulation.js" + v, "recorder.js" + v);
 
 let field = null, rec = null, renderer = null, loop = null, pacer = null;
 let settings = {}, paused = false, size = null;

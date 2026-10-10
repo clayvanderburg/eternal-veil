@@ -73,7 +73,7 @@
     // Measured on a Fire TV Stick 4K Max (PowerVR GE9215): these seven draw
     // too much to hold 25 fps at a sharp resolution (5-17 fps) and the GPU
     // renderer (js/tvgl) doesn't hold 25 fps on them yet (Fractal Nebula and
-    // Cymatic Resonance left the list once it did; Celtic Current is 21 fps), so Flow skips them on TV; they can still be picked by hand.
+    // Cymatic Resonance left the list once it did; on the GPU Celtic Current is 21 fps, Celtic Knotwork ~18, Supernova ~17), so Flow skips them on TV; they can still be picked by hand.
     // Fold effects stop at two rings (3+ rings: 23-30 fps, 2 rings: 44-49).
     VoidDevice.flowSkip = new Set(["mandelbrotDive", "molecularDance", "celticKnotwork", "celticCurrent",
         "liquidChrome", "supernova", "stellarNursery"]);
@@ -232,7 +232,7 @@
             const file = files.shift();
             if (!file) return;
             const el = document.createElement("script");
-            el.src = file + "?v=tvgl-4";
+            el.src = file + "?v=tvgl-12";
             el.onload = next;
             el.onerror = () => console.warn("TV renderer: could not load " + file);
             document.body.appendChild(el);

@@ -14,7 +14,7 @@ global.StylePresets = new Function(fs.readFileSync(path.resolve(__dirname, "../j
 require(path.resolve(__dirname, "../js/tvgl/core.js"));
 global.PresetCompositions = new Function(fs.readFileSync(path.resolve(__dirname, "../js/preset-compositions.js"), "utf8") + "; return PresetCompositions;")();
 // the module scenes the worker imports (js/tvgl/worker.js)
-for (const f of ["celtic-currents", "cymatic-resonance"]) new Function(fs.readFileSync(path.resolve(__dirname, "../js/" + f + ".js"), "utf8"))();
+for (const f of ["celtic-currents", "cymatic-resonance", "celtic-knotwork"]) new Function(fs.readFileSync(path.resolve(__dirname, "../js/" + f + ".js"), "utf8"))();
 global.FlowSimulation = new Function(fs.readFileSync(path.resolve(__dirname, "../js/simulation.js"), "utf8") + "; return FlowSimulation;")();
 require(path.resolve(__dirname, "../js/tvgl/recorder.js"));
 const { RecEngine, Recorder, RECORDED_SHAPES, PRIM_FLOATS } = global.TvGLRecorder;
@@ -51,7 +51,7 @@ for (const [key, p] of presets) {
     for (const [buf, n] of [[eng.rec.buf, eng.rec.n], [eng.rec.layerBuf, eng.rec.layerN], [eng.rec.softBuf, eng.rec.softN], [eng.rec.softLayerBuf, eng.rec.softLayerN]]) {
         for (let i = 0; i < n; i++) {
             const o = i * PRIM_FLOATS;
-            assert.ok(buf[o + 20] >= 0 && buf[o + 20] <= 4, `${key}: prim type`);
+            assert.ok(buf[o + 20] >= 0 && buf[o + 20] <= 7, `${key}: prim type`);
             for (let k = 0; k < PRIM_FLOATS; k++) assert.ok(Number.isFinite(buf[o + k]), `${key}: finite prim data`);
         }
     }
@@ -59,7 +59,7 @@ for (const [key, p] of presets) {
 }
 // A 4K TV page (1920x1080 CSS): Celtic Knotwork paints an off-screen layer
 // every other frame; the recording canvas replays it scaled into place.
-new Function(fs.readFileSync(path.resolve(__dirname, "../js/celtic-knotwork.js"), "utf8"))();
+// (celtic-knotwork.js is loaded with the other scenes above)
 const big = Object.create(RecEngine.prototype);
 big.rec = new Recorder(); big.bg = "#000000"; big.lastPalette = "";
 big.ensureSim(1920, 1080, 2);

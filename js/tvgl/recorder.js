@@ -21,8 +21,54 @@
     const TAU = Math.PI * 2;
     const MAX_PTS = 8;
     const PRIM_FLOATS = 24;   // p0..p7 (16), color (4), type, npts, width, cap
-    const TYPE = { ellipse: 0, ring: 1, stroke: 2, fill: 3, chain: 4 };
+    const TYPE = { ellipse: 0, ring: 1, stroke: 2, fill: 3, chain: 4, fan: 5, band: 6, ribbon: 7 };
     const CAP = { round: 0, butt: 1, square: 2 };
+
+    // An outline that runs out along one edge and back along the other (a
+    // tapered ribbon: Celtic Knotwork's travellers): the number of rungs, when
+    // each rung pair p[i], p[i+1] / p[n-1-i], p[n-2-i] bounds a convex quad and
+    // all quads turn the same way; 0 for any other shape.
+    function ribbonRungs(p, n) {
+        if (n < 6 || n % 2) return 0;
+        const k = n / 2;
+        let sign = 0;
+        for (let i = 0; i < k - 1; i++) {
+            const q = [p[i], p[i + 1], p[n - 2 - i], p[n - 1 - i]];
+            for (let j = 0; j < 4; j++) {
+                const a = q[j], b = q[(j + 1) % 4], c = q[(j + 2) % 4];
+                const cr = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
+                if (Math.abs(cr) < 1e-6) continue;
+                const sg = cr > 0 ? 1 : -1;
+                if (sign && sg !== sign) return 0;
+                sign = sg;
+            }
+        }
+        return k;
+    }
+
+    // The middle of an outline that winds once around it, every point turning
+    // the same way (a wavy circle); null for any other shape.
+    function starCentre(p) {
+        let cx = 0, cy = 0;
+        for (const q of p) { cx += q[0]; cy += q[1]; }
+        cx /= p.length; cy /= p.length;
+        let turn = 0, sign = 0, prev = Math.atan2(p[0][1] - cy, p[0][0] - cx);
+        for (let i = 1; i <= p.length; i++) {
+            const q = p[i % p.length];
+            if (q[0] === cx && q[1] === cy) return null;
+            const a = Math.atan2(q[1] - cy, q[0] - cx);
+            let d = a - prev;
+            if (d > Math.PI) d -= TAU; else if (d < -Math.PI) d += TAU;
+            prev = a;
+            turn += d;
+            if (Math.abs(d) < 0.01) continue;   // a seam where the outline nearly meets itself
+            const s = d > 0 ? 1 : -1;
+            if (sign && s !== sign) return null;
+            sign = s;
+            if (Math.abs(d) > Math.PI / 2) return null;
+        }
+        return Math.abs(Math.abs(turn) - TAU) < 0.02 ? [cx, cy] : null;
+    }
 
     // ---------------------------------------------------------------------
     // Colour strings -> premultiplied-ready [r, g, b, a]
@@ -298,10 +344,23 @@
                     this.push(TYPE.ellipse, [[sp.cx, sp.cy], [sp.rx, sp.ry], [sp.rot, 0]], color, this.globalAlpha, 0, 0);
                 } else if (sp.pts.length >= 3) {
                     if (sp.pts.length > MAX_PTS) {
-                        // fan-split a long outline (eclipse rims): close enough for soft fills
                         const p = sp.pts;
-                        for (let i = 1; i < p.length - 1; i += MAX_PTS - 2) {
-                            this.push(TYPE.fill, [p[0], ...p.slice(i, i + MAX_PTS - 1)], color, this.globalAlpha, 0, 0);
+                        const c = starCentre(p);
+                        if (c) {
+                            // star-shaped outline (eclipse rims): triangles from its
+                            // middle, two per primitive, with no per-pixel outline test
+                            const q = p[p.length - 1][0] === p[0][0] && p[p.length - 1][1] === p[0][1] ? p : p.concat([p[0]]);
+                            for (let i = 0; i < q.length - 1; i += 2) {
+                                const b = q[i + 1], e = i + 2 < q.length ? q[i + 2] : b;
+                                this.push(TYPE.fan, [c, q[i], b, e], color, this.globalAlpha, 0, 0);
+                            }
+                        } else if (this.fillRibbon(p, color)) {
+                            // drawn as quads
+                        } else {
+                            // fan-split from the first point: close enough for soft fills
+                            for (let i = 1; i < p.length - 1; i += MAX_PTS - 2) {
+                                this.push(TYPE.fill, [p[0], ...p.slice(i, i + MAX_PTS - 1)], color, this.globalAlpha, 0, 0);
+                            }
                         }
                     } else {
                         this.push(TYPE.fill, sp.pts, color, this.globalAlpha, 0, 0);
@@ -344,6 +403,7 @@
             if (!color) return;
             const a = color[3] * this.globalAlpha;
             if (a <= 0.001) return;
+            if (closed && pts.length >= 9 && this.strokeBand(pts, color, a, w)) return;
             if (pts.length === 2) {
                 // a single segment: tight oriented quad, caps at both ends
                 const p0 = pts[0], p1 = pts[1];
@@ -361,6 +421,68 @@
                 this.pushChain(p0[0], p0[1], p1[0], p1[1], pv[0], pv[1], nx[0], nx[1], color, a, w,
                     cs + 3 * ce + (hasPrev ? 0 : 100) + (hasNext ? 0 : 200));
             }
+        }
+
+        // A ribbon outline as one quad per rung pair (two triangles, no
+        // per-pixel outline test); the end rungs are edges too.
+        fillRibbon(p, color) {
+            let n = p.length;
+            if (n > 2 && p[n - 1][0] === p[0][0] && p[n - 1][1] === p[0][1]) n--;
+            const k = ribbonRungs(p, n);
+            if (!k) return false;
+            for (let i = 0; i < k - 1; i++) {
+                const l0 = p[i], l1 = p[i + 1], r0 = p[n - 1 - i], r1 = p[n - 2 - i];
+                const ends = (i === 0 ? 1 : 0) + (i === k - 2 ? 2 : 0);
+                this.push(TYPE.ribbon, [l0, l1, r0, r1], color, this.globalAlpha, 0, ends);
+            }
+            return true;
+        }
+
+        // A smooth closed outline (eclipse rims, ellipses) as mitred quads, one
+        // per segment: neighbours meet edge to edge, so each pixel is drawn
+        // once with a single distance test. False when a turn is too sharp
+        // for the line width (the chain primitives handle those).
+        strokeBand(src, color, a, w) {
+            // drop points within half a pixel of the one before, and the closing seam
+            const pts = this._bandPts || (this._bandPts = []);
+            let m = 0;
+            for (const q of src) {
+                if (m && Math.abs(q[0] - pts[m - 1][0]) < 0.5 && Math.abs(q[1] - pts[m - 1][1]) < 0.5) continue;
+                pts[m++] = q;
+            }
+            while (m > 1 && Math.abs(pts[m - 1][0] - pts[0][0]) < 0.5 && Math.abs(pts[m - 1][1] - pts[0][1]) < 0.5) m--;
+            if (m < 8) return false;
+            const hw = w * 0.5;
+            const nx = this._bandNx || (this._bandNx = []), ny = this._bandNy || (this._bandNy = []);
+            const len = this._bandLen || (this._bandLen = []);
+            for (let i = 0; i < m; i++) {
+                const p0 = pts[i], p1 = pts[(i + 1) % m];
+                const dx = p1[0] - p0[0], dy = p1[1] - p0[1], L = Math.hypot(dx, dy);
+                if (L < 1e-4) return false;
+                nx[i] = -dy / L; ny[i] = dx / L; len[i] = L;
+            }
+            const ox = this._bandOx || (this._bandOx = []), oy = this._bandOy || (this._bandOy = []);
+            for (let i = 0; i < m; i++) {
+                const j = (i + m - 1) % m;
+                const c = nx[j] * nx[i] + ny[j] * ny[i];
+                // the inner corner must not run past half of either segment
+                if (c < -0.5 || hw * Math.sqrt((1 - c) / (1 + c)) > 0.5 * Math.min(len[i], len[j])) return false;
+                let mx = nx[j] + nx[i], my = ny[j] + ny[i];
+                const ml = Math.hypot(mx, my); mx /= ml; my /= ml;
+                const k = hw / (mx * nx[i] + my * ny[i]);
+                ox[i] = mx * k; oy[i] = my * k;
+            }
+            for (let i = 0; i < m; i++) {
+                const i1 = (i + 1) % m, p0 = pts[i], p1 = pts[i1];
+                const o = this.slot(TYPE.band, w, a);
+                const b = this._slotBuf;
+                b[o] = p0[0]; b[o + 1] = p0[1]; b[o + 2] = p1[0]; b[o + 3] = p1[1];
+                b[o + 4] = ox[i]; b[o + 5] = oy[i]; b[o + 6] = ox[i1]; b[o + 7] = oy[i1];
+                b[o + 8] = 0; b[o + 9] = 0; b[o + 10] = 0; b[o + 11] = 0; b[o + 12] = 0; b[o + 13] = 0; b[o + 14] = 0; b[o + 15] = 0;
+                b[o + 16] = color[0]; b[o + 17] = color[1]; b[o + 18] = color[2]; b[o + 19] = a > 1 ? 1 : a;
+                b[o + 20] = TYPE.band; b[o + 21] = 4; b[o + 22] = w; b[o + 23] = 0;
+            }
+            return true;
         }
 
         fillRect(x, y, w, h) {
@@ -428,7 +550,8 @@
                     } else {
                         for (let k = 0; k < 16; k += 2) {
                             const x = buf[o + k], y = buf[o + k + 1];
-                            b[t + k] = A * x + C * y + E; b[t + k + 1] = B * x + D * y + F;
+                            const off = type === TYPE.band && (k === 4 || k === 6) ? 0 : 1;
+                            b[t + k] = A * x + C * y + E * off; b[t + k + 1] = B * x + D * y + F * off;
                         }
                     }
                     b[t + 16] = buf[o + 16]; b[t + 17] = buf[o + 17]; b[t + 18] = buf[o + 18]; b[t + 19] = a > 1 ? 1 : a;
@@ -490,6 +613,28 @@ void main() {
         float ext = (square ? hw * 1.42 : hw) + 1.5;
         vec2 c = (a + b) * 0.5;
         pos = c + dir * corner.x * (L * 0.5 + ext) + nrm * corner.y * ext;
+        gl_Position = vec4(pos.x / px.x * 2.0 - 1.0, 1.0 - pos.y / px.y * 2.0, 0.0, 1.0);
+        return;
+    }
+    if (type == 7) {
+        // one ribbon quad: strip L0, R0, L1, R1
+        int k = int(corner.x > 0.0) + 2 * int(corner.y > 0.0);
+        pos = k == 0 ? a01.xy : k == 1 ? a23.xy : k == 2 ? a01.zw : a23.zw;
+        gl_Position = vec4(pos.x / px.x * 2.0 - 1.0, 1.0 - pos.y / px.y * 2.0, 0.0, 1.0);
+        return;
+    }
+    if (type == 6) {
+        // a mitred quad around one segment of a closed outline, 1 px wider for smoothing
+        int k = int(corner.x > 0.0) + 2 * int(corner.y > 0.0);
+        float hw = prm.z * 0.5, g = (hw + 1.0) / max(hw, 1e-3);
+        pos = k == 0 ? a01.xy + a23.xy * g : k == 1 ? a01.zw + a23.zw * g : k == 2 ? a01.xy - a23.xy * g : a01.zw - a23.zw * g;
+        gl_Position = vec4(pos.x / px.x * 2.0 - 1.0, 1.0 - pos.y / px.y * 2.0, 0.0, 1.0);
+        return;
+    }
+    if (type == 5) {
+        // two fan triangles (p1, c, p2) and (c, p2, p3) as the strip's corners
+        int k = int(corner.x > 0.0) + 2 * int(corner.y > 0.0);
+        pos = k == 0 ? a01.zw : k == 1 ? a01.xy : k == 2 ? a23.xy : a23.zw;
         gl_Position = vec4(pos.x / px.x * 2.0 - 1.0, 1.0 - pos.y / px.y * 2.0, 0.0, 1.0);
         return;
     }
@@ -555,6 +700,31 @@ void main() {
         // leave pixels nearer a neighbouring segment to that segment
         if (!noPrev && segD(pos, P1.xy, P0.xy, hw, 0, 0) < d - 1e-4) discard;
         if (!noNext && segD(pos, P0.zw, P1.zw, hw, 0, 0) <= d) discard;
+    } else if (type == 7) {
+        int ends = int(Q.w + 0.5);
+        vec2 a = P0.xy, b = P0.zw, c = P1.xy, e = P1.zw;
+        vec2 ab = b - a, ap = pos - a, ce = e - c, cp = pos - c;
+        float m = min(length(ap - ab * clamp(dot(ap, ab) / max(dot(ab, ab), 1e-8), 0.0, 1.0)),
+                      length(cp - ce * clamp(dot(cp, ce) / max(dot(ce, ce), 1e-8), 0.0, 1.0)));
+        if (ends == 1 || ends == 3) {
+            vec2 ac = c - a;
+            m = min(m, length(ap - ac * clamp(dot(ap, ac) / max(dot(ac, ac), 1e-8), 0.0, 1.0)));
+        }
+        if (ends >= 2) {
+            vec2 be = e - b, bp = pos - b;
+            m = min(m, length(bp - be * clamp(dot(bp, be) / max(dot(be, be), 1e-8), 0.0, 1.0)));
+        }
+        d = -m;
+    } else if (type == 6) {
+        vec2 ab = P0.zw - P0.xy, ap = pos - P0.xy;
+        d = length(ap - ab * clamp(dot(ap, ab) / max(dot(ab, ab), 1e-8), 0.0, 1.0)) - Q.z * 0.5;
+    } else if (type == 5) {
+        // inside the triangles; soften the half pixel along the outline
+        vec2 e1 = P1.xy - P0.zw, e2 = P1.zw - P1.xy;
+        vec2 q1 = pos - P0.zw, q2 = pos - P1.xy;
+        float l1 = length(q1 - e1 * clamp(dot(q1, e1) / max(dot(e1, e1), 1e-8), 0.0, 1.0));
+        float l2 = length(q2 - e2 * clamp(dot(q2, e2) / max(dot(e2, e2), 1e-8), 0.0, 1.0));
+        d = -min(l1, l2);
     } else if (type == 1) {
         d = abs(length(pos - P0.xy) - P0.z) - Q.z * 0.5;
     } else {
@@ -833,13 +1003,13 @@ void main() {
     // Scenes the recorder draws: the Particle-based authored presets, and the
     // module scenes whose drawing stays inside the canvas subset and runs
     // well on the Stick: Cymatic Resonance (25 fps, 2D 6-18), Celtic Current
-    // (21 fps, 2D 5). Celtic Knotwork and Supernova fit the subset but emit
-    // thousands of tiny path points a frame (2-4 fps in the worker): 2D until
-    // the recorder thins dense outlines. Molecular Dance (sprites, gradients,
+    // (21 fps, 2D 5), Celtic Knotwork (~18 fps, 2D 2; its travellers are
+    // ribbon quads) and Supernova's solarFlare (~17 fps, 2D 11; rim fills are
+    // fans, rims bands). Molecular Dance (sprites, gradients,
     // additive), Stellar Nursery (pixel data), Liquid Chrome (gradients) and
     // Mandelbrot Dive (its own WebGL) stay 2D.
     const RECORDED_SHAPES = new Set([
-        "celticCurrent", "cymaticResonance",
+        "celticCurrent", "cymaticResonance", "celticKnotwork", "solarFlare",
         "ocean", "aurora", "orbitals", "lotus", "spiral", "pendulumSpiral", "tightTailVortex", "painterlyVortex",
         "pipes", "pipesTight", "pipesCathedral", "pipesShrine", "jadeCurrents", "quantumDrift", "prismDrift",
         "nebulaSpark", "violetUndertow", "zenMandala", "quantumLattice", "gravityWell", "fractalBloom"
