@@ -55,13 +55,7 @@
     root.dataset.device = type;
     if (shellMatch) root.dataset.shell = "tv";
 
-    // TV GPUs are weak and the screen is far away: render at one canvas pixel
-    // per CSS pixel (960x540 on a 1080p Fire TV) instead of 2x.
-    if (isTV && (window.devicePixelRatio || 1) > 1) {
-        try {
-            Object.defineProperty(window, "devicePixelRatio", { get: () => 1, configurable: true });
-        } catch (e) { /* read-only in this browser; render at native ratio */ }
-    }
+    const nativeRatio = window.devicePixelRatio || 1;
 
     const VoidDevice = {
         type,
@@ -70,18 +64,18 @@
         shellVersion: shellMatch ? shellMatch[1] : null,
         handleBack,
         remote,
-        onFps
+        onFps,
+        skipFrame
     };
     window.VoidDevice = VoidDevice;
     if (!isTV) return;
 
-    // Measured on a Fire TV Stick 4K Max (PowerVR GE9215). Four scenes draw
-    // too much for a TV stick at any setting (Mandelbrot Dive 2-12 fps, Molecular
-    // Dance 10-20, Celtic Knotwork 6-16, Cymatic Resonance 6-18), so Flow skips
-    // them on TV while everything else holds 30-50 fps; they can still
-    // be picked by hand, with lighter settings below. Flow's fold effects stop
-    // at two rings (3+ rings: 23-30 fps, 2 rings: 44-49).
-    VoidDevice.flowSkip = new Set(["mandelbrotDive", "molecularDance", "celticKnotwork", "cymaticResonance"]);
+    // Measured on a Fire TV Stick 4K Max (PowerVR GE9215), every preset at 30%
+    // particles: these nine draw too much to hold 25 fps at a sharp
+    // resolution (5-17 fps), so Flow skips them on TV; they can still be picked by hand.
+    // Fold effects stop at two rings (3+ rings: 23-30 fps, 2 rings: 44-49).
+    VoidDevice.flowSkip = new Set(["mandelbrotDive", "molecularDance", "celticKnotwork", "celticCurrent",
+        "cymaticResonance", "liquidChrome", "supernova", "fractalNebula", "stellarNursery"]);
     VoidDevice.maxKaleidoRings = 2;
     document.addEventListener("DOMContentLoaded", () => {
         window.MandelbrotDive?.setTuning?.({ detail: 1.0, resolution: 0.5 });
@@ -281,58 +275,157 @@
     }
 
     // ----------------------------------------------------------------------
-    // Frame-rate governor (TV only). app.js reports fps twice a second. While
-    // it stays low we step down: first the particle budget, then (for scenes
-    // that draw their own heavy effects) the canvas resolution. With headroom
-    // we step back up. Presets keep their look, just lighter.
-    // Measured on a Fire TV Stick 4K Max: most particle presets run 35-50 fps
-    // at 30% particles versus 5-18 fps at full density.
+    // Frame pacing and quality governor (TV only).
+    //
+    // A TV stick can't draw these scenes at 50-60 fps with full detail, and
+    // chasing that rate cost sharpness (a 960x540 or smaller canvas stretched
+    // over the TV). Flowing visuals with time-based motion and trails look
+    // smooth at a steady 25-30 fps, so on TV we draw on every 2nd display
+    // refresh and spend the extra time on resolution and particles.
+    //
+    // Quality steps protect sharpness: particles go before resolution, and the
+    // canvas never drops below one pixel per CSS pixel. Because the frame rate
+    // is capped, spare capacity can't be seen in the fps, so after a stable
+    // stretch the governor tries one step up and backs off if frames slip.
     // Set VoidDevice.governor = false to hold the current level (testing).
     // ----------------------------------------------------------------------
 
+    // Sharpness first: a soft or jagged picture was the visible cost, while
+    // 16-30% of the particles still reads as a full scene. So particles go all
+    // the way down at native resolution before the canvas gets any smaller.
     const LEVELS = [
-        { particles: 1, resolution: 1 },
-        { particles: 0.75, resolution: 1 },
-        { particles: 0.55, resolution: 1 },
-        { particles: 0.4, resolution: 1 },
-        { particles: 0.3, resolution: 1 },
-        { particles: 0.22, resolution: 0.85 },
-        { particles: 0.16, resolution: 0.7 },
-        { particles: 0.16, resolution: 0.55 }
+        { particles: 1, resolution: 2 },
+        { particles: 0.75, resolution: 2 },
+        { particles: 0.55, resolution: 2 },
+        { particles: 0.4, resolution: 2 },
+        { particles: 0.3, resolution: 2 },
+        { particles: 0.22, resolution: 2 },
+        { particles: 0.16, resolution: 2 },
+        { particles: 0.22, resolution: 1.5 },
+        { particles: 0.16, resolution: 1.5 },
+        { particles: 0.16, resolution: 1.25 }
     ];
-    const START_LEVEL = 3; // start light; climbs back up when there's headroom
-    let level = START_LEVEL, applied = null, lowReadings = 0, highReadings = 0;
+    const START_LEVEL = 4;
+    const PROBE_AFTER = 16;   // readings (8 s) at target before trying a step up
+    const PROBE_WINDOW = 6;   // readings (3 s) a step up must hold
+    let level = START_LEVEL, applied = null, lowReadings = 0, steadyReadings = 0;
+    let probeFrom = null, probeAge = 0, probeAfter = PROBE_AFTER;
+
+    // Display refresh interval, measured from skipped frames only: two skips
+    // in a row land exactly one refresh apart (frames after a draw don't).
+    // The 60 Hz default already paces correctly at 50 Hz too (draws land on
+    // every 2nd refresh either way); the measurement just tells the governor
+    // what rate to expect (30 or 25 fps).
+    let refreshMs = 1000 / 60, lastDrawn = 0, lastRaf = 0, prevSkipped = false;
+    const rafSamples = [];
+    function frameIntervalMs() { return refreshMs * 2; }
+    function targetFps() { return 1000 / frameIntervalMs(); }
+
+    function skipFrame() {
+        if (!isTV || VoidDevice.pacing === false) return false;
+        // The frame's display-aligned time (same as the rAF timestamp); the
+        // moment our callback happens to run is much noisier on a TV stick.
+        const now = document.timeline?.currentTime ?? performance.now();
+        if (prevSkipped && lastRaf) {
+            rafSamples.push(now - lastRaf);
+            if (rafSamples.length >= 40) {
+                const sorted = rafSamples.splice(0).sort((a, b) => a - b);
+                refreshMs = Math.min(1000 / 24, Math.max(1000 / 75, sorted[20]));
+            }
+        }
+        lastRaf = now;
+        // Draw once ~1.5 refreshes have passed: every 2nd display refresh.
+        prevSkipped = now - lastDrawn < refreshMs * 1.5;
+        if (prevSkipped) return true;
+        lastDrawn = now;
+        VoidDevice.framesDrawn = (VoidDevice.framesDrawn || 0) + 1;
+        return false;
+    }
 
     function applyLevel(sim) {
         const target = LEVELS[level];
+        const resolution = Math.min(target.resolution, nativeRatio);
         if (!applied || applied.particles !== target.particles) sim.setParticleScale(target.particles);
-        if (sim.dpr !== target.resolution) sim.resize(window.innerWidth, window.innerHeight, target.resolution);
+        if (sim.dpr !== resolution) sim.resize(window.innerWidth, window.innerHeight, resolution);
         applied = target;
-        VoidDevice.quality = { level, ...target };
+        VoidDevice.quality = { level, particles: target.particles, resolution, targetFps: Math.round(targetFps()) };
     }
 
-    // app.js resizes the canvas at full resolution on window resize; put the
+    // app.js resizes the canvas at the device ratio on window resize; put the
     // governor's resolution back afterwards.
     window.addEventListener("resize", () => {
         setTimeout(() => { if (applied && VoidDevice.sim) applyLevel(VoidDevice.sim); }, 250);
     });
+
+    function setLevel(next, sim) {
+        level = Math.max(0, Math.min(LEVELS.length - 1, next));
+        lowReadings = steadyReadings = 0;
+        applyLevel(sim);
+    }
+
+    // Per-scene memory. Scenes differ a lot in cost (a kaleidoscope at full
+    // resolution can cost more than all the particles), so the governor
+    // remembers the level each kind of scene held and starts there next time
+    // Flow brings it back. Kept in this browser, so the TV learns over time.
+    const MEMORY_KEY = "voidTvQuality";
+    let learned = {};
+    try { learned = JSON.parse(localStorage.getItem(MEMORY_KEY) || "{}") || {}; } catch (e) { learned = {}; }
+    let sceneKey = null, saveTimer = 0;
+
+    function keyFor(sim) {
+        const s = sim.settings;
+        return [s.particleShape, s.kaleidoscopeEnabled ? "k" + Math.round(s.kaleidoAxesRings || 1) : "",
+            s.spinningKaleido ? "s" : ""].join("|");
+    }
+
+    function remember(key) {
+        if (!key) return;
+        learned[key] = level;
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+            try { localStorage.setItem(MEMORY_KEY, JSON.stringify(learned)); } catch (e) { /* private mode */ }
+        }, 2000);
+    }
 
     function onFps(fps, sim) {
         if (!isTV) return; // desktop/phone keep the preset's full density
         VoidDevice.sim = sim;
         if (!applied) applyLevel(sim);
         if (VoidDevice.governor === false || document.hidden) return;
-        if (fps < 26) { lowReadings++; highReadings = 0; }
-        else if (fps > 44) { highReadings++; lowReadings = 0; }
-        else { lowReadings = highReadings = 0; }
+        const target = targetFps();
 
-        let next = level;
-        if (lowReadings >= 3) next = Math.min(LEVELS.length - 1, level + (fps < 14 ? 2 : 1));
-        else if (highReadings >= 16) next = Math.max(0, level - 1);
-        if (next !== level) {
-            level = next;
-            lowReadings = highReadings = 0;
-            applyLevel(sim);
+        const key = keyFor(sim);
+        if (key !== sceneKey) {
+            sceneKey = key;
+            probeFrom = null;
+            probeAfter = PROBE_AFTER;
+            if (learned[key] !== undefined) setLevel(learned[key], sim);
+            else lowReadings = steadyReadings = 0;
+            return;
+        }
+
+        if (fps < target * 0.88) { lowReadings++; steadyReadings = 0; }
+        else { steadyReadings++; lowReadings = 0; }
+
+        if (probeFrom !== null) {
+            probeAge++;
+            if (lowReadings >= 2) {           // the step up didn't hold: back off, wait longer
+                setLevel(probeFrom, sim);
+                probeFrom = null;
+                probeAfter = Math.min(probeAfter * 2, 240);
+                remember(key);
+                return;
+            }
+            if (probeAge >= PROBE_WINDOW) { probeFrom = null; probeAfter = PROBE_AFTER; remember(key); }
+            return;
+        }
+        if (lowReadings >= 3) {
+            setLevel(level + (fps < target * 0.6 ? 2 : 1), sim);
+            remember(key);
+        } else if (steadyReadings >= probeAfter && level > 0) {
+            probeFrom = level;
+            probeAge = 0;
+            setLevel(level - 1, sim);
         }
     }
 

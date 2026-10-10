@@ -4934,6 +4934,12 @@ document.addEventListener("DOMContentLoaded", () => {
     
     function tickLoop() {
         if (is3DMode) return;
+        // TV mode paces frames evenly (e.g. every 2nd refresh) to buy each
+        // frame more time for resolution and detail; motion is time-based.
+        if (globalThis.VoidDevice?.skipFrame?.()) {
+            requestAnimationFrame(tickLoop);
+            return;
+        }
         
         // Run real-time music reactivity modulation
         processMusicReactivity();

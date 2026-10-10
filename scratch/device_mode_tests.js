@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 // Device mode: TV/phone/tablet/desktop detection, ?device= override, TV pixel
 // ratio cap, and the Back button closing the topmost layer before exiting.
 const assert = require("node:assert/strict");
@@ -44,7 +44,6 @@ assert.equal(w.VoidDevice.type, "tv");
 assert.equal(w.VoidDevice.isShell, true);
 assert.equal(w.VoidDevice.shellVersion, "1.0");
 assert.equal(w.document.documentElement.dataset.shell, "tv");
-assert.equal(w.devicePixelRatio, 1, "TV renders one canvas pixel per CSS pixel");
 
 assert.equal(boot({ ua: PHONE, coarse: true, screenW: 412 }).VoidDevice.type, "phone");
 assert.equal(boot({ ua: PHONE, coarse: true, screenW: 1280 }).VoidDevice.type, "tablet");
@@ -85,32 +84,44 @@ w.VoidDevice.remote("menu");
 assert.deepEqual(seen, [" ", "g", "m"]);
 assert.equal(w.VoidDevice.remote("nope"), false);
 
-// Frame-rate governor: TV only, starts light, steps down when slow, back up with headroom.
-function fakeSim() {
-    return { particleScale: 1, dpr: 1, resized: 0,
+// Quality governor: TV only, sharpness first, per-scene memory; frame pacing.
+function fakeSim(shape = "ellipse") {
+    return { particleScale: 1, dpr: 2, settings: { particleShape: shape },
         setParticleScale(v) { this.particleScale = v; },
-        resize(w, h, d) { this.dpr = d; this.resized++; } };
+        resize(w, h, d) { this.dpr = d; } };
 }
 let sim = fakeSim();
 boot({ ua: DESKTOP }).VoidDevice.onFps(5, sim);
 assert.equal(sim.particleScale, 1, "desktop never touches the particle budget");
+assert.equal(boot({ ua: DESKTOP }).VoidDevice.skipFrame(), false, "desktop draws every frame");
 assert.equal(boot({ ua: DESKTOP }).VoidDevice.flowSkip, undefined, "desktop Flow skips nothing");
 
 w = boot({ ua: SHELL });
+assert.equal(w.devicePixelRatio, 2, "the device ratio is left alone; the governor sets the canvas");
 sim = fakeSim();
-w.VoidDevice.onFps(50, sim);
-assert.deepEqual({ ...w.VoidDevice.quality }, { level: 3, particles: 0.4, resolution: 1 }, "TV starts at 40% particles");
-for (let i = 0; i < 3; i++) w.VoidDevice.onFps(20, sim);
-assert.equal(sim.particleScale, 0.3, "1.5 s under 26 fps steps down one level");
-for (let i = 0; i < 3; i++) w.VoidDevice.onFps(8, sim);
-assert.equal(sim.particleScale, 0.16, "very slow frames step down two levels");
-assert.equal(sim.dpr, 0.7, "resolution drops once particles are already low");
-for (let i = 0; i < 16; i++) w.VoidDevice.onFps(50, sim);
-assert.equal(w.VoidDevice.quality.level, 5, "8 s of headroom steps back up");
+w.VoidDevice.onFps(30, sim);
+assert.deepEqual({ ...w.VoidDevice.quality }, { level: 4, particles: 0.3, resolution: 2, targetFps: 30 },
+    "TV starts sharp (native resolution) with 30% particles, aiming for every 2nd refresh");
+for (let i = 0; i < 3; i++) w.VoidDevice.onFps(22, sim);
+assert.deepEqual([sim.particleScale, sim.dpr], [0.22, 2], "slow: particles go first, resolution stays native");
+for (let i = 0; i < 3; i++) w.VoidDevice.onFps(10, sim);
+assert.deepEqual([sim.particleScale, sim.dpr], [0.22, 1.5], "very slow: two steps, now resolution");
+for (let i = 0; i < 16; i++) w.VoidDevice.onFps(30, sim);
+assert.equal(w.VoidDevice.quality.level, 6, "8 s on target: try one step up");
+for (let i = 0; i < 2; i++) w.VoidDevice.onFps(20, sim);
+assert.equal(w.VoidDevice.quality.level, 7, "the step up didn't hold: back off");
+
+sim.settings.particleShape = "mandala";            // Flow changes scene
+w.VoidDevice.onFps(30, sim);
+for (let i = 0; i < 16; i++) w.VoidDevice.onFps(30, sim);
+assert.equal(w.VoidDevice.quality.level, 6, "a new scene gets a fresh, quick probe");
+sim.settings.particleShape = "ellipse";            // ...and back
+w.VoidDevice.onFps(30, sim);
+assert.equal(w.VoidDevice.quality.level, 7, "returning to a scene starts at the level it held");
 w.VoidDevice.governor = false;
 for (let i = 0; i < 6; i++) w.VoidDevice.onFps(5, sim);
-assert.equal(w.VoidDevice.quality.level, 5, "governor = false holds the level");
-assert.ok(w.VoidDevice.flowSkip.has("mandelbrotDive") && w.VoidDevice.maxKaleidoRings === 2, "TV Flow limits");
+assert.equal(w.VoidDevice.quality.level, 7, "governor = false holds the level");
+assert.ok(w.VoidDevice.flowSkip.has("mandelbrotDive") && w.VoidDevice.flowSkip.size === 9 && w.VoidDevice.maxKaleidoRings === 2, "TV Flow limits");
 
 // Wiring: loaded in <head> before the simulation, TV stylesheet linked.
 const head = html.slice(0, html.indexOf("</head>"));
@@ -118,4 +129,4 @@ assert.ok(head.includes('src="js/device-mode.js'), "device-mode.js loads in <hea
 assert.ok(head.indexOf("device-mode.js") < html.indexOf("js/simulation.js"), "before the simulation reads devicePixelRatio");
 assert.ok(head.includes('href="tv.css'), "tv.css linked");
 
-console.log("PASS: device mode (desktop/phone/tablet/TV/Fire TV app detection, override, TV pixel cap, Back order, remote keys, frame-rate governor, TV Flow limits, wiring).");
+console.log("PASS: device mode (desktop/phone/tablet/TV/Fire TV app detection, override, Back order, remote keys, frame pacing + quality governor with scene memory, TV Flow limits, wiring).");
