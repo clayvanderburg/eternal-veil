@@ -90,9 +90,15 @@ holds 25 at ~30% density; Prism Drift/Quantum Grid/Fractal Nebula at reduced den
 scenes Cymatic Resonance (25 fps) and Celtic Current (21 fps) also run through the recorder. A
 3-minute in-app Flow run was entirely on the GPU, no errors.
 
-**Still 2D** (and on the TV Flow skip list where slow): Celtic Knotwork and Supernova (fit the
-recorder but emit thousands of tiny path points: 2–4 fps in the worker; needs outline thinning and
-a leaner recorder), Molecular Dance (sprites, gradients, additive blending), Stellar Nursery
+2026-10-10: Celtic Knotwork (~18 fps, 2D 2) and Supernova (~17 fps, 2D 11) moved to the GPU; both
+stay on the TV Flow skip list until they hold 25. The polygon test per pixel was the cost, so the
+recorder now emits triangles for the common outline kinds: tapered ribbons (Knotwork's
+travellers) as quads, star-shaped outlines (eclipse rim fills) as centre fans, smooth closed
+strokes (eclipse rims) as mitred bands. The page-side rim tracing is cheaper too (all devices).
+Gotcha: the worker's `importScripts` are cached by version, so bump `?v=` in js/device-mode.js
+and index.html whenever a file the worker loads changes, or the TV runs stale code.
+
+**Still 2D** (and on the TV Flow skip list where slow): Molecular Dance (sprites, gradients, additive blending), Stellar Nursery
 (pixel data), Liquid Chrome (gradients), Mandelbrot Dive (port its shader into the worker), and
 presets using a sprite shape (`particleSprite`).
 
