@@ -8,7 +8,12 @@ Site side (this PR): js/device-mode.js tags <html data-device> tv/phone/tablet/d
 focus, Back closes the topmost layer then hides controls then exits; tv.css hides
 mic/upload/record/fullscreen/VR. New controls must stay reachable by D-pad: real
 <button>/<input> elements, not click-only divs. Test: ?device=tv at 960x540.
-Not yet tried on a real Fire Stick.
+Running on Clay's Fire TV Stick 4K Max. TV performance pass (measured on the Stick):
+a TV-only governor scales particles (start 40%, down to 16%) then canvas resolution
+(down to 0.55); TV Flow skips Mandelbrot Dive, Molecular Dance, Celtic Knotwork and
+Cymatic Resonance and caps fold effects at 2 rings; no backdrop blur on TV. Flow went
+from 4-18 fps to about 30-50 (50 Hz display). New heavy scenes/effects: measure on the
+Stick (Dev app + adb; see the eternal-void-tv README) and add to VoidDevice.flowSkip if needed.
 
 ## 2026-10-07 live: compact presets (PR #3), kaleidoscope review (PR #5); Studio candidate
 
